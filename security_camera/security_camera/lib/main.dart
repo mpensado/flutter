@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 //import 'package:web_socket_channel/io.dart';
 import 'package:network_info_plus/network_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'package:video_player/video_player.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,9 +40,13 @@ class _CameraScreenState extends State<CameraScreen> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
   HttpServer? _server;
-  List<WebSocket> _clients = [];
+  final List<WebSocket> _clients = [];
   String _ipAddress = '';
-  int _port = 8080;
+  final int _port = 8080;
+  bool _isRecording = false;
+  List<String> _recordings = [];
+  Timer? _recordingTimer;
+  final int _recordingDuration = 60; // Duración de cada grabación en segundos
 
   @override
   void initState() {
@@ -48,6 +55,7 @@ class _CameraScreenState extends State<CameraScreen> {
     _initializeControllerFuture = _controller.initialize();
     _startServer();
     _getIpAddress();
+    _loadRecordings();
   }
 
   Future<void> _getIpAddress() async {
@@ -88,22 +96,71 @@ class _CameraScreenState extends State<CameraScreen> {
     );
   }
 
-  void _startStreaming() async {
-    await _initializeControllerFuture;
-    _controller.startImageStream((CameraImage image) {
-      // Aquí deberías convertir la imagen a un formato adecuado para streaming
-      // Por ejemplo, podrías usar image.planes[0].bytes para obtener los datos de la imagen
-      // Luego, envía estos datos a todos los clientes conectados
-      for (var client in _clients) {
-        client.add(image.planes[0].bytes);
-      }
-    });
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      await _stopRecording();
+    } else {
+      await _startRecording();
+    }
+  }
+
+  Future<void> _startRecording() async {
+    if (!_controller.value.isInitialized) {
+      return;
+    }
+    final Directory extDir = await getApplicationDocumentsDirectory();
+    final String dirPath = '${extDir.path}/SecurityCameraRecordings';
+    await Directory(dirPath).create(recursive: true);
+    //final String filePath = '$dirPath/${DateTime.now().millisecondsSinceEpoch}.mp4';
+    try {
+      await _controller.startVideoRecording();
+      setState(() {
+        _isRecording = true;
+      });
+      _recordingTimer = Timer.periodic(Duration(seconds: _recordingDuration), (timer) async {
+        await _stopRecording();
+        await _startRecording();
+      });
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    if (!_isRecording) {
+      return;
+    }
+    try {
+      final XFile file = await _controller.stopVideoRecording();
+      setState(() {
+        _isRecording = false;
+        _recordings.add(file.path);
+      });
+      _recordingTimer?.cancel();
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  Future<void> _loadRecordings() async {
+    final Directory extDir = await getApplicationDocumentsDirectory();
+    final String dirPath = '${extDir.path}/SecurityCameraRecordings';
+    final Directory dir = Directory(dirPath);
+    if (await dir.exists()) {
+      final List<FileSystemEntity> entities = await dir.list().toList();
+      setState(() {
+        _recordings = entities
+            .where((entity) => entity is File && path.extension(entity.path) == '.mp4')
+            .map((entity) => entity.path)
+            .toList();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Cámara de Seguridad')),
+      appBar: AppBar(title: const Text('Cámara de Seguridad')),
       body: Column(
         children: [
           Expanded(
@@ -113,7 +170,7 @@ class _CameraScreenState extends State<CameraScreen> {
                 if (snapshot.connectionState == ConnectionState.done) {
                   return CameraPreview(_controller);
                 } else {
-                  return Center(child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator());
                 }
               },
             ),
@@ -122,11 +179,20 @@ class _CameraScreenState extends State<CameraScreen> {
             padding: const EdgeInsets.all(8.0),
             child: Text('Dirección del servidor: $_ipAddress:$_port'),
           ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => TimelineScreen(recordings: _recordings)),
+              );
+            },
+            child: const Text('Ver Línea de Tiempo'),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.videocam),
-        onPressed: _startStreaming,
+        onPressed: _toggleRecording,
+        child: Icon(_isRecording ? Icons.stop : Icons.videocam),
       ),
     );
   }
@@ -138,6 +204,210 @@ class _CameraScreenState extends State<CameraScreen> {
       client.close();
     }
     _server?.close();
+    _recordingTimer?.cancel();
     super.dispose();
+  }
+}
+
+class TimelineScreen extends StatefulWidget {
+  final List<String> recordings;
+
+  const TimelineScreen({Key? key, required this.recordings}) : super(key: key);
+
+  @override
+  _TimelineScreenState createState() => _TimelineScreenState();
+}
+
+class _TimelineScreenState extends State<TimelineScreen> {
+  late List<String> _recordings;
+
+  @override
+  void initState() {
+    super.initState();
+    _recordings = List.from(widget.recordings);
+  }
+
+  Future<void> _renameRecording(BuildContext context, int index) async {
+    final oldFilePath = _recordings[index];
+    final TextEditingController controller = TextEditingController();
+    String? newFileName;
+
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Renombrar Grabación'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(hintText: "Nuevo nombre de archivo"),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                newFileName = controller.text;
+                Navigator.of(context).pop();
+              },
+              child: const Text('Aceptar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newFileName != null && newFileName!.isNotEmpty) {
+      final newFilePath = path.join(path.dirname(oldFilePath), '$newFileName.mp4');
+      final oldFile = File(oldFilePath);
+      await oldFile.rename(newFilePath);
+      
+      setState(() {
+        _recordings[index] = newFilePath; // Actualizar la lista con el nuevo nombre
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Grabación renombrada a $newFileName.mp4')),
+      );
+    }
+  }
+
+  Future<void> _deleteRecording(BuildContext context, int index) async {
+    final filePath = _recordings[index];
+    final file = File(filePath);
+
+    final bool confirm = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Eliminar Grabación'),
+          content: const Text('¿Estás seguro de que deseas eliminar esta grabación?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false); // Cancelar
+              },
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true); // Confirmar
+              },
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm) {
+      await file.delete();  // Eliminar el archivo
+
+      setState(() {
+        _recordings.removeAt(index);  // Eliminar de la lista
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: const Text('Grabación eliminada')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Línea de Tiempo')),
+      body: _recordings.isEmpty
+          ? Center(child: const Text('No hay grabaciones disponibles'))
+          : ListView.builder(
+              itemCount: _recordings.length,
+              itemBuilder: (context, index) {
+                final recording = _recordings[index];
+                return ListTile(
+                  title: Text('Grabación ${index + 1}'),
+                  subtitle: Text(path.basename(recording)),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => VideoPlayerScreen(videoPath: recording),
+                      ),
+                    );
+                  },
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => _renameRecording(context, index),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => _deleteRecording(context, index),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class VideoPlayerScreen extends StatefulWidget {
+  final String videoPath;
+
+  const VideoPlayerScreen({Key? key, required this.videoPath}) : super(key: key);
+
+  @override
+  _VideoPlayerScreenState createState() => _VideoPlayerScreenState();
+}
+
+class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.file(File(widget.videoPath))
+      ..initialize().then((_) {
+        setState(() {});
+      });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Reproductor de Video')),
+      body: Center(
+        child: _controller.value.isInitialized
+            ? AspectRatio(
+                aspectRatio: _controller.value.aspectRatio,
+                child: VideoPlayer(_controller),
+              )
+            : const CircularProgressIndicator(),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() {
+            _controller.value.isPlaying
+                ? _controller.pause()
+                : _controller.play();
+          });
+        },
+        child: Icon(
+          _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _controller.dispose();
   }
 }
