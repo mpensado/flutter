@@ -1,0 +1,58 @@
+name: security_camera_app
+description: Una aplicación de cámara de seguridad con streaming y línea de tiempo.
+
+# La versión sigue el formato de versionado semántico (major.minor.patch+build)
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.17.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Para el uso de la cámara
+  camera: ^0.10.5+2
+  
+  # Para la gestión de WebSockets
+  web_socket_channel: ^2.4.0
+  
+  # Para obtener información de la red
+  network_info_plus: ^4.0.1
+  
+  # Para acceder al sistema de archivos
+  path_provider: ^2.0.15
+  
+  # Para manipulación de rutas
+  path: ^1.8.3
+  
+  # Para reproducir videos
+  video_player: ^2.7.0
+
+  # El siguiente paquete añade los iconos de Cupertino (iOS-style)
+  cupertino_icons: ^1.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  
+  # Herramienta de análisis estático para identificar posibles errores
+  flutter_lints: ^2.0.2
+
+# La siguiente sección es para la configuración de Flutter
+flutter:
+  # Asegura que Material Icons esté incluido
+  uses-material-design: true
+
+  # Para añadir assets como imágenes, use el siguiente formato:
+  # assets:
+  #   - images/a_dot_burr.jpeg
+  #   - images/a_dot_ham.jpeg
+
+  # Para añadir fuentes personalizadas, use el siguiente formato:
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
