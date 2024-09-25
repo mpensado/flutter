@@ -1,4 +1,3 @@
-import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -328,14 +327,14 @@ class _GeneratorPageState extends State<GeneratorPage> {
                                     ),
                                     InkWell(
                                       onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => DetailPage(
-                                                category:
-                                                    appState.categories[index]),
-                                          ),
-                                        );
+                                        // Navigator.push(
+                                        //   context,
+                                        //   MaterialPageRoute(
+                                        //     builder: (context) => DetailPage(
+                                        //         category:
+                                        //             appState.categories[index]),
+                                        //   ),
+                                        // );
                                       },
                                       child: Icon(
                                         Icons.info_outline,
@@ -361,54 +360,151 @@ class _GeneratorPageState extends State<GeneratorPage> {
   }
 }
 
-class DetailPage extends StatelessWidget {
-  final Category category;
+// class DetailPage extends StatefulWidget {
+//   final Category category;
+//   DetailPage({required this.category});
 
-  DetailPage({required this.category});
+//   @override
+//   // ignore: library_private_types_in_public_api
+//   _DetailPageState createState() => _DetailPageState(category: this.category);
+// }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(category.name),
-      ),
-      body: Center(
-        child: Text('Detalles de ${category.name}'),
-      ),
-    );
-  }
-}
+// class _DetailPageState extends State<DetailPage> {
+//   final Category category;
+//   _DetailPageState({required this.category});
 
-class BigCard extends StatelessWidget {
-  const BigCard({
-    super.key,
-    required this.pair,
-  });
-
-  final WordPair pair;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.displayMedium!.copyWith(
-      color: theme.colorScheme.onPrimary,
-    );
-    return Card(
-      color: theme.colorScheme.primary,
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Text(
-          pair.asLowerCase,
-          style: style,
-          semanticsLabel: "${pair.first} ${pair.second}",
-        ),
-      ),
-    );
-  }
-}
-
-// ...
-
+//   @override
+//   Widget build(BuildContext context) {
+//     //var appState = context.watch<MyAppState>();
+//     //var subcategories = appState.loadCategoriesByDependencia(category);
+//     return FutureBuilder(
+//         future: appState.loadDB(),
+//         builder: (context, snapshot) {
+//           if (snapshot.connectionState == ConnectionState.waiting) {
+//             return Center(child: CircularProgressIndicator());
+//           } else if (snapshot.hasError) {
+//             return Center(child: Text('Error al cargar datos'));
+//           } else {
+//             return Scaffold(
+//               appBar: AppBar(
+//                 title: Text('Categorías Ocultas Netflix'),
+//               ),
+//               body: GridView.builder(
+//                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+//                   crossAxisCount: 2,
+//                   childAspectRatio: 1.0,
+//                   crossAxisSpacing: 10,
+//                   mainAxisSpacing: 10,
+//                 ),
+//                 padding: EdgeInsets.all(10),
+//                 itemCount: subcategories.length,
+//                 itemBuilder: (context, index) {
+//                   return Card(
+//                     clipBehavior: Clip.antiAlias,
+//                     child: Stack(
+//                       fit: StackFit.expand,
+//                       children: [
+//                         InkWell(
+//                           onTap: () {
+//                             _launchURL(subcategories[index].url);
+//                           },
+//                           child: Image(
+//                             image:
+//                                 AssetImage(subcategories[index].imageUrl),
+//                             fit: BoxFit.cover,
+//                           ),
+//                         ),
+//                         Positioned(
+//                           bottom: 0,
+//                           left: 0,
+//                           right: 0,
+//                           child: Container(
+//                             color: Colors.black.withOpacity(0.5),
+//                             padding: EdgeInsets.symmetric(
+//                                 vertical: 8, horizontal: 12),
+//                             child: Column(
+//                               crossAxisAlignment: CrossAxisAlignment
+//                                   .start, // Alineación de las filas a la izquierda
+//                               children: [
+//                                 Row(
+//                                   children: [
+//                                     Expanded(
+//                                       child: Text(
+//                                         subcategories[index].name,
+//                                         style: TextStyle(
+//                                           color: Colors.white,
+//                                           fontSize: 16,
+//                                           fontWeight: FontWeight.bold,
+//                                         ),
+//                                         textAlign: TextAlign.center,
+//                                       ),
+//                                     ),
+//                                   ],
+//                                 ),
+//                                 SizedBox(height: 8),
+//                                 Row(
+//                                   mainAxisAlignment:
+//                                       MainAxisAlignment.spaceBetween,
+//                                   children: [
+//                                     InkWell(
+//                                       onTap: () {
+//                                         _launchURL(
+//                                             subcategories[index].url);
+//                                       },
+//                                       child: Icon(
+//                                         Icons.open_in_new,
+//                                         color: Colors.white,
+//                                         size: 24,
+//                                       ),
+//                                     ),
+//                                     InkWell(
+//                                       onTap: () {
+//                                         appState.toggleFavorite(
+//                                             subcategories[index]);
+//                                       },
+//                                       child: Icon(
+//                                         appState.favorites.contains(
+//                                                 subcategories[index])
+//                                             ? Icons.favorite
+//                                             : Icons.favorite_border,
+//                                         color: Colors.white,
+//                                         size: 24,
+//                                       ),
+//                                     ),
+//                                     InkWell(
+//                                       onTap: () {
+//                                         Navigator.push(
+//                                           context,
+//                                           MaterialPageRoute(
+//                                             builder: (context) => DetailPage(
+//                                                 category:
+//                                                     subcategories[index]),
+//                                           ),
+//                                         );
+//                                       },
+//                                       child: Icon(
+//                                         Icons.info_outline,
+//                                         color: Colors.white,
+//                                         size: 24,
+//                                       ),
+//                                     ),
+//                                   ],
+//                                 ),
+//                               ],
+//                             ),
+//                           ),
+//                         )
+//                       ],
+//                     ),
+//                   );
+//                 },
+//               ),
+//             );
+//           }
+//         }
+//       );
+//   }
+// }
 class FavoritesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
