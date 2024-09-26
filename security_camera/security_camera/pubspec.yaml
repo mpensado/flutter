@@ -32,6 +32,8 @@ dependencies:
   # El siguiente paquete añade los iconos de Cupertino (iOS-style)
   cupertino_icons: ^1.0.5
 
+  permission_handler: ^10.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

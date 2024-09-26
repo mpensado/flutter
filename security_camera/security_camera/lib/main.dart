@@ -7,6 +7,15 @@ import 'package:network_info_plus/network_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:video_player/video_player.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+Future<void> requestStoragePermission() async {
+  if (await Permission.storage.request().isGranted) {
+    // Permiso concedido, puedes proceder con getExternalStorageDirectory()
+  } else {
+    // El permiso no fue concedido
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,15 +56,13 @@ class _CameraScreenState extends State<CameraScreen> {
   List<String> _recordings = [];
   Timer? _recordingTimer;
   int _recordingDuration = 60; // Duración de cada grabación en segundos
-  bool _isServerRunning = true; // Controla el estado del servidor
-
-  // Variable para almacenar la calidad actual
-  ResolutionPreset _currentResolution = ResolutionPreset.medium;
+  bool _serverRunning = true;
+  bool _showOverlays = true;
 
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(widget.camera, _currentResolution);
+    _controller = CameraController(widget.camera, ResolutionPreset.medium);
     _initializeControllerFuture = _controller.initialize();
     _startServer();
     _getIpAddress();
@@ -81,9 +88,6 @@ class _CameraScreenState extends State<CameraScreen> {
           });
         }
       });
-      setState(() {
-        _isServerRunning = true;
-      });
     } catch (e) {
       print('Error al iniciar el servidor: $e');
     }
@@ -103,39 +107,6 @@ class _CameraScreenState extends State<CameraScreen> {
     );
   }
 
-  // Función para mostrar el diálogo y cambiar la calidad
-  Future<void> _showQualityDialog() async {
-    final selectedQuality = await showDialog<ResolutionPreset>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Cambiar Calidad de Streaming'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: ResolutionPreset.values.map((quality) {
-              return RadioListTile<ResolutionPreset>(
-                title: Text(quality.toString().split('.').last),
-                value: quality,
-                groupValue: _currentResolution, // Usamos la variable local
-                onChanged: (value) {
-                  Navigator.of(context).pop(value);
-                },
-              );
-            }).toList(),
-          ),
-        );
-      },
-    );
-
-    if (selectedQuality != null && selectedQuality != _currentResolution) {
-      setState(() {
-        _currentResolution = selectedQuality;
-        _controller = CameraController(widget.camera, _currentResolution);
-        _initializeControllerFuture = _controller.initialize();
-      });
-    }
-  }
-
   Future<void> _toggleRecording() async {
     if (_isRecording) {
       await _stopRecording();
@@ -144,14 +115,18 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
+  
+
   Future<void> _startRecording() async {
     if (!_controller.value.isInitialized) {
       return;
     }
-    final Directory extDir = await getApplicationDocumentsDirectory();
-    final String dirPath = '${extDir.path}/SecurityCameraRecordings';
+    requestStoragePermission();
+    final Directory? extDir = await getExternalStorageDirectory(); // Ruta específica en lugar del caché
+    final String dirPath = '${extDir!.path}/SecurityCameraRecordings';
     await Directory(dirPath).create(recursive: true);
     //final String filePath = '$dirPath/${DateTime.now().millisecondsSinceEpoch}.mp4';
+
     try {
       await _controller.startVideoRecording();
       setState(() {
@@ -183,8 +158,9 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<void> _loadRecordings() async {
-    final Directory extDir = await getApplicationDocumentsDirectory();
-    final String dirPath = '${extDir.path}/SecurityCameraRecordings';
+    requestStoragePermission();
+    final Directory? extDir = await getExternalStorageDirectory();
+    final String dirPath = '${extDir!.path}/SecurityCameraRecordings';
     final Directory dir = Directory(dirPath);
     if (await dir.exists()) {
       final List<FileSystemEntity> entities = await dir.list().toList();
@@ -197,107 +173,121 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
-  // Función para alternar entre iniciar y detener el servidor
-  void _toggleServer() {
-    if (_isServerRunning) {
-      _server?.close();
+  Future<void> _toggleServer() async {
+    if (_serverRunning) {
+      await _server?.close();
       setState(() {
-        _isServerRunning = false;
+        _serverRunning = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Servidor detenido')),
-      );
     } else {
-      _startServer();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Servidor iniciado')),
-      );
+      await _startServer();
+      setState(() {
+        _serverRunning = true;
+      });
     }
+  }
+
+  void _toggleOverlays() {
+    setState(() {
+      _showOverlays = !_showOverlays;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Cámara de Seguridad')),
+      appBar: null,
       body: Stack(
         children: [
-          // Cámara en el fondo
-          FutureBuilder<void>(
-            future: _initializeControllerFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done) {
-                return CameraPreview(_controller);
-              } else {
-                return Center(child: CircularProgressIndicator());
-              }
-            },
-          ),
-          // Barra superior con transparencia y dirección IP
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              color: Colors.black.withOpacity(0.5), // Color semitransparente
-              padding: EdgeInsets.all(5.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'IP del servidor: $_ipAddress:$_port',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.settings, color: Colors.white),
-                    onPressed: _showQualityDialog, // Mostrar opciones de calidad
-                  ),
-                ],
-              ),
+          GestureDetector(
+            onTap: _toggleOverlays,
+            child: FutureBuilder<void>(
+              future: _initializeControllerFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.done) {
+                  return CameraPreview(_controller);
+                } else {
+                  return Center(child: CircularProgressIndicator());
+                }
+              },
             ),
           ),
-          // Barra inferior con transparencia y botón de detener/iniciar servidor
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              color: Colors.black.withOpacity(0.5), // Color semitransparente
-              padding: EdgeInsets.all(5.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end, // Botón alineado a la derecha
-                children: [
-                  ElevatedButton.icon(
-                    icon: Icon(_isServerRunning ? Icons.stop : Icons.play_arrow),
-                    label: Text(_isServerRunning ? "Detener Servidor" : "Iniciar Servidor"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isServerRunning ? Colors.red : Colors.green, // Cambia el color según el estado
-                    ),
-                    onPressed: _toggleServer, // Alternar entre iniciar y detener el servidor
+          if (_showOverlays)
+            Column(
+              children: [
+                Container(
+                  color: Colors.black.withOpacity(0.5),
+                  padding: EdgeInsets.all(8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('IP: $_ipAddress:$_port', style: TextStyle(color: Colors.white)),
+                      PopupMenuButton<ResolutionPreset>(
+                        onSelected: (value) {
+                          setState(() {
+                            _controller = CameraController(widget.camera, value);
+                          });
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: ResolutionPreset.low,
+                            child: Text('Baja'),
+                          ),
+                          PopupMenuItem(
+                            value: ResolutionPreset.medium,
+                            child: Text('Media'),
+                          ),
+                          PopupMenuItem(
+                            value: ResolutionPreset.high,
+                            child: Text('Alta'),
+                          ),
+                        ],
+                        icon: Icon(Icons.settings, color: Colors.white),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const Spacer(),
+                Container(
+                  color: Colors.black.withOpacity(0.5),
+                  padding: EdgeInsets.all(8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Material(
+                          color: Colors.black.withOpacity(0.5),
+                          child: FloatingActionButton(
+                            child: Icon(_isRecording ? Icons.stop : Icons.videocam),
+                            onPressed: _toggleRecording,
+                          ),
+                      ),
+                      FloatingActionButton(
+                        child: Icon(Icons.timeline),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => TimelineScreen(recordings: _recordings),
+                            ),
+                          );
+                        },
+                      ),
+                      Material(
+                        color: Colors.black.withOpacity(0.5),
+                        child: ElevatedButton.icon(
+                          icon: Icon(_serverRunning ? Icons.stop : Icons.play_arrow),
+                          label: Text(_serverRunning ? "Detener Servidor" : "Iniciar Servidor"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _serverRunning ? Colors.red : Colors.green, // Cambia el color según el estado
+                          ),
+                          onPressed: _toggleServer, // Alternar entre iniciar y detener el servidor
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-      floatingActionButton: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton(
-            child: Icon(_isRecording ? Icons.stop : Icons.videocam),
-            onPressed: _toggleRecording,
-          ),
-          SizedBox(width: 16),
-          // Botón para la línea de tiempo
-          FloatingActionButton(
-            child: Icon(Icons.timeline),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => TimelineScreen(recordings: _recordings)),
-              );
-            },
-          ),
         ],
       ),
     );
@@ -314,7 +304,6 @@ class _CameraScreenState extends State<CameraScreen> {
     super.dispose();
   }
 }
-
 
 class TimelineScreen extends StatefulWidget {
   final List<String> recordings;
