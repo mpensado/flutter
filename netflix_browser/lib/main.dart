@@ -92,7 +92,8 @@ class MyApp extends StatelessWidget {
 
 class MyAppState extends ChangeNotifier {
   List<Category> categories = [];
-  List<Category> favorites = [];
+  List<Category> subcategories = [];
+  /*List<Category> favorites = [];
   late Category current;
 
   void toggleFavorite(Category category) {
@@ -104,10 +105,10 @@ class MyAppState extends ChangeNotifier {
     }
     saveFavoritesToJson();
     notifyListeners();
-  }
+  }*/
 
   Future loadDB() async {
-    await loadFavoritesFromJson();
+    //await loadFavoritesFromJson();
     await loadCategories();
   }
 
@@ -121,35 +122,24 @@ class MyAppState extends ChangeNotifier {
     } catch (e) {
       print('Error loading categories: $e');
     }
-    categories = result;
+    categories = result.where((category) {
+      return category.dependencia == 'home';
+    }).toList();
   }
 
-  Future<void> loadFavoritesFromJson() async {
+  Future<void> loadSubCategories(String subCategories) async {
     List<Category> result = [];
     try {
-      final file = await _getFavoritesFile();
-      if (await file.exists()) {
-        String contents = await file.readAsString();
-        List<dynamic> jsonData = json.decode(contents);
-        result =
-            jsonData.map((jsonItem) => Category.fromJson(jsonItem)).toList();
-      }
+      final String response =
+          await rootBundle.loadString('assets/categories.json');
+      final List<dynamic> data = json.decode(response);
+      result = data.map((item) => Category.fromJson(item)).toList();
     } catch (e) {
-      print('Error loading favorites: $e');
+      print('Error loading subcategories: $e');
     }
-    favorites = result;
-  }
-
-  Future<File> _getFavoritesFile() async {
-    final directory = await getApplicationDocumentsDirectory();
-    return File('${directory.path}/favorites.json');
-  }
-
-  Future<void> saveFavoritesToJson() async {
-    final file = await _getFavoritesFile();
-    List<Map<String, dynamic>> favoritesJson =
-        favorites.map((category) => category.toJson()).toList();
-    await file.writeAsString(json.encode(favoritesJson));
+    subcategories = result.where((category) {
+      return category.dependencia == subCategories;
+    }).toList();
   }
 }
 
@@ -221,29 +211,74 @@ class GeneratorPage extends StatefulWidget {
 }
 
 class _GeneratorPageState extends State<GeneratorPage> {
+  final PageStorageBucket bucket = PageStorageBucket();
+  List<Category> favorites = [];
+
   @override
   void initState() {
     super.initState();
     var appState = context.read<MyAppState>();
+    favorites = List.from(favorites); // Copiamos los favoritos locales
     appState.loadDB();
+  }
+
+  Future<void> loadFavoritesFromJson() async {
+    List<Category> result = [];
+    try {
+      final file = await _getFavoritesFile();
+      if (await file.exists()) {
+        String contents = await file.readAsString();
+        List<dynamic> jsonData = json.decode(contents);
+        result =
+            jsonData.map((jsonItem) => Category.fromJson(jsonItem)).toList();
+      }
+    } catch (e) {
+      print('Error loading favorites: $e');
+    }
+    favorites = result;
+  }
+
+  Future<File> _getFavoritesFile() async {
+    final directory = await getApplicationDocumentsDirectory();
+    return File('${directory.path}/favorites.json');
+  }
+
+  Future<void> saveFavoritesToJson() async {
+    final file = await _getFavoritesFile();
+    List<Map<String, dynamic>> favoritesJson =
+        favorites.map((category) => category.toJson()).toList();
+    await file.writeAsString(json.encode(favoritesJson));
+  }
+
+  void toggleFavorite(Category category) {
+    setState(() {
+      if (favorites.contains(category)) {
+        favorites.remove(category);
+      } else {
+        favorites.add(category);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
     return FutureBuilder(
-        future: appState.loadDB(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error al cargar datos'));
-          } else {
-            return Scaffold(
-              appBar: AppBar(
-                title: Text('Categorías Ocultas Netflix'),
-              ),
-              body: GridView.builder(
+      future: appState.loadDB(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Error al cargar datos'));
+        } else {
+          return Scaffold(
+            appBar: AppBar(
+              title: Text('Categorías Ocultas Netflix'),
+            ),
+            body: PageStorage(
+              bucket: bucket,
+              child: GridView.builder(
+                key: PageStorageKey<String>('gridViewKey'),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   childAspectRatio: 1.0,
@@ -253,6 +288,9 @@ class _GeneratorPageState extends State<GeneratorPage> {
                 padding: EdgeInsets.all(10),
                 itemCount: appState.categories.length,
                 itemBuilder: (context, index) {
+                  final category = appState.categories[index];
+                  final isFavorite = favorites.contains(category);
+
                   return Card(
                     clipBehavior: Clip.antiAlias,
                     child: Stack(
@@ -260,11 +298,152 @@ class _GeneratorPageState extends State<GeneratorPage> {
                       children: [
                         InkWell(
                           onTap: () {
-                            _launchURL(appState.categories[index].url);
+                            _launchURL(category.url);
+                          },
+                          child: Image(
+                            image: AssetImage(category.imageUrl),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            color: Colors.black.withOpacity(0.5),
+                            padding: EdgeInsets.symmetric(
+                                vertical: 8, horizontal: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        category.name,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    InkWell(
+                                      onTap: () {
+                                        _launchURL(category.url);
+                                      },
+                                      child: Icon(
+                                        Icons.open_in_new,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () {
+                                        toggleFavorite(category);
+                                      },
+                                      child: Icon(
+                                        isFavorite
+                                            ? Icons.favorite
+                                            : Icons.favorite_border,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => DetailPage(
+                                                category: category),
+                                          ),
+                                        );
+                                      },
+                                      child: Icon(
+                                        Icons.info_outline,
+                                        color: Colors.white,
+                                        size: 24,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        }
+      },
+    );
+  }
+}
+
+
+class DetailPage extends StatefulWidget {
+  final Category category;
+  DetailPage({required this.category});
+
+  @override
+  // ignore: library_private_types_in_public_api, no_logic_in_create_state
+  _DetailPageState createState() => _DetailPageState(category: category);
+}
+
+class _DetailPageState extends State<DetailPage> {
+  final Category category;
+  _DetailPageState({required this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    var appState = context.watch<MyAppState>();
+    return FutureBuilder(
+        future: appState.loadSubCategories(category.name),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error al cargar datos'));
+          } else {
+            return Scaffold(
+              appBar: AppBar(
+                title: Text('${category.name} (${appState.subcategories.length} títulos)'),
+              ),
+              body: GridView.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.0,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                padding: EdgeInsets.all(10),
+                itemCount: appState.subcategories.length,
+                itemBuilder: (context, index) {
+                  return Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        InkWell(
+                          onTap: () {
+                            _launchURL(appState.subcategories[index].url);
                           },
                           child: Image(
                             image:
-                                AssetImage(appState.categories[index].imageUrl),
+                                AssetImage(appState.subcategories[index].imageUrl),
                             fit: BoxFit.cover,
                           ),
                         ),
@@ -284,62 +463,13 @@ class _GeneratorPageState extends State<GeneratorPage> {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        appState.categories[index].name,
+                                        appState.subcategories[index].name,
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                         ),
                                         textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    InkWell(
-                                      onTap: () {
-                                        _launchURL(
-                                            appState.categories[index].url);
-                                      },
-                                      child: Icon(
-                                        Icons.open_in_new,
-                                        color: Colors.white,
-                                        size: 24,
-                                      ),
-                                    ),
-                                    InkWell(
-                                      onTap: () {
-                                        appState.toggleFavorite(
-                                            appState.categories[index]);
-                                      },
-                                      child: Icon(
-                                        appState.favorites.contains(
-                                                appState.categories[index])
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        color: Colors.white,
-                                        size: 24,
-                                      ),
-                                    ),
-                                    InkWell(
-                                      onTap: () {
-                                        // Navigator.push(
-                                        //   context,
-                                        //   MaterialPageRoute(
-                                        //     builder: (context) => DetailPage(
-                                        //         category:
-                                        //             appState.categories[index]),
-                                        //   ),
-                                        // );
-                                      },
-                                      child: Icon(
-                                        Icons.info_outline,
-                                        color: Colors.white,
-                                        size: 24,
                                       ),
                                     ),
                                   ],
@@ -359,152 +489,6 @@ class _GeneratorPageState extends State<GeneratorPage> {
       );
   }
 }
-
-// class DetailPage extends StatefulWidget {
-//   final Category category;
-//   DetailPage({required this.category});
-
-//   @override
-//   // ignore: library_private_types_in_public_api
-//   _DetailPageState createState() => _DetailPageState(category: this.category);
-// }
-
-// class _DetailPageState extends State<DetailPage> {
-//   final Category category;
-//   _DetailPageState({required this.category});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     //var appState = context.watch<MyAppState>();
-//     //var subcategories = appState.loadCategoriesByDependencia(category);
-//     return FutureBuilder(
-//         future: appState.loadDB(),
-//         builder: (context, snapshot) {
-//           if (snapshot.connectionState == ConnectionState.waiting) {
-//             return Center(child: CircularProgressIndicator());
-//           } else if (snapshot.hasError) {
-//             return Center(child: Text('Error al cargar datos'));
-//           } else {
-//             return Scaffold(
-//               appBar: AppBar(
-//                 title: Text('Categorías Ocultas Netflix'),
-//               ),
-//               body: GridView.builder(
-//                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-//                   crossAxisCount: 2,
-//                   childAspectRatio: 1.0,
-//                   crossAxisSpacing: 10,
-//                   mainAxisSpacing: 10,
-//                 ),
-//                 padding: EdgeInsets.all(10),
-//                 itemCount: subcategories.length,
-//                 itemBuilder: (context, index) {
-//                   return Card(
-//                     clipBehavior: Clip.antiAlias,
-//                     child: Stack(
-//                       fit: StackFit.expand,
-//                       children: [
-//                         InkWell(
-//                           onTap: () {
-//                             _launchURL(subcategories[index].url);
-//                           },
-//                           child: Image(
-//                             image:
-//                                 AssetImage(subcategories[index].imageUrl),
-//                             fit: BoxFit.cover,
-//                           ),
-//                         ),
-//                         Positioned(
-//                           bottom: 0,
-//                           left: 0,
-//                           right: 0,
-//                           child: Container(
-//                             color: Colors.black.withOpacity(0.5),
-//                             padding: EdgeInsets.symmetric(
-//                                 vertical: 8, horizontal: 12),
-//                             child: Column(
-//                               crossAxisAlignment: CrossAxisAlignment
-//                                   .start, // Alineación de las filas a la izquierda
-//                               children: [
-//                                 Row(
-//                                   children: [
-//                                     Expanded(
-//                                       child: Text(
-//                                         subcategories[index].name,
-//                                         style: TextStyle(
-//                                           color: Colors.white,
-//                                           fontSize: 16,
-//                                           fontWeight: FontWeight.bold,
-//                                         ),
-//                                         textAlign: TextAlign.center,
-//                                       ),
-//                                     ),
-//                                   ],
-//                                 ),
-//                                 SizedBox(height: 8),
-//                                 Row(
-//                                   mainAxisAlignment:
-//                                       MainAxisAlignment.spaceBetween,
-//                                   children: [
-//                                     InkWell(
-//                                       onTap: () {
-//                                         _launchURL(
-//                                             subcategories[index].url);
-//                                       },
-//                                       child: Icon(
-//                                         Icons.open_in_new,
-//                                         color: Colors.white,
-//                                         size: 24,
-//                                       ),
-//                                     ),
-//                                     InkWell(
-//                                       onTap: () {
-//                                         appState.toggleFavorite(
-//                                             subcategories[index]);
-//                                       },
-//                                       child: Icon(
-//                                         appState.favorites.contains(
-//                                                 subcategories[index])
-//                                             ? Icons.favorite
-//                                             : Icons.favorite_border,
-//                                         color: Colors.white,
-//                                         size: 24,
-//                                       ),
-//                                     ),
-//                                     InkWell(
-//                                       onTap: () {
-//                                         Navigator.push(
-//                                           context,
-//                                           MaterialPageRoute(
-//                                             builder: (context) => DetailPage(
-//                                                 category:
-//                                                     subcategories[index]),
-//                                           ),
-//                                         );
-//                                       },
-//                                       child: Icon(
-//                                         Icons.info_outline,
-//                                         color: Colors.white,
-//                                         size: 24,
-//                                       ),
-//                                     ),
-//                                   ],
-//                                 ),
-//                               ],
-//                             ),
-//                           ),
-//                         )
-//                       ],
-//                     ),
-//                   );
-//                 },
-//               ),
-//             );
-//           }
-//         }
-//       );
-//   }
-// }
 class FavoritesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

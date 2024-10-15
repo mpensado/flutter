@@ -19,9 +19,9 @@ dependencies:
   json_annotation: ^4.6.1
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.10.0
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^4.0.0
 
 flutter:
