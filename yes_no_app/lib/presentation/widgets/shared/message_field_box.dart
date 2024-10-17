@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class MessageFieldBox extends StatelessWidget {
   final ValueChanged<String> onValue;
+
   const MessageFieldBox({super.key, required this.onValue});
 
   @override
@@ -9,37 +10,35 @@ class MessageFieldBox extends StatelessWidget {
     final textController = TextEditingController();
     final focusNode = FocusNode();
 
-    //final colors = Theme.of(context).colorScheme;
-
-    final outLineInputBorder = OutlineInputBorder(
+    final outlineInputBorder = UnderlineInputBorder(
         borderSide: const BorderSide(color: Colors.transparent),
         borderRadius: BorderRadius.circular(40));
 
     final inputDecoration = InputDecoration(
-        hintText: "Para finalizar el mensaje coloque ?",
-        enabledBorder: outLineInputBorder,
-        focusedBorder: outLineInputBorder,
-        filled: true,
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.send_outlined),
-          onPressed: () {
-            final textValue = textController.value.text;
-            textController.clear();
-            onValue(textValue);
-            focusNode.requestFocus();
-          },
-        ));
+      hintText: 'End your message with a "?"',
+      enabledBorder: outlineInputBorder,
+      focusedBorder: outlineInputBorder,
+      filled: true,
+      suffixIcon: IconButton(
+        icon: const Icon(Icons.send_outlined),
+        onPressed: () {
+          final textValue = textController.value.text;
+          textController.clear();
+          onValue(textValue);
+        },
+      ),
+    );
 
     return TextFormField(
       onTapOutside: (event) {
         focusNode.unfocus();
       },
+      focusNode: focusNode,
       controller: textController,
       decoration: inputDecoration,
-      focusNode: focusNode,
       onFieldSubmitted: (value) {
         textController.clear();
-        //focusNode.requestFocus();
+        focusNode.requestFocus();
         onValue(value);
       },
     );
