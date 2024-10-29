@@ -34,6 +34,10 @@ class MovieProvider extends ChangeNotifier {
     return showReturnStatus;
   }
 
+  bool getIsHome() {
+    return actualName == 'home';
+  }
+
   Future<void> setNameCategories(String name) async {
     actualName = name;
     showReturnStatus = actualName != "home";

@@ -48,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.arrow_back_outlined),
               )
             : null,
-        title: const Text('FlixSneak'),
+        title: movieProvider.getIsHome()? const Text('FlixSneak') : Text(movieProvider.actualName),
         centerTitle: true,
       ),
       body: _HomeView(_selectedIndex),
@@ -196,7 +196,7 @@ Card _cardMovie(int index, BuildContext context) {
                         size: 24,
                       ),
                     ),
-                    if (movieProvider.actualName == 'home') ...[
+                    if (movieProvider.getIsHome()) ...[
                       InkWell(
                         onTap: () {
                           movieProvider.updateStatus(
