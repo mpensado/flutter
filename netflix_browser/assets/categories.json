@@ -1,0 +1,737 @@
+[
+  {
+    "name": "Acción y aventura",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/1365",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Anime",
+    "imageUrl": "assets/images/anime.jpg",
+    "url": "https://www.netflix.com/browse/genre/7424",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Familia",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/783",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Clásicos",
+    "imageUrl": "assets/images/clasicas.jpg",
+    "url": "https://www.netflix.com/browse/genre/31574",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Comedias",
+    "imageUrl": "assets/images/comedias.jpg",
+    "url": "https://www.netflix.com/browse/genre/6548",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Culto",
+    "imageUrl": "assets/images/culto.jpg",
+    "url": "https://www.netflix.com/browse/genre/7627",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Documentales",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/6839",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Dramas",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/5763",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Internacionales",
+    "imageUrl": "assets/images/internacional.jpg",
+    "url": "https://www.netflix.com/browse/genre/78367",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "LGBTQ",
+    "imageUrl": "assets/images/lgbt.jpg",
+    "url": "https://www.netflix.com/browse/genre/5977",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Terror",
+    "imageUrl": "assets/images/terror.jpg",
+    "url": "https://www.netflix.com/browse/genre/8711",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Independientes",
+    "imageUrl": "assets/images/independiente.jpg",
+    "url": "https://www.netflix.com/browse/genre/7077",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Música",
+    "imageUrl": "assets/images/musica.jpg",
+    "url": "https://www.netflix.com/browse/genre/1701",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Musicales",
+    "imageUrl": "assets/images/musicales.jpg",
+    "url": "https://www.netflix.com/browse/genre/13335",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Románticas",
+    "imageUrl": "assets/images/romanticas.jpg",
+    "url": "https://www.netflix.com/browse/genre/8883",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Ficción y Fantasía",
+    "imageUrl": "assets/images/ficcion.jpg",
+    "url": "https://www.netflix.com/browse/genre/1492",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Deportes",
+    "imageUrl": "assets/images/deportes.jpg",
+    "url": "https://www.netflix.com/browse/genre/4370",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Thrillers",
+    "imageUrl": "assets/images/thriller.jpg",
+    "url": "https://www.netflix.com/browse/genre/8933",
+    "tipo": "peliculas",
+    "dependencia": "home"
+  },
+  {
+    "name": "Clásicas",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/46576",
+    "tipo": "peliculas",
+    "dependencia": "Acción y aventura"
+  },
+  {
+    "name": "Comedia",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/43040",
+    "tipo": "peliculas",
+    "dependencia": "Acción y aventura"
+  },
+  {
+    "name": "Thriller",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/43048",
+    "tipo": "peliculas",
+    "dependencia": "Acción y aventura"
+  },
+  {
+    "name": "Aventuras",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/7442",
+    "tipo": "peliculas",
+    "dependencia": "Acción y aventura"
+  },
+  {
+    "name": "Cómics y Superhéroes",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/10118",
+    "tipo": "peliculas",
+    "dependencia": "Acción y aventura"
+  },
+  {
+    "name": "Del Oeste",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/7700",
+    "tipo": "peliculas",
+    "dependencia": "Acción y aventura"
+  },
+  {
+    "name": "Espías",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/10702",
+    "tipo": "peliculas",
+    "dependencia": "Acción y aventura"
+  },
+  {
+    "name": "Policiacas",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/9584",
+    "tipo": "peliculas",
+    "dependencia": "Acción y aventura"
+  },
+  {
+    "name": "Artes Marciales",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/8985",
+    "tipo": "peliculas",
+    "dependencia": "Acción y aventura"
+  },
+  {
+    "name": "Bélicas",
+    "imageUrl": "assets/images/accion.jpg",
+    "url": "https://www.netflix.com/browse/genre/2125",
+    "tipo": "peliculas",
+    "dependencia": "Acción y aventura"
+  },
+  {
+    "name": "Para Adultos",
+    "imageUrl": "assets/images/anime.jpg",
+    "url": "https://www.netflix.com/browse/genre/11881",
+    "tipo": "peliculas",
+    "dependencia": "Anime"
+  },
+  {
+    "name": "Accion",
+    "imageUrl": "assets/images/anime.jpg",
+    "url": "https://www.netflix.com/browse/genre/2653",
+    "tipo": "peliculas",
+    "dependencia": "Anime"
+  },
+  {
+    "name": "Comedia",
+    "imageUrl": "assets/images/anime.jpg",
+    "url": "https://www.netflix.com/browse/genre/9302",
+    "tipo": "peliculas",
+    "dependencia": "Anime"
+  },
+  {
+    "name": "Drama",
+    "imageUrl": "assets/images/anime.jpg",
+    "url": "https://www.netflix.com/browse/genre/452",
+    "tipo": "peliculas",
+    "dependencia": "Anime"
+  },
+  {
+    "name": "Largometrajes",
+    "imageUrl": "assets/images/anime.jpg",
+    "url": "https://www.netflix.com/browse/genre/3063",
+    "tipo": "peliculas",
+    "dependencia": "Anime"
+  },
+  {
+    "name": "SciFi",
+    "imageUrl": "assets/images/anime.jpg",
+    "url": "https://www.netflix.com/browse/genre/2729",
+    "tipo": "peliculas",
+    "dependencia": "Anime"
+  },
+  {
+    "name": "Fantasticos",
+    "imageUrl": "assets/images/anime.jpg",
+    "url": "https://www.netflix.com/browse/genre/11146",
+    "tipo": "peliculas",
+    "dependencia": "Anime"
+  },
+  {
+    "name": "Series",
+    "imageUrl": "assets/images/anime.jpg",
+    "url": "https://www.netflix.com/browse/genre/6721",
+    "tipo": "peliculas",
+    "dependencia": "Anime"
+  },
+  {
+    "name": "0 a 2 años",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/6796",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "2 a 4 años",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/6218",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "5 a 7 años",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/5455",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "8 a 10 años",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/561",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "11 a 12 años",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/6962",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "Educativas",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/10659",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "Disney",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/67673",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "Basada en Libros",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/10056",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "Largometrajes",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/51056",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "Dibujos Animados TV",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/11177",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "TV Infantil",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/27346",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "Con musica para niños",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/52843",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "Con Animales",
+    "imageUrl": "assets/images/familia.jpg",
+    "url": "https://www.netflix.com/browse/genre/5507",
+    "tipo": "peliculas",
+    "dependencia": "Familia"
+  },
+  {
+    "name": "Clasicos",
+    "imageUrl": "assets/images/clasicas.jpg",
+    "url": "https://www.netflix.com/browse/genre/31694",
+    "tipo": "peliculas",
+    "dependencia": "Clásicos"
+  },
+  {
+    "name": "Dramas clásicos",
+    "imageUrl": "assets/images/clasicas.jpg",
+    "url": "https://www.netflix.com/browse/genre/29809",
+    "tipo": "peliculas",
+    "dependencia": "Clásicos"
+  },
+  {
+    "name": "SciFy y Fantasia",
+    "imageUrl": "assets/images/clasicas.jpg",
+    "url": "https://www.netflix.com/browse/genre/47147",
+    "tipo": "peliculas",
+    "dependencia": "Clásicos"
+  },
+  {
+    "name": "Thrillers",
+    "imageUrl": "assets/images/clasicas.jpg",
+    "url": "https://www.netflix.com/browse/genre/46588",
+    "tipo": "peliculas",
+    "dependencia": "Clásicos"
+  },
+  {
+    "name": "Cine Negro",
+    "imageUrl": "assets/images/clasicas.jpg",
+    "url": "https://www.netflix.com/browse/genre/7687",
+    "tipo": "peliculas",
+    "dependencia": "Clásicos"
+  },
+  {
+    "name": "De Guerra",
+    "imageUrl": "assets/images/clasicas.jpg",
+    "url": "https://www.netflix.com/browse/genre/48744",
+    "tipo": "peliculas",
+    "dependencia": "Clásicos"
+  },
+  {
+    "name": "Epopeya",
+    "imageUrl": "assets/images/clasicas.jpg",
+    "url": "https://www.netflix.com/browse/genre/52858",
+    "tipo": "peliculas",
+    "dependencia": "Clásicos"
+  },
+  {
+    "name": "Falsos Documentales",
+    "imageUrl": "assets/images/comedias.jpg",
+    "url": "https://www.netflix.com/browse/genre/26",
+    "tipo": "peliculas",
+    "dependencia": "Comedias"
+  },
+  {
+    "name": "Politicas",
+    "imageUrl": "assets/images/comedias.jpg",
+    "url": "https://www.netflix.com/browse/genre/2700",
+    "tipo": "peliculas",
+    "dependencia": "Comedias"
+  },
+  {
+    "name": "Enredos",
+    "imageUrl": "assets/images/comedias.jpg",
+    "url": "https://www.netflix.com/browse/genre/9702",
+    "tipo": "peliculas",
+    "dependencia": "Comedias"
+  },
+  {
+    "name": "Deportes",
+    "imageUrl": "assets/images/comedias.jpg",
+    "url": "https://www.netflix.com/browse/genre/5286",
+    "tipo": "peliculas",
+    "dependencia": "Comedias"
+  },
+  {
+    "name": "Monologos",
+    "imageUrl": "assets/images/comedias.jpg",
+    "url": "https://www.netflix.com/browse/genre/11559",
+    "tipo": "peliculas",
+    "dependencia": "Comedias"
+  },
+  {
+    "name": "Juveniles",
+    "imageUrl": "assets/images/comedias.jpg",
+    "url": "https://www.netflix.com/browse/genre/3519",
+    "tipo": "peliculas",
+    "dependencia": "Comedias"
+  },
+  {
+    "name": "Parodias",
+    "imageUrl": "assets/images/comedias.jpg",
+    "url": "https://www.netflix.com/browse/genre/4922",
+    "tipo": "peliculas",
+    "dependencia": "Comedias"
+  },
+  {
+    "name": "Romanticas",
+    "imageUrl": "assets/images/comedias.jpg",
+    "url": "https://www.netflix.com/browse/genre/5475",
+    "tipo": "peliculas",
+    "dependencia": "Comedias"
+  },
+  {
+    "name": "Golpes y Porrazos",
+    "imageUrl": "assets/images/comedias.jpg",
+    "url": "https://www.netflix.com/browse/genre/10256",
+    "tipo": "peliculas",
+    "dependencia": "Comedias"
+  },
+  {
+    "name": "Cursis",
+    "imageUrl": "assets/images/culto.jpg",
+    "url": "https://www.netflix.com/browse/genre/1252",
+    "tipo": "peliculas",
+    "dependencia": "Culto"
+  },
+  {
+    "name": "Terror",
+    "imageUrl": "assets/images/culto.jpg",
+    "url": "https://www.netflix.com/browse/genre/10944",
+    "tipo": "peliculas",
+    "dependencia": "Culto"
+  },
+  {
+    "name": "SciFi y Fantasia",
+    "imageUrl": "assets/images/culto.jpg",
+    "url": "https://www.netflix.com/browse/genre/4734",
+    "tipo": "peliculas",
+    "dependencia": "Culto"
+  },
+  {
+    "name": "Comedias",
+    "imageUrl": "assets/images/culto.jpg",
+    "url": "https://www.netflix.com/browse/genre/9434",
+    "tipo": "peliculas",
+    "dependencia": "Culto"
+  },
+  {
+    "name": "Terror de serie B",
+    "imageUrl": "assets/images/culto.jpg",
+    "url": "https://www.netflix.com/browse/genre/8195",
+    "tipo": "peliculas",
+    "dependencia": "Culto"
+  },
+  {
+    "name": "Biográficos",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/3652",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Crimenes",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/9875",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Extranjeros",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/5161",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Historicos",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/5349",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Militares",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/4006",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Música y Conciertos",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/90361",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Politicos",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/7018",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Religiosos",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/10005",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Ciencia y Naturaleza",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/2595",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Sociales y Culturales",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/2595",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Deportivos",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/180",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Viajes y Aventuras",
+    "imageUrl": "assets/images/documentales.jpg",
+    "url": "https://www.netflix.com/browse/genre/1159",
+    "tipo": "peliculas",
+    "dependencia": "Documentales"
+  },
+  {
+    "name": "Biograficos",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/3179",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Clásicos",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/29809",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Judiciales",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/528582748",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Policiacos y Criminales",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/6889",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Basado en Libros",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/4961",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Vida Real",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/3653",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Extranjeros",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/2150",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Homosexual",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/500",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Independientes",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/384",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Militares",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/11",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Epoca",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/12123",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Políticos",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/6616",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Romanticas",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/1255",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Espectáculos",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/5012",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Temas Sociales",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/3947",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Deportivos",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/7243",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Para llorar",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/6384",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Juveniles",
+    "imageUrl": "assets/images/drama.jpg",
+    "url": "https://www.netflix.com/browse/genre/9299",
+    "tipo": "peliculas",
+    "dependencia": "Dramas"
+  },
+  {
+    "name": "Comedia",
+    "imageUrl": "assets/images/lgbt.jpg",
+    "url": "https://www.netflix.com/browse/genre/7120",
+    "tipo": "peliculas",
+    "dependencia": "LGBTQ"
+  },
+  {
+    "name": "Dramas",
+    "imageUrl": "assets/images/lgbt.jpg",
+    "url": "https://www.netflix.com/browse/genre/500",
+    "tipo": "peliculas",
+    "dependencia": "LGBTQ"
+  },
+  {
+    "name": "Romanticas",
+    "imageUrl": "assets/images/lgbt.jpg",
+    "url": "https://www.netflix.com/browse/genre/3329",
+    "tipo": "peliculas",
+    "dependencia": "LGBTQ"
+  },
+  {
+    "name": "Documentales",
+    "imageUrl": "assets/images/lgbt.jpg",
+    "url": "https://www.netflix.com/browse/genre/4720",
+    "tipo": "peliculas",
+    "dependencia": "LGBTQ"
+  },
+  {
+    "name": "Series TV",
+    "imageUrl": "assets/images/lgbt.jpg",
+    "url": "https://www.netflix.com/browse/genre/65263",
+    "tipo": "peliculas",
+    "dependencia": "LGBTQ"
+  }
+]
