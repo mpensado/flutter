@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:flixsneak/config/theme/app_theme.dart';
+//import 'package:flixsneak/config/theme/app_theme.dart';
 import 'package:flixsneak/presentation/providers/movie_provider.dart';
 import 'package:flixsneak/presentation/screens/home/home_screen.dart';
 
@@ -20,7 +20,10 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'FlixSneak',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme( selectedColor: 0 ).theme(),
+        //theme: AppTheme( selectedColor: 7 ).theme(),
+        theme: ThemeData.dark(),
+        darkTheme: ThemeData.dark(),
+        themeMode: ThemeMode.system,
         home: const HomeScreen()
       ),
     );

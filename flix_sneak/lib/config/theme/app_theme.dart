@@ -10,6 +10,7 @@ const List<Color> _colorThemes = [
   Colors.yellow,
   Colors.orange,
   Colors.pink,
+  Colors.black
 ];
 
 class AppTheme {

@@ -35,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: const [
           Padding(
             padding: EdgeInsets.all(4.0),
-            child: CircleAvatar(),
+            child: CircleAvatar(foregroundImage:AssetImage('assets/images/icon.jpg')),
           )
         ],
         leading: getShowReturnStatus(movieProvider)
@@ -94,7 +94,11 @@ class _HomeView extends StatelessWidget {
               future: movieProvider.getCategories(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const CircularProgressIndicator();
+                  return const SizedBox.expand(  // Toma el espacio completo de la pantalla
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
                 } else if (snapshot.hasError) {
                   print("Error: $snapshot.error");
                   return Text("Error: ${snapshot.error}");

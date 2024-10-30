@@ -17,9 +17,10 @@ dependencies:
   url_launcher: ^6.3.0
   path_provider: ^2.0.12
   json_annotation: ^4.6.1
+  flutter_native_splash: ^2.0.4
+  flutter_launcher_icons: ^0.10.0
 
 dev_dependencies:
-  flutter_launcher_icons: ^0.10.0
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
@@ -29,3 +30,14 @@ flutter:
   assets:
     - assets/images/
     - assets/categories.json
+
+flutter_native_splash:
+  color: "#000000"  # Color de fondo de la pantalla de splash
+  image: assets/images/icon.jpg  # Ruta de la imagen del logo estático
+  android: true
+  ios: true
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icon.jpg"
