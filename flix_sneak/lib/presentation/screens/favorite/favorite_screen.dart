@@ -3,19 +3,17 @@ import 'package:flixsneak/config/helpers/browser_tools.dart';
 import 'package:flixsneak/infrastructure/models/category_model.dart';
 import 'package:flixsneak/presentation/providers/app_provider.dart';
 
-class HomeView extends StatefulWidget {
+class FavoriteView extends StatefulWidget {
   //final int actualIndex;
   final AppProvider appProvider;
 
-  const HomeView(this.appProvider, {super.key});
+  const FavoriteView(this.appProvider, {super.key});
 
   @override
-  State<HomeView> createState() => _HomeViewState();
+  State<FavoriteView> createState() => _FavoriteViewState();
 }
 
-class _HomeViewState extends State<HomeView> {
-  //late ScrollController _scrollController;
-
+class _FavoriteViewState extends State<FavoriteView> {
   @override
   void initState() {
     super.initState();
@@ -24,9 +22,9 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
-    //final appProvider = context.watch<MovieProvider>();
+    //final AppProvider = context.watch<AppProvider>();
     //if (actualIndex != 0) return const SizedBox.shrink();
-    widget.appProvider.favoritePage = false;
+    widget.appProvider.favoritePage = true;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -77,7 +75,7 @@ class _HomeViewState extends State<HomeView> {
 }
 
 Card _cardMovie(int index, AppProvider appProvider, BuildContext context) {
-  //final appProvider = context.watch<MovieProvider>();
+  //final AppProvider = context.watch<AppProvider>();
   return Card(
     clipBehavior: Clip.antiAlias,
     child: Stack(
@@ -145,19 +143,6 @@ Card _cardMovie(int index, AppProvider appProvider, BuildContext context) {
                         size: 24,
                       ),
                     ),
-                    if (appProvider.getIsHome()) ...[
-                      InkWell(
-                        onTap: () {
-                          appProvider.updateStatus(
-                              appProvider.actualViewList[index].name);
-                        },
-                        child: const Icon(
-                          Icons.info_outline,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ],

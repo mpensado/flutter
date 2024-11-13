@@ -35,4 +35,12 @@ class CategoryModel {
       'favorite': favorite,
     };
   }
+
+  static List<CategoryModel> fromJsonList(List<dynamic> jsonList) {
+    return jsonList.map((json) => CategoryModel.fromJson(json)).toList();
+  }
+
+  static List<Map<String, dynamic>> toJsonList(List<CategoryModel> dtos) {
+    return dtos.map((dto) => dto.toJson()).toList();
+  }
 }
