@@ -1,0 +1,53 @@
+name: sneak_flix
+description: Un navegador de categorias ocultas de Netflix.
+
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 0.0.1+1
+
+environment:
+  sdk: '>=2.19.4 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  provider: ^6.0.0  
+  url_launcher: ^6.3.0
+  path_provider: ^2.0.12
+  json_annotation: ^4.6.1
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_launcher_icons: ^0.13.0
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/categories.json
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  name: "Sneak Flix"
+  image_path: "assets/icon/app_icon.png"
+  
+  # Advanced Android configurations
+  adaptive_icon_background: "#242424FF"  # Background color for adaptive icons
+  adaptive_icon_foreground: "assets/icon/SneakFlix.png"
+  
+  # Platform-specific icon configurations
+  android_x: true  # Use AndroidX
+  min_sdk_android: 21  # Minimum SDK version
+  
+  # Web icon configuration
+  web: true
+  web_image_path: "assets/icon/SneakFlix.png"
+  
+  # Color and style options
+  icon_size: 48  # Default icon size
+  remove_alpha_ios: true  # Remove alpha channel for iOS
