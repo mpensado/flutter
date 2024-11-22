@@ -8,14 +8,35 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Sneak Flix',
-      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.red,
+        colorScheme: ColorScheme.fromSeed(
+          brightness: Brightness.dark,
+          seedColor: Colors.red,
+        ),
+        textTheme: TextTheme(
+          headlineLarge: const TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+          bodyLarge: const TextStyle(
+            fontSize: 18,
+            color: Colors.white,
+          ),
+          bodyMedium: TextStyle(
+            fontSize: 16,
+            color: Colors.grey[400],
+          ),
+        ),
       ),
+      debugShowCheckedModeBanner: false,
+      themeMode: ThemeMode.dark,
       home: const MainScaffold(),
     );
   }

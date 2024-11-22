@@ -17,15 +17,15 @@ class _MainScaffoldState extends State<MainScaffold> {
   int _currentIndex = 0;
 
   final List<String> _titulos = [
-    'Home',
+    'Categorias',
     'Favoritos',
     'Busqueda',
     'IMDB',
   ];
 
   final List<Widget> _vistas = [
-    const HomePage(),
-    const Favoritos(),
+    const HomeView(),
+    const FavoritosView(),
     const Busqueda(),
     const Imdb(),
   ];
@@ -54,7 +54,7 @@ class _MainScaffoldState extends State<MainScaffold> {
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
           selectedItemColor: Colors.red, // Color de ítem seleccionado
-          unselectedItemColor: Colors.grey, // Color de ítems no seleccionados
+          unselectedItemColor: Colors.white, // Color de ítems no seleccionados
           selectedIconTheme: const IconThemeData(size: 30), // Tamaño del ícono seleccionado
           unselectedIconTheme: const IconThemeData(size: 25), // Tamaño del ícono no seleccionado
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold), 
@@ -66,10 +66,10 @@ class _MainScaffoldState extends State<MainScaffold> {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'Home',
+            label: 'Categorias',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
+            icon: Icon(Icons.favorite),
             label: 'Favoritos',
           ),
           BottomNavigationBarItem(
@@ -77,7 +77,7 @@ class _MainScaffoldState extends State<MainScaffold> {
             label: 'Busqueda',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.movie_creation_outlined),
+            icon: Icon(Icons.movie_creation),
             label: 'IMDB',
           ),
         ],
