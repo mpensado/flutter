@@ -63,15 +63,14 @@ class _HomeViewState extends State<HomeView> {
                               controller: scrollCurrentController,
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 1.0,
+                                crossAxisCount: 1,
+                                childAspectRatio: 2.0,
                                 crossAxisSpacing: 10,
                                 mainAxisSpacing: 10,
                               ),
-                              padding: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.all(5),
                               itemCount: Tools.actualViewList.length,
                               itemBuilder: (context, index) {
-                                print("Con datos: $index");
                                 return CardMovie(
                                   category: Tools.actualViewList[index],
                                   onCategoriaSelected: _handleCategoriaSelected,

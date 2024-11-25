@@ -40,7 +40,6 @@ class _FavoritosViewState extends State<FavoritosView> {
                     ),
                   );
                 } else if (snapshot.hasError) {
-                  print("Error: $snapshot.error");
                   return Text("Error: ${snapshot.error}");
                 }
                 if (Tools.actualViewList.isNotEmpty) {
@@ -63,8 +62,8 @@ class _FavoritosViewState extends State<FavoritosView> {
                               controller: scrollCurrentController,
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 1.0,
+                                crossAxisCount: 1,
+                                childAspectRatio: 2.0,
                                 crossAxisSpacing: 10,
                                 mainAxisSpacing: 10,
                               ),
