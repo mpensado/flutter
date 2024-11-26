@@ -1,4 +1,3 @@
-import 'dart:ffi';
 
 import 'package:flutter/services.dart';
 import 'package:sneak_flix/infrastructure/models/category_model';
@@ -11,6 +10,7 @@ class Tools {
   static List<CategoryModel> categories = [];
   static List<CategoryModel> actualViewList = [];
   static String actualName = "home";
+  static String strFilter = "";
 
   static Future<void> getCategories() async {
     if (categories.isEmpty) {
@@ -19,6 +19,13 @@ class Tools {
     actualViewList = categories
         .where((category) => category.dependencia == actualName)
         .toList();
+
+        
+    actualViewList = Tools.actualViewList
+          .where((category) =>
+              category.name.toLowerCase().contains(strFilter.toLowerCase()))
+          .toList();
+
   }
 
   static Future<void> getFavoritos() async {

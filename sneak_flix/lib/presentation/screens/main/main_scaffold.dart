@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:sneak_flix/presentation/screens/busqueda/busqueda.dart';
 import 'package:sneak_flix/presentation/screens/favorites/favoritos.dart';
 import 'package:sneak_flix/presentation/screens/home/home_page.dart';
 import 'package:sneak_flix/presentation/screens/imdb/imdb.dart';
@@ -19,14 +18,12 @@ class _MainScaffoldState extends State<MainScaffold> {
   final List<String> _titulos = [
     'Categorias',
     'Favoritos',
-    'Busqueda',
     'IMDB',
   ];
 
   final List<Widget> _vistas = [
     const HomeView(),
     const FavoritosView(),
-    const Busqueda(),
     const Imdb(),
   ];
 
@@ -71,10 +68,6 @@ class _MainScaffoldState extends State<MainScaffold> {
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite),
             label: 'Favoritos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Busqueda',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.movie_creation),
