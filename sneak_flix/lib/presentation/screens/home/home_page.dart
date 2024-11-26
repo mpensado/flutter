@@ -13,28 +13,28 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   bool showReturnStatus = false;
   TextEditingController searchController = TextEditingController();
-  final FocusNode searchFocusNode = FocusNode();
+  late ValueNotifier<List<CategoryModel>> filteredCategoriesNotifier;
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   Tools.actualViewList = Tools.categories;
-  // }
+  @override
+  void initState() {
+    super.initState();
+    Tools.actualName = "home";
+    Tools.strFilter = "";
+    filteredCategoriesNotifier = ValueNotifier(Tools.actualViewList);
+  }
 
   @override
   void dispose() {
     searchController.dispose();
-    searchFocusNode.dispose(); // Liberamos el FocusNode
+    filteredCategoriesNotifier.dispose(); // Liberamos el FocusNode
     super.dispose();
   }
 
-  void filterCategories(String query) {
+  Future<void> filterCategories(String query) async {
     Tools.strFilter = query;
-    setState(() {});
+    await Tools.getCategories();
+    filteredCategoriesNotifier.value = Tools.actualViewList.toList();
   }
-
-  late ScrollController scrollCurrentController =
-      ScrollController(initialScrollOffset: 0);
 
   void _handleCategoriaSelected(CategoryModel category) {
     Tools.actualName = category.name;
@@ -43,10 +43,6 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      searchFocusNode.requestFocus();
-    });
-    //if (actualIndex != 0) return const SizedBox.shrink();
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -89,7 +85,6 @@ class _HomeViewState extends State<HomeView> {
                             Padding(
                               padding: const EdgeInsets.all(8.0),
                               child: TextField(
-                                  focusNode: searchFocusNode, 
                                   style: const TextStyle(color: Colors.white),
                                   controller: searchController,
                                   onChanged: filterCategories,
@@ -103,34 +98,29 @@ class _HomeViewState extends State<HomeView> {
                               ),
                             ),
                             Expanded(
-                              child: Tools.actualViewList.isEmpty
-                                  ? const Center(
-                                      child: Text(
-                                        "No hay datos disponibles",
-                                        style: TextStyle(
-                                            color: Colors.white, fontSize: 18),
-                                      ),
-                                    )
-                                  :
-                                  GridView.builder(
-                                        controller: scrollCurrentController,
-                                        gridDelegate:
-                                            const SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: 1,
-                                          childAspectRatio: 2.0,
-                                          crossAxisSpacing: 10,
-                                          mainAxisSpacing: 10,
-                                        ),
-                                        padding: const EdgeInsets.all(5),
-                                        itemCount: Tools.actualViewList.length,
-                                        itemBuilder: (context, index) {
-                                          return CardMovie(
-                                            category: Tools.actualViewList[index],
-                                            onCategoriaSelected:
-                                                _handleCategoriaSelected,
-                                          );
-                                        }),
-                            )
+                            child: ValueListenableBuilder<List<CategoryModel>>(
+                              valueListenable: filteredCategoriesNotifier,
+                              builder: (context, filteredCategories, child) {
+                                return GridView.builder(
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 1,
+                                      childAspectRatio: 2.0,
+                                      crossAxisSpacing: 10,
+                                      mainAxisSpacing: 10,
+                                    ),
+                                    padding: const EdgeInsets.all(5),
+                                    itemCount: Tools.actualViewList.length,
+                                    itemBuilder: (context, index) {
+                                      return CardMovie(
+                                        category: Tools.actualViewList[index],
+                                        onCategoriaSelected:
+                                            _handleCategoriaSelected,
+                                      );
+                                    });
+                              },
+                            ),
+                          )
                           ],
                         )),
                   );

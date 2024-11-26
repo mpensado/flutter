@@ -20,7 +20,7 @@ class Tools {
         .where((category) => category.dependencia == actualName)
         .toList();
 
-        
+
     actualViewList = Tools.actualViewList
           .where((category) =>
               category.name.toLowerCase().contains(strFilter.toLowerCase()))
@@ -35,6 +35,11 @@ class Tools {
     actualViewList = categories
         .where((category) => category.favorite == true)
         .toList();
+
+    actualViewList = Tools.actualViewList
+          .where((category) =>
+              category.name.toLowerCase().contains(strFilter.toLowerCase()))
+          .toList();
   }
 
   static Future<void> loadCategories() async {
