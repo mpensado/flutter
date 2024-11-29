@@ -27,6 +27,7 @@ class _CardMovieState extends State<CardMovie> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
+      color: Colors.black.withOpacity(0.8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -36,9 +37,20 @@ class _CardMovieState extends State<CardMovie> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               CircleAvatar(
-                radius: 40,
-                backgroundImage: AssetImage(widget.category.imageUrl),// URL de imagen
-                backgroundColor: const Color.fromARGB(255, 255, 0, 0),
+                radius: 20,
+                child: ClipOval(
+                  child: ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      Colors.black.withOpacity(0.8), // Efecto de transparencia
+                      BlendMode.dstATop,
+                    ),
+                    child: Image.asset('assets/icon/SneakFlix.png',
+                      fit: BoxFit.cover,
+                      width: 100,
+                      height: 100,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 16), // Separación entre imagen y detalles
               Expanded(
@@ -48,8 +60,8 @@ class _CardMovieState extends State<CardMovie> {
                   children: [
                     Text(
                       widget.category.name,
-                      style: const TextStyle(
-                        color: Colors.black,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.4),
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -64,10 +76,10 @@ class _CardMovieState extends State<CardMovie> {
                           onTap: () {
                             Tools.launchURL(widget.category.url);
                           },
-                          child: const Icon(
+                          child: Icon(
                             Icons.open_in_new,
-                            color: Colors.black,
-                            size: 24,
+                            color: Colors.white.withOpacity(0.4),
+                            size: 20,
                           ),
                         ),
                         InkWell(
@@ -78,18 +90,18 @@ class _CardMovieState extends State<CardMovie> {
                             widget.category.favorite
                                 ? Icons.favorite
                                 : Icons.favorite_border,
-                            color: Colors.black,
-                            size: 24,
+                            color: Colors.white.withOpacity(0.4),
+                            size: 20,
                           ),
                         ),
-                        if (widget.category.dependencia == 'home') ...[
+                        if (Tools.actualViewName == 'home' && widget.category.dependencia == 'home') ...[
                           InkWell(
                             onTap: () =>
                                 widget.onCategoriaSelected(widget.category),
-                            child: const Icon(
+                            child: Icon(
                               Icons.info_outline,
-                              color: Colors.black,
-                              size: 24,
+                              color: Colors.white.withOpacity(0.4),
+                              size: 20,
                             ),
                           ),
                         ],
@@ -101,109 +113,6 @@ class _CardMovieState extends State<CardMovie> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-
-
-
-
-
-
-class __CardMovieState extends State<CardMovie> {
-  void _toggleFavorite() {
-    widget.category.favorite = !widget.category.favorite;
-    Tools.escribirEnArchivo(Tools.categories);
-    setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          InkWell(
-            onTap: () {
-              Tools.launchURL(widget.category.url);
-            },
-            child: Image(
-              image: AssetImage(widget.category.imageUrl),
-              fit: BoxFit.cover,
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              color: Colors.black.withOpacity(0.7),
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.category.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      InkWell(
-                        onTap: () {
-                          Tools.launchURL(widget.category.url);
-                        },
-                        child: const Icon(
-                          Icons.open_in_new,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () {
-                          _toggleFavorite();
-                        },
-                        child: Icon(
-                          widget.category.favorite
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                      if (widget.category.dependencia == 'home') ...[
-                        InkWell(
-                          onTap: () =>
-                              widget.onCategoriaSelected(widget.category),
-                          child: const Icon(
-                            Icons.info_outline,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          )
-        ],
       ),
     );
   }

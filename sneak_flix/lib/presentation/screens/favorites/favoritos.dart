@@ -19,6 +19,7 @@ class _FavoritosViewState extends State<FavoritosView> {
   void initState() {
     super.initState();
     Tools.strFilter = "";
+    Tools.actualViewName = "favoritos";
     filteredCategoriesNotifier = ValueNotifier(Tools.actualViewList);
   }
 
@@ -98,14 +99,7 @@ class _FavoritosViewState extends State<FavoritosView> {
                             child: ValueListenableBuilder<List<CategoryModel>>(
                               valueListenable: filteredCategoriesNotifier,
                               builder: (context, filteredCategories, child) {
-                                return GridView.builder(
-                                    gridDelegate:
-                                        const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 1,
-                                      childAspectRatio: 2.0,
-                                      crossAxisSpacing: 10,
-                                      mainAxisSpacing: 10,
-                                    ),
+                                return ListView.builder(
                                     padding: const EdgeInsets.all(5),
                                     itemCount: Tools.actualViewList.length,
                                     itemBuilder: (context, index) {

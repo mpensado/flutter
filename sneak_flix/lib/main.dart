@@ -19,21 +19,21 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.dark,
           seedColor: Colors.red,
         ),
-        textTheme: TextTheme(
-          headlineLarge: const TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-          bodyLarge: const TextStyle(
-            fontSize: 18,
-            color: Colors.white,
-          ),
-          bodyMedium: TextStyle(
-            fontSize: 16,
-            color: Colors.grey[400],
-          ),
-        ),
+        // textTheme: TextTheme(
+        //   headlineLarge: const TextStyle(
+        //     fontSize: 32,
+        //     fontWeight: FontWeight.bold,
+        //     color: Colors.white,
+        //   ),
+        //   bodyLarge: const TextStyle(
+        //     fontSize: 18,
+        //     color: Colors.white,
+        //   ),
+        //   bodyMedium: TextStyle(
+        //     fontSize: 16,
+        //     color: Colors.grey[400],
+        //   ),
+        // ),
       ),
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark,

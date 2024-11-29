@@ -19,6 +19,7 @@ class _HomeViewState extends State<HomeView> {
   void initState() {
     super.initState();
     Tools.actualName = "home";
+    Tools.actualViewName = "home";
     Tools.strFilter = "";
     filteredCategoriesNotifier = ValueNotifier(Tools.actualViewList);
   }
@@ -62,13 +63,14 @@ class _HomeViewState extends State<HomeView> {
                   print("Error: $snapshot.error");
                   return Text("Error: ${snapshot.error}");
                 }
-                //if (Tools.actualViewList.isNotEmpty) {
                   return MaterialApp(
                     debugShowCheckedModeBanner: false,
                     home: Scaffold(
                         backgroundColor: Theme.of(context).colorScheme.surface,
                         appBar: Tools.actualName != 'home'
                             ? AppBar(
+                                backgroundColor: Colors.white.withOpacity(0.1),
+                                foregroundColor: Colors.white.withOpacity(0.5),
                                 title: Text(Tools.actualName),
                                 leading: IconButton(
                                   icon: const Icon(Icons.arrow_back),
@@ -99,16 +101,9 @@ class _HomeViewState extends State<HomeView> {
                             ),
                             Expanded(
                             child: ValueListenableBuilder<List<CategoryModel>>(
-                              valueListenable: filteredCategoriesNotifier,
+                                      valueListenable: filteredCategoriesNotifier,
                               builder: (context, filteredCategories, child) {
-                                return GridView.builder(
-                                    gridDelegate:
-                                        const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 1,
-                                      childAspectRatio: 2.0,
-                                      crossAxisSpacing: 10,
-                                      mainAxisSpacing: 10,
-                                    ),
+                                return ListView.builder(
                                     padding: const EdgeInsets.all(5),
                                     itemCount: Tools.actualViewList.length,
                                     itemBuilder: (context, index) {

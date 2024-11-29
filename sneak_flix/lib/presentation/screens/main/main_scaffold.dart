@@ -24,7 +24,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   final List<Widget> _vistas = [
     const HomeView(),
     const FavoritosView(),
-    const Imdb(),
+    const ImDb(),
   ];
 
   String get _fechaActual {

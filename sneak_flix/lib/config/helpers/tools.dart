@@ -10,6 +10,7 @@ class Tools {
   static List<CategoryModel> categories = [];
   static List<CategoryModel> actualViewList = [];
   static String actualName = "home";
+  static String actualViewName = "home";
   static String strFilter = "";
 
   static Future<void> getCategories() async {
