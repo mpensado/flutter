@@ -1,0 +1,24 @@
+name: wifi_repeater_app
+description: Aplicación repetidor WiFi para Android
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  cupertino_icons: ^1.0.8
+  flutter:
+    sdk: flutter
+  network_info_plus: ^6.1.2
+  permission_handler: ^11.3.1
+  wifi_iot: ^0.3.19+1
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
