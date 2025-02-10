@@ -32,9 +32,10 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   @override
   void initState() {
     super.initState();
@@ -89,54 +90,123 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _showAddWordDialog(BuildContext context) {
     final wordController = TextEditingController();
     final translationController = TextEditingController();
+    bool isAutoTranslating = true; // Estado para la auto-traducción
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Agregar Nueva Palabra'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: wordController,
-              decoration: const InputDecoration(
-                labelText: 'Palabra en Inglés',
-              ),
+      builder: (context) => StatefulBuilder(
+        // Usamos StatefulBuilder para el setState dentro del diálogo
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Agregar Nueva Palabra'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: wordController,
+                  decoration: const InputDecoration(
+                    labelText: 'Palabra en Inglés',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Focus(
+                  // Widget Focus para detectar cuando el TextField de traducción tiene el foco
+                  onFocusChange: (hasFocus) async {
+                    // Callback cuando cambia el foco
+                    if (hasFocus &&
+                        isAutoTranslating && // Solo traducir si auto-traducción está activada
+                        wordController.text.isNotEmpty) {
+                      // Y si el campo de palabra en inglés no está vacío
+                      try {
+                        final translatedText =
+                            await TranslationService.translate(
+                                // Llamamos al servicio de traducción
+                                text: wordController.text,
+                                from: 'en',
+                                to: 'es');
+                        translationController.text =
+                            translatedText; // Establecemos el texto traducido en el TextField de traducción
+                        setState(
+                            () {}); // Actualizamos el estado del diálogo para que se refleje la traducción
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Error al traducir. Intente nuevamente.'),
+                            ),
+                          );
+                        }
+                      }
+                    }
+                  },
+                  child: TextField(
+                    controller: translationController,
+                    decoration: InputDecoration(
+                      labelText: 'Traducción',
+                      suffixIcon: IconButton(
+                        // Icono para activar/desactivar la auto-traducción
+                        icon: Icon(
+                          isAutoTranslating
+                              ? Icons.sync
+                              : Icons
+                                  .sync_disabled, // Icono cambia según el estado
+                          color: isAutoTranslating
+                              ? Colors.green
+                              : Colors
+                                  .red, // Color del icono cambia según el estado
+                        ),
+                        tooltip: isAutoTranslating
+                            ? 'Traducción automática activada'
+                            : 'Traducción automática desactivada',
+                        onPressed: () {
+                          setState(() {
+                            // Cambiamos el estado de auto-traducción al presionar el icono
+                            isAutoTranslating = !isAutoTranslating;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: translationController,
-              decoration: const InputDecoration(
-                labelText: 'Traducción',
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (wordController.text.isNotEmpty && 
-                  translationController.text.isNotEmpty) {
-                final word = Word(
-                  word: wordController.text,
-                  translation: translationController.text,
-                  createdAt: DateTime.now(),
-                );
-                await WordRepository.insertWord(word);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  // Actualizar la lista de palabras
-                  setState(() {});
-                }
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
+              TextButton(
+                onPressed: () async {
+                  if (wordController.text.isNotEmpty &&
+                      translationController.text.isNotEmpty) {
+                    final word = Word(
+                      word: wordController.text,
+                      translation: translationController.text,
+                      createdAt: DateTime.now(),
+                    );
+                    await WordRepository.insertWord(word);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      final wordTabState =
+                          context.findAncestorStateOfType<_WordsTabState>();
+                      if (wordTabState != null) {
+                        wordTabState._loadWords();
+                      }
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Por favor complete todos los campos'),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Guardar'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -203,99 +273,6 @@ class _WordsTabState extends State<WordsTab> {
       ],
     );
   }
-}
-
-// En la clase HomePage, modificamos el método _showAddWordDialog
-// Modificación del diálogo de agregar palabra
-void _showAddWordDialog(BuildContext context) {
-  final wordController = TextEditingController();
-  final translationController = TextEditingController();
-  bool isAutoTranslating = true;
-
-  showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: const Text('Agregar Nueva Palabra'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: wordController,
-              decoration: const InputDecoration(
-                labelText: 'Palabra en Inglés',
-              ),
-              onChanged: (value) async {
-                print('Traduccion de $value.');
-                if (isAutoTranslating) {
-                  try {
-                    final translatedText = await TranslationService.translate(
-                      text: value,
-                      from: 'en',
-                      to: 'es'
-                    );
-                    print('Traduccion $translatedText');
-                    translationController.text = translatedText;
-                    setState(() {});
-                  } catch (e) {
-                    print('Error en traducción automática: $e');
-                  }
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: translationController,
-              decoration: InputDecoration(
-                labelText: 'Traducción',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    isAutoTranslating ? Icons.sync : Icons.sync_disabled,
-                    color: isAutoTranslating ? Colors.green : Colors.red,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      isAutoTranslating = !isAutoTranslating;
-                    });
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (wordController.text.isNotEmpty && 
-                  translationController.text.isNotEmpty) {
-                final word = Word(
-                  word: wordController.text,
-                  translation: translationController.text,
-                  createdAt: DateTime.now(),
-                );
-                await WordRepository.insertWord(word);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  
-                  final wordTabState = context
-                      .findAncestorStateOfType<_WordsTabState>();
-                  
-                  if (wordTabState != null) {
-                    wordTabState._loadWords();
-                  }
-                }
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class WordCard extends StatelessWidget {
@@ -493,8 +470,8 @@ class Word {
       categoryId: map['category_id'],
       notes: map['notes'],
       createdAt: DateTime.parse(map['created_at']),
-      lastPractice: map['last_practice'] != null 
-          ? DateTime.parse(map['last_practice']) 
+      lastPractice: map['last_practice'] != null
+          ? DateTime.parse(map['last_practice'])
           : null,
     );
   }
@@ -566,7 +543,7 @@ class TextToSpeechService {
   static Future<FlutterTts> _getInstance() async {
     if (_flutterTts == null) {
       _flutterTts = FlutterTts();
-      
+
       try {
         // Intentar configurar opciones básicas
         await _flutterTts!.setLanguage('en-US');
@@ -604,22 +581,14 @@ class TextToSpeechService {
 class TranslationService {
   static final GoogleTranslator _translator = GoogleTranslator();
 
-  // Método para traducir texto
-  static Future<String> translate({
-    required String text, 
-    String from = 'en', 
-    String to = 'es'
-  }) async {
+  static Future<String> translate(
+      {required String text, String from = 'en', String to = 'es'}) async {
     try {
-      Translation translation = await _translator.translate(
-        text, 
-        from: from, 
-        to: to
-      );
+      Translation translation =
+          await _translator.translate(text, from: from, to: to);
       return translation.text;
     } catch (e) {
-      print('Error en traducción: $e');
-      return text; // Devolver texto original en caso de error
+      return text; // En caso de error, retorna el mismo texto sin traducir
     }
   }
 }
