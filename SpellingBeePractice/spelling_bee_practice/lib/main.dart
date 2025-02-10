@@ -30,11 +30,32 @@ class HomePage extends StatefulWidget {
 
   @override
   State<HomePage> createState() => _HomePageState();
+
+  static _HomePageState of(BuildContext context) =>
+      context.findAncestorStateOfType<_HomePageState>()!;
 }
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+
+  String _spelling(String word) {
+    String letterSeparated = '';
+    List<String> words = word.split(' '); // Separar por espacios para palabras compuestas
+    for (int i = 0; i < words.length; i++) {
+      String currentWord = words[i];
+      for (int j = 0; j < currentWord.length; j++) {
+        letterSeparated += currentWord[j];
+        if (j < currentWord.length - 1) {
+          letterSeparated += ','; // Coma entre letras
+        }
+      }
+      if (i < words.length - 1) {
+        letterSeparated += ',,'; // Doble coma entre palabras compuestas
+      }
+    }
+    return letterSeparated;
+  }
 
   @override
   void initState() {
@@ -78,27 +99,26 @@ class _HomePageState extends State<HomePage>
           StatsTab(),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddWordDialog(context);
-        },
-        child: const Icon(Icons.add),
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () {
+      //     _showAddWordDialog(context);
+      //   },
+      //   child: const Icon(Icons.add),
+      // ),
     );
   }
 
-  void _showAddWordDialog(BuildContext context) {
+  void _showAddWordDialog(BuildContext context, VoidCallback onWordAdded) {
     final wordController = TextEditingController();
     final translationController = TextEditingController();
-    bool isAutoTranslating = true; // Estado para la auto-traducción
+    bool isAutoTranslating = true;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        // Usamos StatefulBuilder para el setState dentro del diálogo
         builder: (context, setState) {
           return AlertDialog(
-            title: const Text('Agregar Nueva Palabra'),
+            title: const Text('Nueva Palabra'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -110,24 +130,18 @@ class _HomePageState extends State<HomePage>
                 ),
                 const SizedBox(height: 8),
                 Focus(
-                  // Widget Focus para detectar cuando el TextField de traducción tiene el foco
                   onFocusChange: (hasFocus) async {
-                    // Callback cuando cambia el foco
                     if (hasFocus &&
-                        isAutoTranslating && // Solo traducir si auto-traducción está activada
+                        isAutoTranslating &&
                         wordController.text.isNotEmpty) {
-                      // Y si el campo de palabra en inglés no está vacío
                       try {
                         final translatedText =
                             await TranslationService.translate(
-                                // Llamamos al servicio de traducción
                                 text: wordController.text,
                                 from: 'en',
                                 to: 'es');
-                        translationController.text =
-                            translatedText; // Establecemos el texto traducido en el TextField de traducción
-                        setState(
-                            () {}); // Actualizamos el estado del diálogo para que se refleje la traducción
+                        translationController.text = translatedText;
+                        setState(() {});
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -145,23 +159,15 @@ class _HomePageState extends State<HomePage>
                     decoration: InputDecoration(
                       labelText: 'Traducción',
                       suffixIcon: IconButton(
-                        // Icono para activar/desactivar la auto-traducción
                         icon: Icon(
-                          isAutoTranslating
-                              ? Icons.sync
-                              : Icons
-                                  .sync_disabled, // Icono cambia según el estado
-                          color: isAutoTranslating
-                              ? Colors.green
-                              : Colors
-                                  .red, // Color del icono cambia según el estado
+                          isAutoTranslating ? Icons.sync : Icons.sync_disabled,
+                          color: isAutoTranslating ? Colors.green : Colors.red,
                         ),
                         tooltip: isAutoTranslating
                             ? 'Traducción automática activada'
                             : 'Traducción automática desactivada',
                         onPressed: () {
                           setState(() {
-                            // Cambiamos el estado de auto-traducción al presionar el icono
                             isAutoTranslating = !isAutoTranslating;
                           });
                         },
@@ -183,16 +189,13 @@ class _HomePageState extends State<HomePage>
                     final word = Word(
                       word: wordController.text,
                       translation: translationController.text,
+                      spelling: wordController.text + "." + _spelling(wordController.text) + "." + wordController.text,
                       createdAt: DateTime.now(),
                     );
                     await WordRepository.insertWord(word);
                     if (context.mounted) {
                       Navigator.pop(context);
-                      final wordTabState =
-                          context.findAncestorStateOfType<_WordsTabState>();
-                      if (wordTabState != null) {
-                        wordTabState._loadWords();
-                      }
+                      onWordAdded();
                     }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -230,7 +233,9 @@ class _WordsTabState extends State<WordsTab> {
   }
 
   Future<void> _loadWords() async {
+    print('Cargando palabras en _WordsTabState');
     if (searchQuery.isEmpty) {
+      print('Cargando TODAS las palabras');
       words = await WordRepository.getAllWords();
     } else {
       words = await WordRepository.searchWords(searchQuery);
@@ -240,41 +245,48 @@ class _WordsTabState extends State<WordsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: SearchBar(
-            hintText: 'Buscar palabra...',
-            leading: const Icon(Icons.search),
-            onChanged: (value) {
-              searchQuery = value;
-              _loadWords();
-            },
-          ),
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _loadWords,
-            child: ListView.builder(
-              itemCount: words.length,
-              itemBuilder: (context, index) {
-                return WordCard(
-                  word: words[index],
-                  onDelete: () async {
-                    await WordRepository.deleteWord(words[index].id!);
-                    _loadWords();
-                  },
-                );
+    return Scaffold( // Envolvemos el Column con Scaffold para el FAB
+      floatingActionButton: FloatingActionButton( // FAB AHORA en WordsTab
+        onPressed: () {
+          (HomePage.of(context) as _HomePageState)._showAddWordDialog(context, _loadWords);
+        },
+        child: const Icon(Icons.add),
+      ),
+      body: Column( // Column ahora como body del Scaffold
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: SearchBar(
+              hintText: 'Buscar palabra...',
+              leading: const Icon(Icons.search),
+              onChanged: (value) {
+                searchQuery = value;
+                _loadWords();
               },
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadWords,
+              child: ListView.builder(
+                itemCount: words.length,
+                itemBuilder: (context, index) {
+                  return WordCard(
+                    word: words[index],
+                    onDelete: () async {
+                      await WordRepository.deleteWord(words[index].id!);
+                      _loadWords();
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
-
 class WordCard extends StatelessWidget {
   final Word word;
   final VoidCallback onDelete;
@@ -295,15 +307,30 @@ class WordCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // mainAxisAlignment: MainAxisAlignment.spaceBetween, // Ya no es necesario spaceBetween aquí
               children: [
-                Text(
-                  word.word,
-                  style: Theme.of(context).textTheme.headlineSmall,
+                Expanded( // Usamos Expanded para que el Text ocupe todo el espacio posible a la izquierda
+                  child: Text(
+                    word.word,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.start, // Alineamos el texto a la izquierda dentro del espacio Expanded
+                  ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: onDelete,
+                Row( // Row para agrupar los iconos a la derecha
+                  mainAxisSize: MainAxisSize.min, // Para que el Row de iconos solo ocupe el espacio necesario
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () {
+                        // TODO: Implementar configuración
+                      },
+                    ),
+                    const SizedBox(width: 8), // Añadimos un SizedBox para un pequeño espacio entre iconos
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: onDelete,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -325,10 +352,11 @@ class WordCard extends StatelessWidget {
                 ),
                 ElevatedButton.icon(
                   onPressed: () {
-                    // TODO: Implementar práctica
+                    // Deletrear la palabra
+                    TextToSpeechService.speak(word.spelling);
                   },
-                  icon: const Icon(Icons.edit),
-                  label: const Text('Practicar'),
+                  icon: const Icon(Icons.volume_up),
+                  label: const Text('Deletrear'),
                 ),
               ],
             ),
@@ -402,6 +430,7 @@ class DBHelper {
             word TEXT NOT NULL,
             translation TEXT NOT NULL,
             pronunciation TEXT,
+            spelling TEXT,
             category_id INTEGER,
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -432,6 +461,7 @@ class Word {
   final String word;
   final String translation;
   final String? pronunciation;
+  final String spelling;
   final int? categoryId;
   final String? notes;
   final DateTime createdAt;
@@ -442,6 +472,7 @@ class Word {
     required this.word,
     required this.translation,
     this.pronunciation,
+    required this.spelling,
     this.categoryId,
     this.notes,
     required this.createdAt,
@@ -454,6 +485,7 @@ class Word {
       'word': word,
       'translation': translation,
       'pronunciation': pronunciation,
+      'spelling': spelling,
       'category_id': categoryId,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
@@ -467,6 +499,7 @@ class Word {
       word: map['word'],
       translation: map['translation'],
       pronunciation: map['pronunciation'],
+      spelling: map['spelling'],
       categoryId: map['category_id'],
       notes: map['notes'],
       createdAt: DateTime.parse(map['created_at']),
