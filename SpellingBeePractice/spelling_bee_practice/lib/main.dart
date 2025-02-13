@@ -184,7 +184,8 @@ class _HomePageState extends State<HomePage>
                     final word = Word(
                       word: wordController.text,
                       translation: translationController.text,
-                      spelling: "${wordController.text}.${_spelling(wordController.text)}.${wordController.text}",
+                      spelling:
+                          "${wordController.text}.${_spelling(wordController.text)}.${wordController.text}",
                       createdAt: DateTime.now(),
                     );
                     await WordRepository.insertWord(word);
@@ -245,8 +246,7 @@ class _WordsTabState extends State<WordsTab> {
       floatingActionButton: FloatingActionButton(
         // FAB AHORA en WordsTab
         onPressed: () {
-          (HomePage.of(context))
-              ._showAddWordDialog(context, _loadWords);
+          (HomePage.of(context))._showAddWordDialog(context, _loadWords);
         },
         child: const Icon(Icons.add),
       ),
@@ -363,6 +363,123 @@ class WordCard extends StatelessWidget {
                   },
                   icon: const Icon(Icons.volume_up),
                   label: const Text('Deletrear'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class WordCardPractice extends StatefulWidget {
+  final Word word;
+  final VoidCallback onDelete;
+  // **MODIFIED: Rename and change type to receive the callback function directly**
+  final void Function(
+          Word word, bool isCorrect, _WordCardPracticeState cardState)
+      onRecordPracticeCallback; // <---- CHANGED TO void Function(...)
+
+  const WordCardPractice({
+    super.key,
+    required this.word,
+    required this.onDelete,
+    required this.onRecordPracticeCallback, // <---- UPDATED CONSTRUCTOR
+  });
+
+  @override
+  State<WordCardPractice> createState() => _WordCardPracticeState();
+}
+
+class _WordCardPracticeState extends State<WordCardPractice> {
+  bool isPracticed = false;
+  bool? practiceResult;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(6.0),
+        side: BorderSide(
+            width: 6.0,
+            color: practiceResult == true
+                ? Colors.green
+                : practiceResult == false
+                    ? Colors.red
+                    : Colors.transparent,
+        ),
+    ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.word.word,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.start,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Buttons in the top right corner
+                    IconButton(
+                      icon: const Icon(Icons.check_circle),
+                      color: Colors.green,
+                      onPressed: () {
+                        print(
+                            "WordCardPractice: Botón ACIERTO presionado para palabra: ${widget.word.word}");
+                        // **MODIFIED: Call the passed callback DIRECTLY**
+                        widget.onRecordPracticeCallback(widget.word, true,
+                            this); // <---- DIRECT CALL to callback
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.cancel),
+                      color: Colors.red,
+                      onPressed: () {
+                        print(
+                            "WordCardPractice: Botón ERROR presionado para palabra: ${widget.word.word}");
+                        // **MODIFIED: Call the passed callback DIRECTLY**
+                        widget.onRecordPracticeCallback(widget.word, false,
+                            this); // <---- DIRECT CALL to callback
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Text(
+              widget.word.translation,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    TextToSpeechService.speak(widget.word.word);
+                  },
+                  icon: const Icon(Icons.volume_up),
+                  label: const Text('Escuchar'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    TextToSpeechService.speak(widget.word.spelling);
+                  },
+                  icon: const Icon(Icons.volume_up),
+                  label: const Text('Deletrear'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: widget.onDelete,
+                  icon: const Icon(Icons.remove),
+                  label: const Text('Quitar'),
                 ),
               ],
             ),
@@ -662,7 +779,8 @@ class PracticeSession {
       'id': id,
       'name': name,
       'created_at': createdAt.toIso8601String(),
-      'word_ids': wordIds.join(','), // Guardamos los IDs como string separado por comas
+      'word_ids':
+          wordIds.join(','), // Guardamos los IDs como string separado por comas
     };
   }
 
@@ -670,11 +788,12 @@ class PracticeSession {
     // Manejar el caso cuando word_ids es una cadena
     List<int> parseWordIds(dynamic wordIdsData) {
       if (wordIdsData is String) {
-        return wordIdsData.split(',')
+        return wordIdsData
+            .split(',')
             .where((str) => str.isNotEmpty)
             .map((str) => int.parse(str.trim()))
             .toList();
-      } 
+      }
       // Si ya es una lista, convertir cada elemento a int
       else if (wordIdsData is List) {
         return wordIdsData.map((e) => int.parse(e.toString())).toList();
@@ -745,27 +864,26 @@ class _PracticeTabState extends State<PracticeTab> {
   int incorrectCount = 0;
 
   // Modificar el método initState en PracticeTab para cargar los datos de ejemplo
-@override
-void initState() {
-  super.initState();
-  _initializeData();
-}
-
-Future<void> _initializeData() async {
-  // Verificar si ya existen datos
-  final db = await DBHelper.database;
-  final wordCount = Sqflite.firstIntValue(
-    await db.rawQuery('SELECT COUNT(*) FROM ${DBHelper.tableWords}')
-  );
-
-  // Si no hay datos, cargar los datos de ejemplo
-  if (wordCount == 0) {
-    await loadSampleData();
+  @override
+  void initState() {
+    super.initState();
+    _initializeData();
   }
-  
-  // Cargar las sesiones
-  await _loadSessions();
-}
+
+  Future<void> _initializeData() async {
+    // Verificar si ya existen datos
+    final db = await DBHelper.database;
+    final wordCount = Sqflite.firstIntValue(
+        await db.rawQuery('SELECT COUNT(*) FROM ${DBHelper.tableWords}'));
+
+    // Si no hay datos, cargar los datos de ejemplo
+    if (wordCount == 0) {
+      await loadSampleData();
+    }
+
+    // Cargar las sesiones
+    await _loadSessions();
+  }
 
   Future<void> _loadSessions() async {
     // Cargar las sesiones desde la base de datos
@@ -783,15 +901,18 @@ Future<void> _initializeData() async {
       List<Word?> possibleWords = await Future.wait(
         selectedSession!.wordIds.map((id) async {
           final db = await DBHelper.database;
-          print('Cargando palabra con ID: $id'); // Añadido log ANTES de la query
+          print(
+              'Cargando palabra con ID: $id'); // Añadido log ANTES de la query
           final List<Map<String, dynamic>> maps = await db.query(
             DBHelper.tableWords,
             where: 'id = ?',
             whereArgs: [id],
           );
-          print('Resultado de la query para ID $id: $maps'); // Añadido log DESPUÉS de la query
+          print(
+              'Resultado de la query para ID $id: $maps'); // Añadido log DESPUÉS de la query
           if (maps.isEmpty) {
-            print('Error: No se encontró ninguna palabra con ID: $id'); // Log si no se encuentra la palabra
+            print(
+                'Error: No se encontró ninguna palabra con ID: $id'); // Log si no se encuentra la palabra
             // Retorna un Future<Word?> que se completa con null
             return Future<Word?>.value(null);
           }
@@ -799,7 +920,9 @@ Future<void> _initializeData() async {
         }),
       );
       // Filtra los valores nulos de la lista resultingWords y asigna el resultado a words
-      words = possibleWords.whereType<Word>().toList(); // Usa whereType<Word>() para filtrar los null y asegurar List<Word>
+      words = possibleWords
+          .whereType<Word>()
+          .toList(); // Usa whereType<Word>() para filtrar los null y asegurar List<Word>
       setState(() {});
     }
   }
@@ -817,6 +940,8 @@ Future<void> _initializeData() async {
       await db.insert('practice_history', practice.toMap());
 
       setState(() {
+        print(
+            "_recordPractice: setState de PracticeTab -  Correcto: $isCorrect, Aciertos: ${correctCount + (isCorrect ? 1 : 0)}, Errores: ${incorrectCount + (isCorrect ? 0 : 1)}"); // <--- AÑADE ESTE PRINT
         practicedWords.add(word.id!);
         if (isCorrect) {
           correctCount++;
@@ -825,6 +950,20 @@ Future<void> _initializeData() async {
         }
       });
     }
+  }
+
+  // Wrapper para _recordPractice que también actualiza el estado del WordCard
+  void _recordPracticeWrapper(
+      Word word, bool isCorrect, _WordCardPracticeState cardState) {
+    print(
+        "_recordPracticeWrapper:  Palabra: ${word.word}, Correcto: $isCorrect"); // <--- AÑADE ESTE PRINT al INICIO
+    _recordPractice(word, isCorrect);
+    cardState.setState(() {
+      print(
+          "_recordPracticeWrapper: setState de cardState -  Resultado: $isCorrect"); // <--- AÑADE ESTE PRINT dentro del setState
+      cardState.isPracticed = true;
+      cardState.practiceResult = isCorrect;
+    });
   }
 
   void _resetPractice() {
@@ -887,61 +1026,16 @@ Future<void> _initializeData() async {
                 final word = words[index];
                 final bool isPracticed = practicedWords.contains(word.id);
 
-                return Card(
-                  margin: const EdgeInsets.all(8.0),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                word.word,
-                                style:
-                                    Theme.of(context).textTheme.headlineSmall,
-                              ),
-                            ),
-                            if (!isPracticed) ...[
-                              IconButton(
-                                icon: const Icon(Icons.check_circle),
-                                color: Colors.green,
-                                onPressed: () => _recordPractice(word, true),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.cancel),
-                                color: Colors.red,
-                                onPressed: () => _recordPractice(word, false),
-                              ),
-                            ],
-                          ],
-                        ),
-                        Text(
-                          word.translation,
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () =>
-                                  TextToSpeechService.speak(word.word),
-                              icon: const Icon(Icons.volume_up),
-                              label: const Text('Escuchar'),
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () =>
-                                  TextToSpeechService.speak(word.spelling),
-                              icon: const Icon(Icons.volume_up),
-                              label: const Text('Deletrear'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                return WordCardPractice(
+                  // WordCard AHORA ES STATEFULWIDGET
+                  word: word,
+                  onDelete: () async {
+                    await WordRepository.deleteWord(words[index].id!);
+                    _loadSessionWords();
+                  },
+                  // **MODIFIED: Pass _recordPracticeWrapper directly as a callback**
+                  onRecordPracticeCallback:
+                      _recordPracticeWrapper, // <---- PASS _recordPracticeWrapper HERE
                 );
               },
             ),
@@ -1040,19 +1134,22 @@ Future<void> loadSampleData() async {
       'word_id': wordIds[0],
       'session_id': sessionId,
       'is_correct': 1,
-      'practiced_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+      'practiced_at':
+          DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
     },
     {
       'word_id': wordIds[1],
       'session_id': sessionId,
       'is_correct': 1,
-      'practiced_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+      'practiced_at':
+          DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
     },
     {
       'word_id': wordIds[2],
       'session_id': sessionId,
       'is_correct': 0,
-      'practiced_at': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+      'practiced_at':
+          DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
     },
   ];
 
