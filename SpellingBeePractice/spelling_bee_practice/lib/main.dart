@@ -924,15 +924,17 @@ class PracticeTab extends StatefulWidget {
   State<PracticeTab> createState() => _PracticeTabState();
 }
 
-class _PracticeTabState extends State<PracticeTab> {
+class _PracticeTabState extends State<PracticeTab> with AutomaticKeepAliveClientMixin { // <---- AÑADE with AutomaticKeepAliveClientMixin{
   List<Word> words = [];
   List<PracticeSession> sessions = [];
   PracticeSession? selectedSession;
   Set<int> practicedWords = {};
   int correctCount = 0;
   int incorrectCount = 0;
-  int resetCounter =
-      0; // <---- AÑADE ESTA LÍNEA: Contador de reseteo, inicializado a 0
+  int resetCounter = 0;
+
+  @override
+  bool get wantKeepAlive => true; // <---- AÑADE ESTE MÉTODO Y RETORNA true
 
   // Modificar el método initState en PracticeTab para cargar los datos de ejemplo
   @override
@@ -960,15 +962,24 @@ class _PracticeTabState extends State<PracticeTab> {
 
   Future<void> _loadSessions() async {
     // Cargar las sesiones desde la base de datos
-    final dbHelper =
-        DBHelper(); // Create an instance (if you don't have one already in scope)
+    final dbHelper = DBHelper();
     final db = await dbHelper.database;
     final List<Map<String, dynamic>> maps = await db.query('practice_sessions');
+    final List<PracticeSession> loadedSessions = List.generate(
+        maps.length, (i) => PracticeSession.fromMap(maps[i]));
+
     setState(() {
-      sessions =
-          List.generate(maps.length, (i) => PracticeSession.fromMap(maps[i]));
+        sessions = loadedSessions;
+
+        // **SELECCIONAR AUTOMÁTICAMENTE LA PRIMERA SESIÓN SI HAY ALGUNA**
+        if (sessions.isNotEmpty) {
+            selectedSession = sessions.first; // Selecciona la primera sesión
+            _loadSessionWords(); // Carga las palabras de la sesión seleccionada inmediatamente
+        } else {
+            selectedSession = null; // Si no hay sesiones, selectedSession queda en null
+        }
     });
-  }
+}
 
   Future<void> _loadSessionWords() async {
     if (selectedSession != null) {
