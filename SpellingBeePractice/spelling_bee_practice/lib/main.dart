@@ -376,16 +376,21 @@ class WordCard extends StatelessWidget {
 class WordCardPractice extends StatefulWidget {
   final Word word;
   final VoidCallback onDelete;
-  // **MODIFIED: Rename and change type to receive the callback function directly**
   final void Function(
           Word word, bool isCorrect, _WordCardPracticeState cardState)
-      onRecordPracticeCallback; // <---- CHANGED TO void Function(...)
+      onRecordPracticeCallback;
+  final Set<int> practicedWords;
+  final PracticeSession? selectedSession; // <---- ASEGÚRATE DE QUE ESTÉ AÑADIDO
+  final int resetCounter; // <---- AÑADE ESTA LÍNEA:  Propiedad resetCounter
 
   const WordCardPractice({
     super.key,
     required this.word,
     required this.onDelete,
-    required this.onRecordPracticeCallback, // <---- UPDATED CONSTRUCTOR
+    required this.onRecordPracticeCallback,
+    required this.practicedWords,
+    this.selectedSession, // <---- ASEGÚRATE DE QUE ESTÉ EN EL CONSTRUCTOR
+    required this.resetCounter, // <---- ASEGÚRATE DE AÑADIR resetCounter AQUÍ
   });
 
   @override
@@ -397,19 +402,82 @@ class _WordCardPracticeState extends State<WordCardPractice> {
   bool? practiceResult;
 
   @override
+  void initState() {
+    print(
+        "initState de _WordCardPracticeState ejecutándose para palabra: ${widget.word.word}"); // <---- AÑADE ESTE PRINT
+    super.initState();
+    isPracticed = widget.practicedWords.contains(widget.word.id);
+
+    // **INICIALIZAR practiceResult BASADO EN practicedWords (y si es practicada)**
+    if (isPracticed) {
+      _loadLastPracticeResult(); // <---- LLAMAR a nueva función para cargar el último resultado
+    } else {
+      practiceResult =
+          null; // Si no practicada, practiceResult es null inicialmente
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant WordCardPractice oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // **COMPROBAR SI resetCounter HA CAMBIADO**
+    if (widget.resetCounter != oldWidget.resetCounter) {
+      print(
+          "didUpdateWidget de _WordCardPracticeState - resetCounter ha cambiado. Reseteando estado.");
+      setState(() {
+        isPracticed = false; // Forzar isPracticed a false
+        practiceResult = null; // Forzar practiceResult a null
+      });
+    }
+  }
+
+  Future<void> _loadLastPracticeResult() async {
+    // Función para cargar el último resultado de práctica desde la base de datos
+    final dbHelper =
+        DBHelper(); // Create an instance (if you don't have one already in scope)
+    final db = await dbHelper.database; // Correct instance access
+    final List<Map<String, dynamic>> history = await db.query(
+      'practice_history',
+      orderBy:
+          'practiced_at DESC', // Ordenar por fecha descendente para obtener el más reciente primero
+      where: 'word_Id = ? AND session_Id = ?',
+      whereArgs: [
+        widget.word.id,
+        widget.selectedSession?.id
+      ], // Filtrar por palabra y sesión actual
+      limit: 1, // Limitar a 1 resultado (el más reciente)
+    );
+
+    if (history.isNotEmpty) {
+      final lastPractice = PracticeHistory.fromMap(history.first);
+      setState(() {
+        practiceResult = lastPractice
+            .isCorrect; // Establecer practiceResult con el resultado del historial
+      });
+    } else {
+      practiceResult =
+          null; // Si no hay historial, practiceResult es null (aunque isPracticed sea true, caso raro)
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    print(
+        "_WordCardPracticeState - build: Palabra: ${widget.word.word}, isPracticed: $isPracticed, practiceResult: $practiceResult"); // <---- AÑADIR ESTE PRINT
     return Card(
+      margin: const EdgeInsets.all(8.0),
+      elevation: 1.0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(6.0),
+        borderRadius: BorderRadius.circular(4.0),
         side: BorderSide(
-            width: 6.0,
-            color: practiceResult == true
-                ? Colors.green
-                : practiceResult == false
-                    ? Colors.red
-                    : Colors.transparent,
+          width: 2.0,
+          color: practiceResult == true
+              ? Colors.green
+              : practiceResult == false
+                  ? Colors.red
+                  : Colors.transparent,
         ),
-    ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -427,29 +495,24 @@ class _WordCardPracticeState extends State<WordCardPractice> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Buttons in the top right corner
-                    IconButton(
-                      icon: const Icon(Icons.check_circle),
-                      color: Colors.green,
-                      onPressed: () {
-                        print(
-                            "WordCardPractice: Botón ACIERTO presionado para palabra: ${widget.word.word}");
-                        // **MODIFIED: Call the passed callback DIRECTLY**
-                        widget.onRecordPracticeCallback(widget.word, true,
-                            this); // <---- DIRECT CALL to callback
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.cancel),
-                      color: Colors.red,
-                      onPressed: () {
-                        print(
-                            "WordCardPractice: Botón ERROR presionado para palabra: ${widget.word.word}");
-                        // **MODIFIED: Call the passed callback DIRECTLY**
-                        widget.onRecordPracticeCallback(widget.word, false,
-                            this); // <---- DIRECT CALL to callback
-                      },
-                    ),
+                    if (!isPracticed) ...[
+                      IconButton(
+                        icon: const Icon(Icons.check_circle),
+                        color: Colors.green,
+                        onPressed: () {
+                          widget.onRecordPracticeCallback(
+                              widget.word, true, this);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.cancel),
+                        color: Colors.red,
+                        onPressed: () {
+                          widget.onRecordPracticeCallback(
+                              widget.word, false, this);
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -501,33 +564,30 @@ class StatsTab extends StatelessWidget {
   }
 }
 
-// db_helper.dart
-
 class DBHelper {
   static Database? _database;
-  static const String dbName = 'dictionary.db';
 
   // Nombres de tablas
-  static const String tableWords = 'words';
-  static const String tablePractice = 'practice';
-  static const String tableCategories = 'categories';
+  String tableWords = 'words';
+  String tablePractice = 'practice';
+  String tableCategories = 'categories';
 
-  // Obtener instancia de base de datos
-  static Future<Database> get database async {
+  Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await initDB();
+
+    _database = await _initDatabase();
     return _database!;
   }
 
   // Inicializar base de datos
-  static Future<Database> initDB() async {
-    String path = join(await getDatabasesPath(), dbName);
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: (Database db, int version) async {
-        // Crear tabla de categorías
-        await db.execute('''
+  Future<Database> _initDatabase() async {
+    String path = join(await getDatabasesPath(), 'word_trainer_database.db');
+    return await openDatabase(path, version: 1, onCreate: _onCreate);
+  }
+
+  Future<void> _onCreate(Database db, int version) async {
+    // Crear tabla de categorías
+    await db.execute('''
           CREATE TABLE $tableCategories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -535,8 +595,8 @@ class DBHelper {
           )
         ''');
 
-        // Crear tabla de palabras
-        await db.execute('''
+    // Crear tabla de palabras
+    await db.execute('''
           CREATE TABLE $tableWords (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             word TEXT NOT NULL,
@@ -551,8 +611,8 @@ class DBHelper {
           )
         ''');
 
-        // Crear tabla de práctica
-        await db.execute('''
+    // Crear tabla de práctica
+    await db.execute('''
           CREATE TABLE $tablePractice (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             word_id INTEGER,
@@ -563,7 +623,7 @@ class DBHelper {
           )
         ''');
 
-        await db.execute('''
+    await db.execute('''
           CREATE TABLE practice_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -572,7 +632,7 @@ class DBHelper {
           )
         ''');
 
-        await db.execute('''
+    await db.execute('''
           CREATE TABLE practice_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             word_id INTEGER NOT NULL,
@@ -583,12 +643,9 @@ class DBHelper {
             FOREIGN KEY (session_id) REFERENCES practice_sessions (id)
           )
         ''');
-      },
-    );
   }
-}
+} // word_model.dart
 
-// word_model.dart
 class Word {
   final int? id;
   final String word;
@@ -647,22 +704,28 @@ class Word {
 class WordRepository {
   // Insertar nueva palabra
   static Future<int> insertWord(Word word) async {
-    final db = await DBHelper.database;
-    return await db.insert(DBHelper.tableWords, word.toMap());
+    final dbHelper =
+        DBHelper(); // Create an instance (if you don't have one already in scope)
+    final db = await dbHelper.database; // Correct instance access
+    return await db.insert(dbHelper.tableWords, word.toMap());
   }
 
   // Obtener todas las palabras
   static Future<List<Word>> getAllWords() async {
-    final db = await DBHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query(DBHelper.tableWords);
+    final dbHelper =
+        DBHelper(); // Create an instance (if you don't have one already in scope)
+    final db = await dbHelper.database;
+    final List<Map<String, dynamic>> maps = await db.query(dbHelper.tableWords);
     return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
   }
 
   // Buscar palabras
   static Future<List<Word>> searchWords(String query) async {
-    final db = await DBHelper.database;
+    final dbHelper =
+        DBHelper(); // Create an instance (if you don't have one already in scope)
+    final db = await dbHelper.database;
     final List<Map<String, dynamic>> maps = await db.query(
-      DBHelper.tableWords,
+      dbHelper.tableWords,
       where: 'word LIKE ? OR translation LIKE ?',
       whereArgs: ['%$query%', '%$query%'],
     );
@@ -671,9 +734,11 @@ class WordRepository {
 
   // Actualizar palabra
   static Future<int> updateWord(Word word) async {
-    final db = await DBHelper.database;
+    final dbHelper =
+        DBHelper(); // Create an instance (if you don't have one already in scope)
+    final db = await dbHelper.database;
     return await db.update(
-      DBHelper.tableWords,
+      dbHelper.tableWords,
       word.toMap(),
       where: 'id = ?',
       whereArgs: [word.id],
@@ -682,9 +747,11 @@ class WordRepository {
 
   // Eliminar palabra
   static Future<int> deleteWord(int id) async {
-    final db = await DBHelper.database;
+    final dbHelper =
+        DBHelper(); // Create an instance (if you don't have one already in scope)
+    final db = await dbHelper.database;
     return await db.delete(
-      DBHelper.tableWords,
+      dbHelper.tableWords,
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -692,9 +759,11 @@ class WordRepository {
 
   // Actualizar última práctica
   static Future<int> updateLastPractice(int wordId) async {
-    final db = await DBHelper.database;
+    final dbHelper =
+        DBHelper(); // Create an instance (if you don't have one already in scope)
+    final db = await dbHelper.database;
     return await db.update(
-      DBHelper.tableWords,
+      dbHelper.tableWords,
       {'last_practice': DateTime.now().toIso8601String()},
       where: 'id = ?',
       whereArgs: [wordId],
@@ -862,6 +931,8 @@ class _PracticeTabState extends State<PracticeTab> {
   Set<int> practicedWords = {};
   int correctCount = 0;
   int incorrectCount = 0;
+  int resetCounter =
+      0; // <---- AÑADE ESTA LÍNEA: Contador de reseteo, inicializado a 0
 
   // Modificar el método initState en PracticeTab para cargar los datos de ejemplo
   @override
@@ -872,9 +943,11 @@ class _PracticeTabState extends State<PracticeTab> {
 
   Future<void> _initializeData() async {
     // Verificar si ya existen datos
-    final db = await DBHelper.database;
+    final dbHelper =
+        DBHelper(); // Create an instance (if you don't have one already in scope)
+    final db = await dbHelper.database;
     final wordCount = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM ${DBHelper.tableWords}'));
+        await db.rawQuery('SELECT COUNT(*) FROM ${dbHelper.tableWords}'));
 
     // Si no hay datos, cargar los datos de ejemplo
     if (wordCount == 0) {
@@ -887,7 +960,9 @@ class _PracticeTabState extends State<PracticeTab> {
 
   Future<void> _loadSessions() async {
     // Cargar las sesiones desde la base de datos
-    final db = await DBHelper.database;
+    final dbHelper =
+        DBHelper(); // Create an instance (if you don't have one already in scope)
+    final db = await dbHelper.database;
     final List<Map<String, dynamic>> maps = await db.query('practice_sessions');
     setState(() {
       sessions =
@@ -900,11 +975,13 @@ class _PracticeTabState extends State<PracticeTab> {
       // Cambia el tipo de la lista temporalmente para permitir nulos durante el proceso
       List<Word?> possibleWords = await Future.wait(
         selectedSession!.wordIds.map((id) async {
-          final db = await DBHelper.database;
+          final dbHelper =
+              DBHelper(); // Create an instance (if you don't have one already in scope)
+          final db = await dbHelper.database;
           print(
               'Cargando palabra con ID: $id'); // Añadido log ANTES de la query
           final List<Map<String, dynamic>> maps = await db.query(
-            DBHelper.tableWords,
+            dbHelper.tableWords,
             where: 'id = ?',
             whereArgs: [id],
           );
@@ -936,12 +1013,12 @@ class _PracticeTabState extends State<PracticeTab> {
         practicedAt: DateTime.now(),
       );
 
-      final db = await DBHelper.database;
+      final dbHelper =
+          DBHelper(); // Create an instance (if you don't have one already in scope)
+      final db = await dbHelper.database;
       await db.insert('practice_history', practice.toMap());
 
       setState(() {
-        print(
-            "_recordPractice: setState de PracticeTab -  Correcto: $isCorrect, Aciertos: ${correctCount + (isCorrect ? 1 : 0)}, Errores: ${incorrectCount + (isCorrect ? 0 : 1)}"); // <--- AÑADE ESTE PRINT
         practicedWords.add(word.id!);
         if (isCorrect) {
           correctCount++;
@@ -955,23 +1032,28 @@ class _PracticeTabState extends State<PracticeTab> {
   // Wrapper para _recordPractice que también actualiza el estado del WordCard
   void _recordPracticeWrapper(
       Word word, bool isCorrect, _WordCardPracticeState cardState) {
-    print(
-        "_recordPracticeWrapper:  Palabra: ${word.word}, Correcto: $isCorrect"); // <--- AÑADE ESTE PRINT al INICIO
     _recordPractice(word, isCorrect);
     cardState.setState(() {
       print(
-          "_recordPracticeWrapper: setState de cardState -  Resultado: $isCorrect"); // <--- AÑADE ESTE PRINT dentro del setState
-      cardState.isPracticed = true;
+          "_recordPracticeWrapper: setState de cardState -  Resultado: $isCorrect");
       cardState.practiceResult = isCorrect;
+      cardState.isPracticed = true;
+      print(
+          "_recordPracticeWrapper: setState de cardState - isPracticed DESPUÉS de asignar: ${cardState.isPracticed}"); // <---- AÑADIR ESTE PRINT
     });
   }
 
   void _resetPractice() {
     setState(() {
+      print("_resetPractice: setState ejecutándose!"); // <---- AÑADE ESTE PRINT
       practicedWords.clear();
       correctCount = 0;
       incorrectCount = 0;
+      _loadSessionWords();
+      resetCounter++; // <---- AÑADE ESTA LÍNEA: Incrementa el contador de reseteo
     });
+    print(
+        "_resetPractice: Estado de la sesión de práctica y lista de cards reseteados.");
   }
 
   @override
@@ -1007,6 +1089,7 @@ class _PracticeTabState extends State<PracticeTab> {
                   icon: const Icon(Icons.refresh),
                   onPressed: () {
                     _resetPractice();
+                    _loadSessionWords();
                   },
                 ),
               ],
@@ -1027,15 +1110,19 @@ class _PracticeTabState extends State<PracticeTab> {
                 final bool isPracticed = practicedWords.contains(word.id);
 
                 return WordCardPractice(
-                  // WordCard AHORA ES STATEFULWIDGET
+                  key: Key(word.id
+                      .toString()), // <---- AÑADE ESTA LÍNEA: KEY con word.id
                   word: word,
                   onDelete: () async {
                     await WordRepository.deleteWord(words[index].id!);
                     _loadSessionWords();
                   },
-                  // **MODIFIED: Pass _recordPracticeWrapper directly as a callback**
-                  onRecordPracticeCallback:
-                      _recordPracticeWrapper, // <---- PASS _recordPracticeWrapper HERE
+                  onRecordPracticeCallback: _recordPracticeWrapper,
+                  practicedWords: practicedWords,
+                  selectedSession:
+                      selectedSession, // <---- ASEGÚRATE DE QUE ESTÉS PASANDO selectedSession AQUÍ
+                  resetCounter:
+                      resetCounter, // <---- AÑADE ESTA LÍNEA: Pasar resetCounter como propiedad
                 );
               },
             ),
@@ -1048,82 +1135,102 @@ class _PracticeTabState extends State<PracticeTab> {
 
 // Función para cargar datos de ejemplo
 Future<void> loadSampleData() async {
-  final db = await DBHelper.database;
+  final dbHelper =
+      DBHelper(); // Create an instance (if you don't have one already in scope)
+  final db = await dbHelper.database;
 
   // Lista de palabras de ejemplo
   final List<Map<String, dynamic>> sampleWords = [
-    {
-      'word': 'house',
-      'translation': 'casa',
-      'spelling': 'house.h,o,u,s,e.house',
-      'created_at': DateTime.now().toIso8601String(),
-    },
-    {
-      'word': 'book',
-      'translation': 'libro',
-      'spelling': 'book.b,o,o,k.book',
-      'created_at': DateTime.now().toIso8601String(),
-    },
-    {
-      'word': 'car',
-      'translation': 'coche',
-      'spelling': 'car.c,a,r.car',
-      'created_at': DateTime.now().toIso8601String(),
-    },
-    {
-      'word': 'tree',
-      'translation': 'árbol',
-      'spelling': 'tree.t,r,e,e.tree',
-      'created_at': DateTime.now().toIso8601String(),
-    },
-    {
-      'word': 'dog',
-      'translation': 'perro',
-      'spelling': 'dog.d,o,g.dog',
-      'created_at': DateTime.now().toIso8601String(),
-    },
-    {
-      'word': 'cat',
-      'translation': 'gato',
-      'spelling': 'cat.c,a,t.cat',
-      'created_at': DateTime.now().toIso8601String(),
-    },
-    {
-      'word': 'table',
-      'translation': 'mesa',
-      'spelling': 'table.t,a,b,l,e.table',
-      'created_at': DateTime.now().toIso8601String(),
-    },
-    {
-      'word': 'phone',
-      'translation': 'teléfono',
-      'spelling': 'phone.p,h,o,n,e.phone',
-      'created_at': DateTime.now().toIso8601String(),
-    },
-    {
-      'word': 'computer',
-      'translation': 'computadora',
-      'spelling': 'computer.c,o,m,p,u,t,e,r.computer',
-      'created_at': DateTime.now().toIso8601String(),
-    },
-    {
-      'word': 'water',
-      'translation': 'agua',
-      'spelling': 'water.w,a,t,e,r.water',
-      'created_at': DateTime.now().toIso8601String(),
-    },
+    {'word': 'Mangoes', 'translation': 'mangos', 'spelling': 'mangoes.m,a,n,g,o,e,s.mangoes'},
+    {'word': 'Potatoes', 'translation': 'patatas', 'spelling': 'potatoes.p,o,t,a,t,o,e,s.potatoes'},
+    {'word': 'Peaches', 'translation': 'melocotones', 'spelling': 'peaches.p,e,a,c,h,e,s.peaches'},
+    {'word': 'Carrots', 'translation': 'zanahorias', 'spelling': 'carrots.c,a,r,r,o,t,s.carrots'},
+    {'word': 'Tomatoes', 'translation': 'tomates', 'spelling': 'tomatoes.t,o,m,a,t,o,e,s.tomatoes'},
+    {'word': 'Cucumbers', 'translation': 'pepinos', 'spelling': 'cucumbers.c,u,c,u,m,b,e,r,s.cucumbers'},
+    {'word': 'Avocados', 'translation': 'aguacates', 'spelling': 'avocados.a,v,o,c,a,d,o,s.avocados'},
+    {'word': 'Pasta', 'translation': 'pasta', 'spelling': 'pasta.p,a,s,t,a.pasta'},
+    {'word': 'Popcorn', 'translation': 'palomitas de maíz', 'spelling': 'popcorn.p,o,p,c,o,r,n.popcorn'},
+    {'word': 'Tea', 'translation': 'té', 'spelling': 'tea.t,e,a.tea'},
+    {'word': 'Coffee', 'translation': 'café', 'spelling': 'coffee.c,o,f,f,e,e.coffee'},
+    {'word': 'Soda', 'translation': 'gaseosa', 'spelling': 'soda.s,o,d,a.soda'},
+    {'word': 'Beef', 'translation': 'carne de res', 'spelling': 'beef.b,e,e,f.beef'},
+    {'word': 'Chicken', 'translation': 'pollo', 'spelling': 'chicken.c,h,i,c,k,e,n.chicken'},
+    {'word': 'Lemonade', 'translation': 'limonada', 'spelling': 'lemonade.l,e,m,o,n,a,d,e.lemonade'},
+    {'word': 'Rainy', 'translation': 'lluvioso', 'spelling': 'rainy.r,a,i,n,y.rainy'},
+    {'word': 'Windy', 'translation': 'ventoso', 'spelling': 'windy.w,i,n,d,y.windy'},
+    {'word': 'Hot', 'translation': 'caliente', 'spelling': 'hot.h,o,t.hot'},
+    {'word': 'Sunny', 'translation': 'soleado', 'spelling': 'sunny.s,u,n,n,y.sunny'},
+    {'word': 'Cloudy', 'translation': 'nublado', 'spelling': 'cloudy.c,l,o,u,d,y.cloudy'},
+    {'word': 'Cold', 'translation': 'frío', 'spelling': 'cold.c,o,l,d.cold'},
+    {'word': 'Snowy', 'translation': 'nevado', 'spelling': 'snowy.s,n,o,w,y.snowy'},
+    {'word': 'Roller skate', 'translation': 'patinar', 'spelling': 'roller skate.r,o,l,l,e,r, ,s,k,a,t,e.roller skate'},
+    {'word': 'Surf', 'translation': 'surfear', 'spelling': 'surf.s,u,r,f.surf'},
+    {'word': 'Dive', 'translation': 'bucear', 'spelling': 'dive.d,i,v,e.dive'},
+    {'word': 'Ski', 'translation': 'esquiar', 'spelling': 'ski.s,k,i.ski'},
+    {'word': 'Hike', 'translation': 'senderismo', 'spelling': 'hike.h,i,k,e.hike'},
+    {'word': 'University', 'translation': 'Universidad', 'spelling': 'University.U,n,i,v,e,r,s,i,t,y.University'},
+    {'word': 'Supermarket', 'translation': 'Supermercado', 'spelling': 'Supermarket.S,u,p,e,r,m,a,r,k,e,t.Supermarket'},
+    {'word': 'Snack', 'translation': 'bocadillo', 'spelling': 'Snack.S,n,a,c,k.Snack'},
+    {'word': 'Nap', 'translation': 'siesta', 'spelling': 'nap.n,a,p.nap'},
+    {'word': 'Internet', 'translation': 'internet', 'spelling': 'internet.i,n,t,e,r,n,e,t.internet'},
+    {'word': 'Shark', 'translation': 'tiburón', 'spelling': 'shark.s,h,a,r,k.shark'},
+    {'word': 'Fish', 'translation': 'pez', 'spelling': 'fish.f,i,s,h.fish'},
+    {'word': 'Shop', 'translation': 'tienda', 'spelling': 'shop.s,h,o,p.shop'},
+    {'word': 'Brush', 'translation': 'cepillo', 'spelling': 'brush.b,r,u,s,h.brush'},
+    {'word': 'Suitcase', 'translation': 'maleta', 'spelling': 'suitcase.s,u,i,t,c,a,s,e.suitcase'},
+    {'word': 'Catch', 'translation': 'atrapar', 'spelling': 'catch.c,a,t,c,h.catch'},
+    {'word': 'Chair', 'translation': 'silla', 'spelling': 'chair.c,h,a,i,r.chair'},
+    {'word': 'Scratch', 'translation': 'rasguño', 'spelling': 'scratch.s,c,r,a,t,c,h.scratch'},
+    {'word': 'Hair', 'translation': 'pelo', 'spelling': 'hair.h,a,i,r.hair'},
+    {'word': 'Shower', 'translation': 'ducha', 'spelling': 'Shower.S,h,o,w,e,r.Shower'},
+    {'word': 'Paramedic', 'translation': 'paramédico', 'spelling': 'paramedic.p,a,r,a,m,e,d,i,c.paramedic'},
+    {'word': 'Face', 'translation': 'cara', 'spelling': 'face.f,a,c,e.face'},
+    {'word': 'Fisherman', 'translation': 'pescador', 'spelling': 'fisherman.f,i,s,h,e,r,m,a,n.fisherman'},
+    {'word': 'Breakfast', 'translation': 'desayuno', 'spelling': 'breakfast.b,r,e,a,k,f,a,s,t.breakfast'},
+    {'word': 'School', 'translation': 'Escuela', 'spelling': 'School.S,c,h,o,o,l.School'},
+    {'word': 'Taxi', 'translation': 'taxi', 'spelling': 'taxi.t,a,x,i.taxi'},
+    {'word': 'Train', 'translation': 'tren', 'spelling': 'train.t,r,a,i,n.train'},
+    {'word': 'Bus', 'translation': 'autobús', 'spelling': 'bus.b,u,s.bus'},
+    {'word': 'Subway', 'translation': 'Metro', 'spelling': 'Subway.S,u,b,w,a,y.Subway'},
+    {'word': 'Walk', 'translation': 'caminar', 'spelling': 'walk.w,a,l,k.walk'},
+    {'word': 'Bicycle', 'translation': 'bicicleta', 'spelling': 'bicycle.b,i,c,y,c,l,e.bicycle'},
+    {'word': 'Art', 'translation': 'arte', 'spelling': 'art.a,r,t.art'},
+    {'word': 'English', 'translation': 'Inglés', 'spelling': 'English.E,n,g,l,i,s,h.English'},
+    {'word': 'Music', 'translation': 'música', 'spelling': 'music.m,u,s,i,c.music'},
+    {'word': 'Math', 'translation': 'matemáticas', 'spelling': 'math.m,a,t,h.math'},
+    {'word': 'Health', 'translation': 'salud', 'spelling': 'health.h,e,a,l,t,h.health'},
+    {'word': 'Science', 'translation': 'ciencia', 'spelling': 'science.s,c,i,e,n,c,e.science'},
+    {'word': 'Gym', 'translation': 'gimnasio', 'spelling': 'gym.g,y,m.gym'},
+    {'word': 'Cafeteria', 'translation': 'cafetería', 'spelling': 'cafeteria.c,a,f,e,t,e,r,i,a.cafeteria'},
+    {'word': 'Classroom', 'translation': 'aula', 'spelling': 'classroom.c,l,a,s,s,r,o,o,m.classroom'},
+    {'word': 'Wave', 'translation': 'ola', 'spelling': 'wave.w,a,v,e.wave'},
+    {'word': 'Pond', 'translation': 'estanque', 'spelling': 'Pond.P,o,n,d.Pond'},
+    {'word': 'Watch', 'translation': 'Reloj', 'spelling': 'Watch.W,a,t,c,h.Watch'},
+    {'word': 'Play', 'translation': 'jugar', 'spelling': 'play.p,l,a,y.play'},
+    {'word': 'Smile', 'translation': 'Sonreír', 'spelling': 'Smile.S,m,i,l,e.Smile'},
+    {'word': 'Juggle', 'translation': 'Malabarismo', 'spelling': 'Juggle.J,u,g,g,l,e.Juggle'},
+    {'word': 'Bounce', 'translation': 'rebotar', 'spelling': 'bounce.b,o,u,n,c,e.bounce'},
+    {'word': 'Push', 'translation': 'Empujar', 'spelling': 'Push.P,u,s,h.Push'},
+    {'word': 'Pull', 'translation': 'Tirar', 'spelling': 'Pull.P,u,l,l.Pull'},
+    {'word': 'Carry', 'translation': 'cargar', 'spelling': 'carry.c,a,r,r,y.carry'},
+    {'word': 'Candy', 'translation': 'caramelo', 'spelling': 'candy.c,a,n,d,y.candy'},
+    {'word': 'Movie', 'translation': 'película', 'spelling': 'movie.m,o,v,i,e.movie'},
+    {'word': 'Turkey', 'translation': 'pavo', 'spelling': 'turkey.t,u,r,k,e,y.turkey'},
+    {'word': 'Roast', 'translation': 'Asado', 'spelling': 'Roast.R,o,a,s,t.Roast'},
+    {'word': 'Bacon', 'translation': 'tocino', 'spelling': 'bacon.b,a,c,o,n.bacon'},
+    {'word': 'Oysters', 'translation': 'ostras', 'spelling': 'oysters.o,y,s,t,e,r,s.oysters'},
+    {'word': 'Shrimp', 'translation': 'camarón', 'spelling': 'shrimp.s,h,r,i,m,p.shrimp'},
   ];
-
   // Insertar palabras y obtener sus IDs
   List<int> wordIds = [];
   for (var wordData in sampleWords) {
-    final id = await db.insert(DBHelper.tableWords, wordData);
+    final id = await db.insert(dbHelper.tableWords, wordData);
     wordIds.add(id);
   }
 
   // Crear una sesión de práctica de ejemplo
   final sessionId = await db.insert('practice_sessions', {
-    'name': 'Vocabulario básico',
+    'name': '3o de Primaria',
     'created_at': DateTime.now().toIso8601String(),
     'word_ids': wordIds.join(','),
   });
