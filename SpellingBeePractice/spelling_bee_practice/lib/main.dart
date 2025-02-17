@@ -799,6 +799,7 @@ class TextToSpeechService {
 
       try {
         // Intentar configurar opciones básicas
+        await _flutterTts!.setEngine('com.google.android.tts');
         await _flutterTts!.setLanguage('en-US');
         await _flutterTts!.setPitch(1.0);
         await _flutterTts!.setSpeechRate(0.5);
@@ -1177,388 +1178,392 @@ Future<void> loadSampleData() async {
     {
       'word': 'Mangoes',
       'translation': 'mangos',
-      'spelling': 'mangoes. m---a---n---g---o---e---s. mangoes'
+      'spelling': 'mangoes---m---a---n---g---o---e---s---mangoes'
     },
     {
       'word': 'Potatoes',
       'translation': 'patatas',
-      'spelling': 'potatoes. p---o---t---a---t---o---e---s. potatoes'
+      'spelling': 'potatoes---p---o---t---a---t---o---e---s---potatoes'
     },
     {
       'word': 'Peaches',
       'translation': 'melocotones',
-      'spelling': 'peaches. p---e---a---c---h---e---s. peaches'
+      'spelling': 'peaches---p---e---a---c---h---e---s---peaches'
     },
     {
       'word': 'Carrots',
       'translation': 'zanahorias',
-      'spelling': 'carrots. c---a---r---r---o---t---s. carrots'
+      'spelling': 'carrots---c---a---r---r---o---t---s---carrots'
     },
     {
       'word': 'Tomatoes',
       'translation': 'tomates',
-      'spelling': 'tomatoes. t---o---m---a---t---o---e---s. tomatoes'
+      'spelling': 'tomatoes---t---o---m---a---t---o---e---s---tomatoes'
     },
     {
       'word': 'Cucumbers',
       'translation': 'pepinos',
-      'spelling': 'cucumbers. c---u---c---u---m---b---e---r---s. cucumbers'
+      'spelling': 'cucumbers---c---u---c---u---m---b---e---r---s---cucumbers'
     },
     {
       'word': 'Avocados',
       'translation': 'aguacates',
-      'spelling': 'avocados. a---v---o---c---a---d---o---s. avocados'
+      'spelling': 'avocados---a---v---o---c---a---d---o---s---avocados'
     },
     {
       'word': 'Pasta',
       'translation': 'pasta',
-      'spelling': 'pasta. p---a---s---t---a. pasta'
+      'spelling': 'pasta---p---a---s---t---a---pasta'
     },
     {
       'word': 'Popcorn',
       'translation': 'palomitas de maíz',
-      'spelling': 'popcorn. p---o---p---c---o---r---n. popcorn'
+      'spelling': 'popcorn---p---o---p---c---o---r---n---popcorn'
     },
-    {'word': 'Tea', 'translation': 'té', 'spelling': 'tea. t---e---a. tea'},
+    {'word': 'Tea', 'translation': 'té', 'spelling': 'tea---t---e---a---tea'},
     {
       'word': 'Coffee',
       'translation': 'café',
-      'spelling': 'coffee. c---o---f---f---e---e. coffee'
+      'spelling': 'coffee---c---o---f---f---e---e---coffee'
     },
     {
       'word': 'Soda',
       'translation': 'gaseosa',
-      'spelling': 'soda. s---o---d---a. soda'
+      'spelling': 'soda---s---o---d---a---soda'
     },
     {
       'word': 'Beef',
       'translation': 'carne de res',
-      'spelling': 'beef. b---e---e---f. beef'
+      'spelling': 'beef---b---e---e---f---beef'
     },
     {
       'word': 'Chicken',
       'translation': 'pollo',
-      'spelling': 'chicken. c---h---i---c---k---e---n. chicken'
+      'spelling': 'chicken---c---h---i---c---k---e---n---chicken'
     },
     {
       'word': 'Lemonade',
       'translation': 'limonada',
-      'spelling': 'lemonade. l---e---m---o---n---a---d---e. lemonade'
+      'spelling': 'lemonade---l---e---m---o---n---a---d---e---lemonade'
     },
     {
       'word': 'Rainy',
       'translation': 'lluvioso',
-      'spelling': 'rainy. r---a---i---n---y. rainy'
+      'spelling': 'rainy---r---a---i---n---y---rainy'
     },
     {
       'word': 'Windy',
       'translation': 'ventoso',
-      'spelling': 'windy. w---i---n---d---y. windy'
+      'spelling': 'windy---w---i---n---d---y---windy'
     },
     {
       'word': 'Hot',
       'translation': 'caliente',
-      'spelling': 'hot. h---o---t. hot'
+      'spelling': 'hot---h---o---t---hot'
     },
     {
       'word': 'Sunny',
       'translation': 'soleado',
-      'spelling': 'sunny. s---u---n---n---y. sunny'
+      'spelling': 'sunny---s---u---n---n---y---sunny'
     },
     {
       'word': 'Cloudy',
       'translation': 'nublado',
-      'spelling': 'cloudy. c---l---o---u---d---y. cloudy'
+      'spelling': 'cloudy---c---l---o---u---d---y---cloudy'
     },
     {
       'word': 'Cold',
       'translation': 'frío',
-      'spelling': 'cold. c---o---l---d. cold'
+      'spelling': 'cold---c---o---l---d---cold'
     },
     {
       'word': 'Snowy',
       'translation': 'nevado',
-      'spelling': 'snowy. s---n---o---w---y. snowy'
+      'spelling': 'snowy---s---n---o---w---y---snowy'
     },
     {
       'word': 'Roller skate',
       'translation': 'patinar',
       'spelling':
-          'roller skate. r---o---l---l---e---r---space---s---k---a---t---e. roller skate'
+          'roller skate---r---o---l---l---e---r---space---s---k---a---t---e---roller skate'
     },
     {
       'word': 'Surf',
       'translation': 'surfear',
-      'spelling': 'surf. s---u---r---f. surf'
+      'spelling': 'surf---s---u---r---f---surf'
     },
     {
       'word': 'Dive',
       'translation': 'bucear',
-      'spelling': 'dive. d---i---v---e. dive'
+      'spelling': 'dive---d---i---v---e---dive'
     },
     {
       'word': 'Ski',
       'translation': 'esquiar',
-      'spelling': 'ski. s---k---i. ski'
+      'spelling': 'ski---s---k---i---ski'
     },
     {
       'word': 'Hike',
       'translation': 'senderismo',
-      'spelling': 'hike. h---i---k---e. hike'
+      'spelling': 'hike---h---i---k---e---hike'
     },
     {
       'word': 'University',
       'translation': 'Universidad',
       'spelling':
-          'University. U---n---i---v---e---r---s---i---t---y. University'
+          'University---U---n---i---v---e---r---s---i---t---y---University'
     },
     {
       'word': 'Supermarket',
       'translation': 'Supermercado',
       'spelling':
-          'Supermarket. S---u---p---e---r---m---a---r---k---e---t. Supermarket'
+          'Supermarket---S---u---p---e---r---m---a---r---k---e---t---Supermarket'
     },
     {
       'word': 'Snack',
       'translation': 'bocadillo',
-      'spelling': 'Snack. S---n---a---c---k. Snack'
+      'spelling': 'Snack---S---n---a---c---k---Snack'
     },
-    {'word': 'Nap', 'translation': 'siesta', 'spelling': 'nap. n---a---p. nap'},
+    {
+      'word': 'Nap',
+      'translation': 'siesta',
+      'spelling': 'nap---n---a---p---nap'
+    },
     {
       'word': 'Internet',
       'translation': 'internet',
-      'spelling': 'internet. i---n---t---e---r---n---e---t. internet'
+      'spelling': 'internet---i---n---t---e---r---n---e---t---internet'
     },
     {
       'word': 'Shark',
       'translation': 'tiburón',
-      'spelling': 'shark. s---h---a---r---k. shark'
+      'spelling': 'shark---s---h---a---r---k---shark'
     },
     {
       'word': 'Fish',
       'translation': 'pez',
-      'spelling': 'fish. f---i---s---h. fish'
+      'spelling': 'fish---f---i---s---h---fish'
     },
     {
       'word': 'Shop',
       'translation': 'tienda',
-      'spelling': 'shop. s---h---o---p. shop'
+      'spelling': 'shop---s---h---o---p---shop'
     },
     {
       'word': 'Brush',
       'translation': 'cepillo',
-      'spelling': 'brush. b---r---u---s---h. brush'
+      'spelling': 'brush---b---r---u---s---h---brush'
     },
     {
       'word': 'Suitcase',
       'translation': 'maleta',
-      'spelling': 'suitcase. s---u---i---t---c---a---s---e. suitcase'
+      'spelling': 'suitcase---s---u---i---t---c---a---s---e---suitcase'
     },
     {
       'word': 'Catch',
       'translation': 'atrapar',
-      'spelling': 'catch. c---a---t---c---h. catch'
+      'spelling': 'catch---c---a---t---c---h---catch'
     },
     {
       'word': 'Chair',
       'translation': 'silla',
-      'spelling': 'chair. c---h---a---i---r. chair'
+      'spelling': 'chair---c---h---a---i---r---chair'
     },
     {
       'word': 'Scratch',
       'translation': 'rasguño',
-      'spelling': 'scratch. s---c---r---a---t---c---h. scratch'
+      'spelling': 'scratch---s---c---r---a---t---c---h---scratch'
     },
     {
       'word': 'Hair',
       'translation': 'pelo',
-      'spelling': 'hair. h---a---i---r. hair'
+      'spelling': 'hair---h---a---i---r---hair'
     },
     {
       'word': 'Shower',
       'translation': 'ducha',
-      'spelling': 'Shower. S---h---o---w---e---r. Shower'
+      'spelling': 'Shower---S---h---o---w---e---r---Shower'
     },
     {
       'word': 'Paramedic',
       'translation': 'paramédico',
-      'spelling': 'paramedic. p---a---r---a---m---e---d---i---c. paramedic'
+      'spelling': 'paramedic---p---a---r---a---m---e---d---i---c---paramedic'
     },
     {
       'word': 'Face',
       'translation': 'cara',
-      'spelling': 'face. f---a---c---e. face'
+      'spelling': 'face---f---a---c---e---face'
     },
     {
       'word': 'Fisherman',
       'translation': 'pescador',
-      'spelling': 'fisherman. f---i---s---h---e---r---m---a---n. fisherman'
+      'spelling': 'fisherman---f---i---s---h---e---r---m---a---n---fisherman'
     },
     {
       'word': 'Breakfast',
       'translation': 'desayuno',
-      'spelling': 'breakfast. b---r---e---a---k---f---a---s---t. breakfast'
+      'spelling': 'breakfast---b---r---e---a---k---f---a---s---t---breakfast'
     },
     {
       'word': 'School',
       'translation': 'Escuela',
-      'spelling': 'School. S---c---h---o---o---l. School'
+      'spelling': 'School---S---c---h---o---o---l---School'
     },
     {
       'word': 'Taxi',
       'translation': 'taxi',
-      'spelling': 'taxi. t---a---x---i. taxi'
+      'spelling': 'taxi---t---a---x---i---taxi'
     },
     {
       'word': 'Train',
       'translation': 'tren',
-      'spelling': 'train. t---r---a---i---n. train'
+      'spelling': 'train---t---r---a---i---n---train'
     },
     {
       'word': 'Bus',
       'translation': 'autobús',
-      'spelling': 'bus. b---u---s. bus'
+      'spelling': 'bus---b---u---s---bus'
     },
     {
       'word': 'Subway',
       'translation': 'Metro',
-      'spelling': 'Subway. S---u---b---w---a---y. Subway'
+      'spelling': 'Subway---S---u---b---w---a---y---Subway'
     },
     {
       'word': 'Walk',
       'translation': 'caminar',
-      'spelling': 'walk. w---a---l---k. walk'
+      'spelling': 'walk---w---a---l---k---walk'
     },
     {
       'word': 'Bicycle',
       'translation': 'bicicleta',
-      'spelling': 'bicycle. b---i---c---y---c---l---e. bicycle'
+      'spelling': 'bicycle---b---i---c---y---c---l---e---bicycle'
     },
-    {'word': 'Art', 'translation': 'arte', 'spelling': 'art. a---r---t. art'},
+    {'word': 'Art', 'translation': 'arte', 'spelling': 'art---a---r---t---art'},
     {
       'word': 'English',
       'translation': 'Inglés',
-      'spelling': 'English. E---n---g---l---i---s---h. English'
+      'spelling': 'English---E---n---g---l---i---s---h---English'
     },
     {
       'word': 'Music',
       'translation': 'música',
-      'spelling': 'music. m---u---s---i---c. music'
+      'spelling': 'music---m---u---s---i---c---music'
     },
     {
       'word': 'Math',
       'translation': 'matemáticas',
-      'spelling': 'math. m---a---t---h. math'
+      'spelling': 'math---m---a---t---h---math'
     },
     {
       'word': 'Health',
       'translation': 'salud',
-      'spelling': 'health. h---e---a---l---t---h. health'
+      'spelling': 'health---h---e---a---l---t---h---health'
     },
     {
       'word': 'Science',
       'translation': 'ciencia',
-      'spelling': 'science. s---c---i---e---n---c---e. science'
+      'spelling': 'science---s---c---i---e---n---c---e---science'
     },
     {
       'word': 'Gym',
       'translation': 'gimnasio',
-      'spelling': 'gym. g---y---m. gym'
+      'spelling': 'gym---g---y---m---gym'
     },
     {
       'word': 'Cafeteria',
       'translation': 'cafetería',
-      'spelling': 'cafeteria. c---a---f---e---t---e---r---i---a. cafeteria'
+      'spelling': 'cafeteria---c---a---f---e---t---e---r---i---a---cafeteria'
     },
     {
       'word': 'Classroom',
       'translation': 'aula',
-      'spelling': 'classroom. c---l---a---s---s---r---o---o---m. classroom'
+      'spelling': 'classroom---c---l---a---s---s---r---o---o---m---classroom'
     },
     {
       'word': 'Wave',
       'translation': 'ola',
-      'spelling': 'wave. w---a---v---e. wave'
+      'spelling': 'wave---w---a---v---e---wave'
     },
     {
       'word': 'Pond',
       'translation': 'estanque',
-      'spelling': 'Pond. P---o---n---d. Pond'
+      'spelling': 'Pond---P---o---n---d---Pond'
     },
     {
       'word': 'Watch',
       'translation': 'Reloj',
-      'spelling': 'Watch. W---a---t---c---h. Watch'
+      'spelling': 'Watch---W---a---t---c---h---Watch'
     },
     {
       'word': 'Play',
       'translation': 'jugar',
-      'spelling': 'play. p---l---a---y. play'
+      'spelling': 'play---p---l---a---y---play'
     },
     {
       'word': 'Smile',
       'translation': 'Sonreír',
-      'spelling': 'Smile. S---m---i---l---e. Smile'
+      'spelling': 'Smile---S---m---i---l---e---Smile'
     },
     {
       'word': 'Juggle',
       'translation': 'Malabarismo',
-      'spelling': 'Juggle. J---u---g---g---l---e. Juggle'
+      'spelling': 'Juggle---J---u---g---g---l---e---Juggle'
     },
     {
       'word': 'Bounce',
       'translation': 'rebotar',
-      'spelling': 'bounce. b---o---u---n---c---e. bounce'
+      'spelling': 'bounce---b---o---u---n---c---e---bounce'
     },
     {
       'word': 'Push',
       'translation': 'Empujar',
-      'spelling': 'Push. P---u---s---h. Push'
+      'spelling': 'Push---P---u---s---h---Push'
     },
     {
       'word': 'Pull',
       'translation': 'Tirar',
-      'spelling': 'Pull. P---u---l---l. Pull'
+      'spelling': 'Pull---P---u---l---l---Pull'
     },
     {
       'word': 'Carry',
       'translation': 'cargar',
-      'spelling': 'carry. c---a---r---r---y. carry'
+      'spelling': 'carry---c---a---r---r---y---carry'
     },
     {
       'word': 'Candy',
       'translation': 'caramelo',
-      'spelling': 'candy. c---a---n---d---y. candy'
+      'spelling': 'candy---c---a---n---d---y---candy'
     },
     {
       'word': 'Movie',
       'translation': 'película',
-      'spelling': 'movie. m---o---v---i---e. movie'
+      'spelling': 'movie---m---o---v---i---e---movie'
     },
     {
       'word': 'Turkey',
       'translation': 'pavo',
-      'spelling': 'turkey. t---u---r---k---e---y. turkey'
+      'spelling': 'turkey---t---u---r---k---e---y---turkey'
     },
     {
       'word': 'Roast',
       'translation': 'Asado',
-      'spelling': 'Roast. R---o---a---s---t. Roast'
+      'spelling': 'Roast---R---o---a---s---t---Roast'
     },
     {
       'word': 'Bacon',
       'translation': 'tocino',
-      'spelling': 'bacon. b---a---c---o---n. bacon'
+      'spelling': 'bacon---b---a---c---o---n---bacon'
     },
     {
       'word': 'Oysters',
       'translation': 'ostras',
-      'spelling': 'oysters. o---y---s---t---e---r---s. oysters'
+      'spelling': 'oysters---o---y---s---t---e---r---s---oysters'
     },
     {
       'word': 'Shrimp',
       'translation': 'camarón',
-      'spelling': 'shrimp. s---h---r---i---m---p. shrimp'
+      'spelling': 'shrimp---s---h---r---i---m---p---shrimp'
     },
   ];
   // Insertar palabras y obtener sus IDs
