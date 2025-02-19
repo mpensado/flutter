@@ -107,20 +107,23 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  void _showAddWordDialog(
-      BuildContext context, VoidCallback onWordAdded, {Word? wordToEdit}) { // <---- Optional Word parameter
+  void _showAddWordDialog(BuildContext context, VoidCallback onWordAdded,
+      {Word? wordToEdit}) {
+    // <---- Optional Word parameter
     final wordController = TextEditingController();
     final translationController = TextEditingController();
     bool isAutoTranslating = true;
 
     String dialogTitle = 'Nueva Palabra'; // Default title for "Add" mode
-    String saveButtonText = 'Guardar';     // Default button text
+    String saveButtonText = 'Guardar'; // Default button text
 
-    if (wordToEdit != null) { // <---- Check if wordToEdit is provided (Edit mode)
-      dialogTitle = 'Editar Palabra';     // Change title for "Edit" mode
-      saveButtonText = 'Actualizar';    // Change button text
-      wordController.text = wordToEdit.word;           // Pre-populate word field
-      translationController.text = wordToEdit.translation; // Pre-populate translation field
+    if (wordToEdit != null) {
+      // <---- Check if wordToEdit is provided (Edit mode)
+      dialogTitle = 'Editar Palabra'; // Change title for "Edit" mode
+      saveButtonText = 'Actualizar'; // Change button text
+      wordController.text = wordToEdit.word; // Pre-populate word field
+      translationController.text =
+          wordToEdit.translation; // Pre-populate translation field
     }
 
     showDialog(
@@ -174,22 +177,32 @@ class _HomePageState extends State<HomePage>
                   if (wordController.text.isNotEmpty &&
                       translationController.text.isNotEmpty) {
                     final word = Word(
-                      id: wordToEdit?.id, // <---- Pass id if in edit mode, otherwise null (for insert)
+                      id: wordToEdit
+                          ?.id, // <---- Pass id if in edit mode, otherwise null (for insert)
                       word: wordController.text,
                       translation: translationController.text,
                       spelling:
                           "${wordController.text}.${_spelling(wordController.text)}.${wordController.text}",
-                      createdAt: wordToEdit?.createdAt ?? DateTime.now(), // Keep createdAt in edit
+                      createdAt: wordToEdit?.createdAt ??
+                          DateTime.now(), // Keep createdAt in edit
                     );
-                    if (wordToEdit == null) { // <---- Check if wordToEdit is null (Add mode)
+                    if (wordToEdit == null) {
+                      // <---- Check if wordToEdit is null (Add mode)
                       await WordRepository.insertWord(word); // Insert new word
                     } else {
-                      await WordRepository.updateWord(word); // Update existing word
+                      await WordRepository.updateWord(
+                          word); // Update existing word
                     }
 
                     if (context.mounted) {
                       Navigator.pop(context);
                       onWordAdded();
+
+                      // <----  AÑADIR ESTE BLOQUE PARA ACTUALIZAR LA LISTA DE SESIONES EN PRACTICE TAB
+                      final practiceTabState = context.findAncestorStateOfType<_PracticeTabState>(); // Buscar _PracticeTabState
+                      if (practiceTabState != null) { // Verificar si se encontró el estado
+                        practiceTabState._loadSessions(); // Llamar a la función de recarga de sesiones
+                      }
                     }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -237,6 +250,126 @@ class _WordsTabState extends State<WordsTab> {
     if (mounted) setState(() {});
   }
 
+  void _showAddToSessionDialog(BuildContext context, Word wordToAdd) async {
+    // <----  Función para el diálogo "Añadir a Sesión"
+    List<PracticeSession> sessions = await PracticeSessionRepository
+        .getAllSessions(); // Cargar sesiones existentes
+    PracticeSession?
+        selectedSession; // Variable para rastrear la sesión seleccionada
+    final newSessionNameController =
+        TextEditingController(); // Controlador para el nombre de nueva sesión
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        // StatefulBuilder para el setState dentro del diálogo
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Añadir palabra a Sesión'),
+            content: SingleChildScrollView(
+              // Para permitir scroll si hay muchas sesiones
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                      'Seleccione una sesión existente o cree una nueva:'),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<PracticeSession>(
+                    // Dropdown para sesiones existentes
+                    value: selectedSession,
+                    decoration: const InputDecoration(
+                      labelText: 'Sesión Existente (Opcional)',
+                      hintText: 'Seleccionar sesión',
+                    ),
+                    items: sessions.map((session) {
+                      return DropdownMenuItem<PracticeSession>(
+                        value: session,
+                        child: Text(session.name),
+                      );
+                    }).toList(),
+                    onChanged: (PracticeSession? newValue) {
+                      setState(() {
+                        selectedSession = newValue;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('O'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    // TextField para crear nueva sesión
+                    controller: newSessionNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre de Nueva Sesión (Opcional)',
+                      hintText: 'Ingrese un nombre para nueva sesión',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  bool newSession = false;
+                  PracticeSession? sessionToUse =
+                      selectedSession; // Usar sesión seleccionada o nueva
+
+                  if (sessionToUse == null &&
+                      newSessionNameController.text.isNotEmpty) {
+                    // Crear nueva sesión si no se seleccionó una existente y se proporcionó un nombre
+                    newSession = true;
+                    sessionToUse = PracticeSession(
+                      name: newSessionNameController.text,
+                      createdAt: DateTime.now(),
+                      wordIds: [wordToAdd.id!],
+                    );
+                    await PracticeSessionRepository.insertSession(
+                        sessionToUse); // Insertar nueva sesión
+                    // Recargar sesiones para tener la nueva sesión en la lista (opcional, pero recomendable)
+                    sessions = await PracticeSessionRepository.getAllSessions();
+                    sessionToUse =
+                        sessions.last; // Seleccionar la recién creada
+                  }
+
+                  if (sessionToUse != null) {
+                    // Si tenemos una sesión válida (existente o nueva)
+                    if (!newSession) {
+                      await PracticeSessionRepository.addWordToSession(wordToAdd, sessionToUse); // Añadir palabra a la sesión
+                    }
+
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              'Palabra "${wordToAdd.word}" añadida a la sesión "${sessionToUse.name}"'),
+                        ),
+                      );
+                    }
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              'Por favor, seleccione una sesión existente o ingrese un nombre para una nueva sesión.'),
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Añadir'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -274,6 +407,11 @@ class _WordsTabState extends State<WordsTab> {
                       await WordRepository.deleteWord(words[index].id!);
                       _loadWords();
                     },
+                    onAddToSession: () {
+                      // <----  CALLBACK onAddToSession para WordCard
+                      _showAddToSessionDialog(context,
+                          words[index]); // Llamar al diálogo y pasar la palabra
+                    },
                   );
                 },
               ),
@@ -288,11 +426,14 @@ class _WordsTabState extends State<WordsTab> {
 class WordCard extends StatelessWidget {
   final Word word;
   final VoidCallback onDelete;
+  final VoidCallback?
+      onAddToSession; // <----  NUEVO: Callback para "Añadir a Sesión"
 
   const WordCard({
     super.key,
     required this.word,
     required this.onDelete,
+    this.onAddToSession, // <----  Añadido al constructor
   });
 
   @override
@@ -319,18 +460,16 @@ class WordCard extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.edit),
                       onPressed: () {
-                        // **Call _showAddWordDialog for editing**
                         (HomePage.of(context))._showAddWordDialog(
                           context,
                           () {
-                            // Callback function to refresh word list after editing
-                            // We can use the same _loadWords from WordsTab
-                            final wordsTabState = context.findAncestorStateOfType<_WordsTabState>();
+                            final wordsTabState = context
+                                .findAncestorStateOfType<_WordsTabState>();
                             if (wordsTabState != null) {
                               wordsTabState._loadWords();
                             }
                           },
-                          wordToEdit: word, // <---- Pass the Word object to edit
+                          wordToEdit: word,
                         );
                       },
                     ),
@@ -339,6 +478,16 @@ class WordCard extends StatelessWidget {
                       icon: const Icon(Icons.delete),
                       onPressed: onDelete,
                     ),
+                    const SizedBox(width: 8),
+                    if (onAddToSession !=
+                        null) // <----  CONDICIONAL: Mostrar "Añadir a Sesión" solo si onAddToSession está definido
+                      IconButton(
+                        icon: const Icon(
+                            Icons.add_circle_outline), // Icono de "añadir"
+                        tooltip: 'Añadir a Sesión', // Tooltip para el icono
+                        onPressed:
+                            onAddToSession, // Llama al callback onAddToSession
+                      ),
                   ],
                 ),
               ],
@@ -373,6 +522,7 @@ class WordCard extends StatelessWidget {
     );
   }
 }
+
 class WordCardPractice extends StatefulWidget {
   final Word word;
   final VoidCallback onDelete;
@@ -534,21 +684,30 @@ class _WordCardPracticeState extends State<WordCardPractice> {
                     TextToSpeechService.speak(widget.word.word);
                   },
                   icon: const Icon(Icons.volume_up),
-                  label: const Text('Escuchar'),
+                  label: const Text(
+                    'Escuchar',
+                    style: TextStyle(fontSize: 10.0),
+                  ),
                 ),
                 ElevatedButton.icon(
                   onPressed: () {
                     TextToSpeechService.speak(widget.word.spelling);
                   },
                   icon: const Icon(Icons.volume_up),
-                  label: const Text('Deletrear'),
+                  label: const Text(
+                    'Deletrear',
+                    style: TextStyle(fontSize: 10.0),
+                  ),
                 ),
                 if (widget
                     .showRemoveButton) // <----  CONDICIÓN: Mostrar solo si showRemoveButton es true
                   ElevatedButton.icon(
                     onPressed: widget.onDelete,
                     icon: const Icon(Icons.remove),
-                    label: const Text('Quitar'),
+                    label: const Text(
+                      'Quitar',
+                      style: TextStyle(fontSize: 10.0),
+                    ),
                   ),
               ],
             ),
@@ -845,6 +1004,98 @@ class TranslationService {
 }
 
 //VISTA DE PRACTICAS
+// practice_session_repository.dart (ejemplo, ajusta según tu estructura)
+class PracticeSessionRepository {
+  static Future<List<PracticeSession>> getAllSessions() async {
+    final dbHelper = DBHelper();
+    final db = await dbHelper.database;
+    final List<Map<String, dynamic>> maps = await db.query('practice_sessions');
+    return List.generate(maps.length, (i) => PracticeSession.fromMap(maps[i]));
+  }
+
+  static Future<void> insertSession(PracticeSession session) async {
+    final dbHelper = DBHelper();
+    final db = await dbHelper.database;
+    await db.insert('practice_sessions', session.toMap());
+  }
+
+  // ... (otras funciones de PracticeSessionRepository si las tienes) ...
+
+  static Future<void> addWordToSession(
+      Word word, PracticeSession session) async {
+    final dbHelper = DBHelper();
+    final db = await dbHelper.database;
+
+    // 1. Fetch the current PracticeSession to get the existing word_ids
+    final List<Map<String, dynamic>> sessionMap = await db.query(
+      'practice_sessions',
+      where: 'id = ?',
+      whereArgs: [session.id],
+    );
+    if (sessionMap.isEmpty) {
+      return; // Session not found (should not happen, but handle just in case)
+    }
+    final PracticeSession currentSession =
+        PracticeSession.fromMap(sessionMap.first);
+
+    // 2. Split the existing word_ids string into a list of IDs
+    List<String> wordIdList = currentSession
+        .toString()
+        .split(',')
+        .where((id) => id.isNotEmpty)
+        .toList();
+
+    // 3. Check if the wordId is already in the list to avoid duplicates
+    if (!wordIdList.contains(word.id.toString())) {
+      // 4. Add the new word's ID to the list
+      wordIdList.add(word.id.toString());
+
+      // 5. Join the updated list of word IDs back into a comma-separated string
+      final updatedWordIdsString = wordIdList.join(',');
+
+      // 6. Update the PracticeSession in the database with the new word_ids string
+      await db.update(
+        'practice_sessions',
+        {'word_ids': updatedWordIdsString},
+        where: 'id = ?',
+        whereArgs: [session.id],
+      );
+    }
+    // If word ID was already in the list, do nothing (avoid duplicates)
+  }
+
+  static Future<List<Word>> loadSessionWords(PracticeSession session) async {
+    // Cambia el tipo de la lista temporalmente para permitir nulos durante el proceso
+    List<Word?> possibleWords = await Future.wait(
+      session!.wordIds.map((id) async {
+        final dbHelper =
+            DBHelper(); // Create an instance (if you don't have one already in scope)
+        final db = await dbHelper.database;
+        print('Cargando palabra con ID: $id'); // Añadido log ANTES de la query
+        final List<Map<String, dynamic>> maps = await db.query(
+          dbHelper.tableWords,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        print(
+            'Resultado de la query para ID $id: $maps'); // Añadido log DESPUÉS de la query
+        if (maps.isEmpty) {
+          print(
+              'Error: No se encontró ninguna palabra con ID: $id'); // Log si no se encuentra la palabra
+          // Retorna un Future<Word?> que se completa con null
+          return Future<Word?>.value(null);
+        }
+        return Word.fromMap(maps.first);
+      }),
+    );
+    // Filtra los valores nulos de la lista resultingWords y asigna el resultado a words
+    var words = possibleWords
+        .whereType<Word>()
+        .toList(); // Usa whereType<Word>() para filtrar los null y asegurar List<Word>
+    return words;
+  }
+}
+
 // Modelo para las sesiones de práctica
 class PracticeSession {
   final int? id;
@@ -980,11 +1231,8 @@ class _PracticeTabState extends State<PracticeTab>
 
   Future<void> _loadSessions() async {
     // Cargar las sesiones desde la base de datos
-    final dbHelper = DBHelper();
-    final db = await dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('practice_sessions');
-    final List<PracticeSession> loadedSessions =
-        List.generate(maps.length, (i) => PracticeSession.fromMap(maps[i]));
+    List<PracticeSession> loadedSessions =
+        await PracticeSessionRepository.getAllSessions();
 
     setState(() {
       sessions = loadedSessions;
@@ -1001,37 +1249,10 @@ class _PracticeTabState extends State<PracticeTab>
   }
 
   Future<void> _loadSessionWords() async {
-    if (selectedSession != null) {
-      // Cambia el tipo de la lista temporalmente para permitir nulos durante el proceso
-      List<Word?> possibleWords = await Future.wait(
-        selectedSession!.wordIds.map((id) async {
-          final dbHelper =
-              DBHelper(); // Create an instance (if you don't have one already in scope)
-          final db = await dbHelper.database;
-          print(
-              'Cargando palabra con ID: $id'); // Añadido log ANTES de la query
-          final List<Map<String, dynamic>> maps = await db.query(
-            dbHelper.tableWords,
-            where: 'id = ?',
-            whereArgs: [id],
-          );
-          print(
-              'Resultado de la query para ID $id: $maps'); // Añadido log DESPUÉS de la query
-          if (maps.isEmpty) {
-            print(
-                'Error: No se encontró ninguna palabra con ID: $id'); // Log si no se encuentra la palabra
-            // Retorna un Future<Word?> que se completa con null
-            return Future<Word?>.value(null);
-          }
-          return Word.fromMap(maps.first);
-        }),
-      );
-      // Filtra los valores nulos de la lista resultingWords y asigna el resultado a words
-      words = possibleWords
-          .whereType<Word>()
-          .toList(); // Usa whereType<Word>() para filtrar los null y asegurar List<Word>
-      setState(() {});
-    }
+    // Filtra los valores nulos de la lista resultingWords y asigna el resultado a words
+    words = await PracticeSessionRepository.loadSessionWords(
+        selectedSession!); // Usa whereType<Word>() para filtrar los null y asegurar List<Word>
+    setState(() {});
   }
 
   Future<void> _recordPractice(Word word, bool isCorrect) async {
