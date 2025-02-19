@@ -199,9 +199,9 @@ class _HomePageState extends State<HomePage>
                       onWordAdded();
 
                       // <----  AÑADIR ESTE BLOQUE PARA ACTUALIZAR LA LISTA DE SESIONES EN PRACTICE TAB
-                      final practiceTabState = context.findAncestorStateOfType<_PracticeTabState>(); // Buscar _PracticeTabState
-                      if (practiceTabState != null) { // Verificar si se encontró el estado
-                        practiceTabState._loadSessions(); // Llamar a la función de recarga de sesiones
+                      final practiceTabState = context.findAncestorStateOfType<_PracticeTabState>();
+                      if (practiceTabState != null) {
+                        practiceTabState._loadPracticeSessions(); // <---- Call _loadPracticeSessions()
                       }
                     }
                   } else {
@@ -240,9 +240,7 @@ class _WordsTabState extends State<WordsTab> {
   }
 
   Future<void> _loadWords() async {
-    print('Cargando palabras en _WordsTabState');
     if (searchQuery.isEmpty) {
-      print('Cargando TODAS las palabras');
       words = await WordRepository.getAllWords();
     } else {
       words = await WordRepository.searchWords(searchQuery);
@@ -505,7 +503,7 @@ class WordCard extends StatelessWidget {
                     TextToSpeechService.speak(word.word);
                   },
                   icon: const Icon(Icons.volume_up),
-                  label: const Text('Escuchar'),
+                  label: const Text('Pronunciar'),
                 ),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -1026,7 +1024,7 @@ class PracticeSessionRepository {
     final dbHelper = DBHelper();
     final db = await dbHelper.database;
 
-    // 1. Fetch the current PracticeSession to get the existing word_ids
+    // 1. Fetch the current PracticeSession to get the existing wordIds (List<int>)
     final List<Map<String, dynamic>> sessionMap = await db.query(
       'practice_sessions',
       where: 'id = ?',
@@ -1037,51 +1035,40 @@ class PracticeSessionRepository {
     }
     final PracticeSession currentSession =
         PracticeSession.fromMap(sessionMap.first);
+    List<int> wordIdList = currentSession.wordIds; // Get wordIds as List<int>
 
-    // 2. Split the existing word_ids string into a list of IDs
-    List<String> wordIdList = currentSession
-        .toString()
-        .split(',')
-        .where((id) => id.isNotEmpty)
-        .toList();
+    // 2. Check if the wordId is already in the list to avoid duplicates
+    if (!wordIdList.contains(word.id)) {
+      // Check for int directly, not String
+      // 3. Add the new word's ID to the list
+      wordIdList.add(word.id!); // Add word.id (int) directly to the list
 
-    // 3. Check if the wordId is already in the list to avoid duplicates
-    if (!wordIdList.contains(word.id.toString())) {
-      // 4. Add the new word's ID to the list
-      wordIdList.add(word.id.toString());
+      // 4. Convert the updated List<int> wordIdList back to a comma-separated string for database storage
+      final updatedWordIdsString =
+          wordIdList.map((id) => id.toString()).join(',');
 
-      // 5. Join the updated list of word IDs back into a comma-separated string
-      final updatedWordIdsString = wordIdList.join(',');
-
-      // 6. Update the PracticeSession in the database with the new word_ids string
+      // 5. Update the PracticeSession in the database with the new word_ids string
       await db.update(
         'practice_sessions',
-        {'word_ids': updatedWordIdsString},
+        {'word_ids': updatedWordIdsString}, // Store as comma-separated string
         where: 'id = ?',
         whereArgs: [session.id],
       );
     }
     // If word ID was already in the list, do nothing (avoid duplicates)
   }
-
   static Future<List<Word>> loadSessionWords(PracticeSession session) async {
     // Cambia el tipo de la lista temporalmente para permitir nulos durante el proceso
     List<Word?> possibleWords = await Future.wait(
-      session!.wordIds.map((id) async {
-        final dbHelper =
-            DBHelper(); // Create an instance (if you don't have one already in scope)
+      session.wordIds.map((id) async {
+        final dbHelper = DBHelper(); // Create an instance (if you don't have one already in scope)
         final db = await dbHelper.database;
-        print('Cargando palabra con ID: $id'); // Añadido log ANTES de la query
         final List<Map<String, dynamic>> maps = await db.query(
           dbHelper.tableWords,
           where: 'id = ?',
           whereArgs: [id],
         );
-        print(
-            'Resultado de la query para ID $id: $maps'); // Añadido log DESPUÉS de la query
         if (maps.isEmpty) {
-          print(
-              'Error: No se encontró ninguna palabra con ID: $id'); // Log si no se encuentra la palabra
           // Retorna un Future<Word?> que se completa con null
           return Future<Word?>.value(null);
         }
@@ -1127,7 +1114,19 @@ class PracticeSession {
         return wordIdsData
             .split(',')
             .where((str) => str.isNotEmpty)
-            .map((str) => int.parse(str.trim()))
+            .map((str) {
+              String trimmedStr =
+                  str.trim(); // Trim y guarda en variable para imprimir
+              print("Intentando parsear a entero: '$trimmedStr'"); // <---- AÑADE ESTA LÍNEA
+              try {
+                return int.parse(trimmedStr);
+              } catch (e) {
+                print("Error al parsear: '$trimmedStr'. Error: $e"); // Imprime el error también
+                return null; // O algún valor por defecto, o relanza la excepción si quieres que falle
+              }
+            })
+            .whereType<
+                int>() // Usa whereType<int>() para filtrar los nulls y asegurar List<int>
             .toList();
       }
       // Si ya es una lista, convertir cada elemento a int
@@ -1193,7 +1192,6 @@ class PracticeTab extends StatefulWidget {
 
 class _PracticeTabState extends State<PracticeTab>
     with AutomaticKeepAliveClientMixin {
-  // <---- AÑADE with AutomaticKeepAliveClientMixin{
   List<Word> words = [];
   List<PracticeSession> sessions = [];
   PracticeSession? selectedSession;
@@ -1203,56 +1201,67 @@ class _PracticeTabState extends State<PracticeTab>
   int resetCounter = 0;
 
   @override
-  bool get wantKeepAlive => true; // <---- AÑADE ESTE MÉTODO Y RETORNA true
+  bool get wantKeepAlive => true;
 
-  // Modificar el método initState en PracticeTab para cargar los datos de ejemplo
   @override
   void initState() {
     super.initState();
-    _initializeData();
+    _loadInitialData(); // Call the combined data loading function
   }
 
-  Future<void> _initializeData() async {
-    // Verificar si ya existen datos
-    final dbHelper =
-        DBHelper(); // Create an instance (if you don't have one already in scope)
+  Future<void> _loadInitialData() async { // Renamed and combined function
+    print("_loadInitialData: Starting data initialization");
+    final dbHelper = DBHelper();
     final db = await dbHelper.database;
     final wordCount = Sqflite.firstIntValue(
         await db.rawQuery('SELECT COUNT(*) FROM ${dbHelper.tableWords}'));
 
-    // Si no hay datos, cargar los datos de ejemplo
     if (wordCount == 0) {
+      print("_loadInitialData: No word data found, loading sample data.");
       await loadSampleData();
     }
 
-    // Cargar las sesiones
-    await _loadSessions();
+    await _loadSessions(); // Load sessions after initial data check
+    print("_loadInitialData: Data initialization complete.");
   }
 
-  Future<void> _loadSessions() async {
-    // Cargar las sesiones desde la base de datos
+
+  Future<void> _loadSessions() async { // Simplified _loadSessions
+    print("_loadSessions: Loading practice sessions from database.");
     List<PracticeSession> loadedSessions =
         await PracticeSessionRepository.getAllSessions();
 
     setState(() {
       sessions = loadedSessions;
-
-      // **SELECCIONAR AUTOMÁTICAMENTE LA PRIMERA SESIÓN SI HAY ALGUNA**
       if (sessions.isNotEmpty) {
-        selectedSession = sessions.first; // Selecciona la primera sesión
-        _loadSessionWords(); // Carga las palabras de la sesión seleccionada inmediatamente
+        selectedSession = sessions.first;
+        _loadSessionWords(); // Load session words immediately for the first session
       } else {
-        selectedSession =
-            null; // Si no hay sesiones, selectedSession queda en null
+        selectedSession = null;
+        words = []; // Clear words if no sessions are available
       }
     });
+    print("_loadSessions: Sessions loaded. Selected session: ${selectedSession?.name ?? 'None'}. Word count: ${words.length}");
   }
 
+  Future<void> _loadPracticeSessions() async { // <-- NEW FUNCTION for reloading sessions from outside
+    print("_loadPracticeSessions: Reloading practice sessions and updating UI.");
+    await _loadSessions(); // Simply call _loadSessions to refresh everything
+  }
+
+
   Future<void> _loadSessionWords() async {
-    // Filtra los valores nulos de la lista resultingWords y asigna el resultado a words
-    words = await PracticeSessionRepository.loadSessionWords(
-        selectedSession!); // Usa whereType<Word>() para filtrar los null y asegurar List<Word>
-    setState(() {});
+    if (selectedSession == null) {
+      print("_loadSessionWords: No session selected, clearing words list.");
+      setState(() {
+        words = [];
+      });
+      return; // Exit if no session is selected
+    }
+    print("_loadSessionWords: Loading words for session: ${selectedSession!.name}");
+    words = await PracticeSessionRepository.loadSessionWords(selectedSession!);
+    setState(() { });
+    print("_loadSessionWords: Words loaded. Count: ${words.length}");
   }
 
   Future<void> _recordPractice(Word word, bool isCorrect) async {
@@ -1264,8 +1273,7 @@ class _PracticeTabState extends State<PracticeTab>
         practicedAt: DateTime.now(),
       );
 
-      final dbHelper =
-          DBHelper(); // Create an instance (if you don't have one already in scope)
+      final dbHelper = DBHelper();
       final db = await dbHelper.database;
       await db.insert('practice_history', practice.toMap());
 
@@ -1280,35 +1288,28 @@ class _PracticeTabState extends State<PracticeTab>
     }
   }
 
-  // Wrapper para _recordPractice que también actualiza el estado del WordCard
   void _recordPracticeWrapper(
       Word word, bool isCorrect, _WordCardPracticeState cardState) {
     _recordPractice(word, isCorrect);
     cardState.setState(() {
-      print(
-          "_recordPracticeWrapper: setState de cardState -  Resultado: $isCorrect");
       cardState.practiceResult = isCorrect;
       cardState.isPracticed = true;
-      print(
-          "_recordPracticeWrapper: setState de cardState - isPracticed DESPUÉS de asignar: ${cardState.isPracticed}"); // <---- AÑADIR ESTE PRINT
     });
   }
 
   void _resetPractice() {
     setState(() {
-      print("_resetPractice: setState ejecutándose!"); // <---- AÑADE ESTE PRINT
       practicedWords.clear();
       correctCount = 0;
       incorrectCount = 0;
-      _loadSessionWords();
-      resetCounter++; // <---- AÑADE ESTA LÍNEA: Incrementa el contador de reseteo
+      _loadSessionWords(); // Reload words after reset
+      resetCounter++;
     });
-    print(
-        "_resetPractice: Estado de la sesión de práctica y lista de cards reseteados.");
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Important for AutomaticKeepAliveClientMixin
     return Scaffold(
       body: Column(
         children: [
@@ -1330,8 +1331,8 @@ class _PracticeTabState extends State<PracticeTab>
                     onChanged: (PracticeSession? newValue) {
                       setState(() {
                         selectedSession = newValue;
-                        _resetPractice();
-                        _loadSessionWords();
+                        _resetPractice(); // Reset practice when session changes
+                        _loadSessionWords(); // Load words for the new session
                       });
                     },
                   ),
@@ -1358,22 +1359,17 @@ class _PracticeTabState extends State<PracticeTab>
               itemCount: words.length,
               itemBuilder: (context, index) {
                 final word = words[index];
-                final bool isPracticed = practicedWords.contains(word.id);
-
                 return WordCardPractice(
-                  key: Key(word.id
-                      .toString()), // <---- AÑADE ESTA LÍNEA: KEY con word.id
+                  key: Key(word.id.toString()),
                   word: word,
                   onDelete: () async {
                     await WordRepository.deleteWord(words[index].id!);
-                    _loadSessionWords();
+                    _loadSessionWords(); // Consider if you need to reload session words here, maybe _loadSessions is better if session words depend on session.
                   },
                   onRecordPracticeCallback: _recordPracticeWrapper,
                   practicedWords: practicedWords,
-                  selectedSession:
-                      selectedSession, // <---- ASEGÚRATE DE QUE ESTÉS PASANDO selectedSession AQUÍ
-                  resetCounter:
-                      resetCounter, // <---- AÑADE ESTA LÍNEA: Pasar resetCounter como propiedad
+                  selectedSession: selectedSession,
+                  resetCounter: resetCounter,
                 );
               },
             ),
@@ -1383,7 +1379,6 @@ class _PracticeTabState extends State<PracticeTab>
     );
   }
 }
-
 // Función para cargar datos de ejemplo
 Future<void> loadSampleData() async {
   final dbHelper =
