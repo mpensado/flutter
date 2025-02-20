@@ -29,36 +29,20 @@ class MyApp extends StatelessWidget {
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
+  static _HomePageState? of(BuildContext context) {
+    // <---- DECLARACIÓN CORRECTA (tipo de retorno _HomePageState)
+    return context.findAncestorStateOfType<_HomePageState>();
+  }
+
   @override
   State<HomePage> createState() => _HomePageState();
-
-  static _HomePageState of(BuildContext context) =>
-      context.findAncestorStateOfType<_HomePageState>()!;
 }
 
-class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+  int _selectedIndex = 0;
   late TabController _tabController;
-
-  String _spelling(String word) {
-    String letterSeparated = '';
-    List<String> words =
-        word.split(' '); // Separar por espacios para palabras compuestas
-    for (int i = 0; i < words.length; i++) {
-      String currentWord = words[i];
-      for (int j = 0; j < currentWord.length; j++) {
-        letterSeparated += currentWord[j];
-        if (j < currentWord.length - 1) {
-          letterSeparated += '---'; // Coma entre letras
-        }
-      }
-      if (i < words.length - 1) {
-        letterSeparated +=
-            '---space---'; // Doble coma entre palabras compuestas
-      }
-    }
-    return letterSeparated;
-  }
+  _WordsTabState? _wordsTabState;
+  _PracticeTabState? _practiceTabState; // <---- Variable para PracticeTab State
 
   @override
   void initState() {
@@ -66,25 +50,76 @@ class _HomePageState extends State<HomePage>
     _tabController = TabController(length: 3, vsync: this);
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  // Callback para que WordsTab registre su estado
+  void _registerWordsTabState(_WordsTabState state) {
+    print("_HomePageState: _WordsTabState registrado.");
+    _wordsTabState = state;
+  }
+
+  // Callback para que PracticeTab registre su estado
+  void _registerPracticeTabState(_PracticeTabState state) {
+    print("_HomePageState: _PracticeTabState registrado.");
+    _practiceTabState = state;
+  }
+
+  // Función para recargar datos de la pestaña de Prácticas
+  void reloadPracticeTabData() {
+    print("_HomePageState: reloadPracticeTabData() llamado.");
+    if (_practiceTabState != null) {
+      print(
+          "_HomePageState: _practiceTabState no es nulo. Llamando a _loadPracticeSessions().");
+      _practiceTabState!._loadPracticeSessions();
+    } else {
+      print("_HomePageState: _practiceTabState es nulo, no se puede recargar.");
+    }
+  }
+
+  void _showAddWordDialog(
+      BuildContext context, Future<void> Function() loadWordsCallback) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AddWordDialog(
+          // <---- Aquí se USA el Widget AddWordDialog
+          onWordAdded: () {
+            loadWordsCallback(); // Recarga la lista de palabras en WordsTab
+            // <---- BLOQUE PARA ACTUALIZAR LA LISTA DE SESIONES EN PRACTICE TAB
+            final homePageState = HomePage.of(
+                context); // Acceder a HomePageState usando HomePage.of(context)
+            if (homePageState != null) {
+              print(
+                  "_showAddWordDialog: HomePageState encontrado. Llamando a reloadPracticeTabData()"); // Mensaje
+              homePageState
+                  .reloadPracticeTabData(); // <---- LLAMAR A reloadPracticeTabData() en HomePageState
+            } else {
+              print(
+                  "_showAddWordDialog: HomePageState NO ENCONTRADO (esto no debería pasar)."); // Mensaje de error si HomePageState no se encuentra
+            }
+          },
+        );
+      },
+    );
+  }
+
+  FloatingActionButton? _buildFabForSelectedTab() {
+    if (_tabController.index == 0) {
+      // Words Tab
+      return FloatingActionButton(
+        onPressed: () {
+          _showAddWordDialog(
+              context as BuildContext, _wordsTabState!._loadWords);
+        },
+        child: const Icon(Icons.add),
+      );
+    }
+    return null; // No FAB for other tabs
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mi Diccionario'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // TODO: Implementar configuración
-            },
-          ),
-        ],
+        title: const Text('My Spelling Bee'),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -97,133 +132,153 @@ class _HomePageState extends State<HomePage>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          WordsTab(),
-          PracticeTab(),
+        children: [
+          WordsTab(
+              onSessionUpdated: reloadPracticeTabData,
+              onWordsTabCreated:
+                  _registerWordsTabState), // <----  Pasa el callback onSessionUpdated
+          PracticeTab(
+              onPracticeTabCreated:
+                  _registerPracticeTabState), // <---- Pasa el callback para PracticeTab
           SpellingBeeView(),
-          //StatsTab(),
         ],
       ),
+      floatingActionButton: _buildFabForSelectedTab(),
     );
   }
+}
+// words_tab.dart
 
-  void _showAddWordDialog(BuildContext context, VoidCallback onWordAdded,
-      {Word? wordToEdit}) {
-    // <---- Optional Word parameter
-    final wordController = TextEditingController();
-    final translationController = TextEditingController();
-    bool isAutoTranslating = true;
+class AddWordDialog extends StatefulWidget {
+  final VoidCallback onWordAdded;
+  final Word? wordToEdit; // Nuevo parámetro opcional para editar palabras
 
-    String dialogTitle = 'Nueva Palabra'; // Default title for "Add" mode
-    String saveButtonText = 'Guardar'; // Default button text
+  const AddWordDialog({
+    super.key,
+    required this.onWordAdded,
+    this.wordToEdit, // Inicializar el nuevo parámetro en el constructor
+  });
 
-    if (wordToEdit != null) {
-      // <---- Check if wordToEdit is provided (Edit mode)
-      dialogTitle = 'Editar Palabra'; // Change title for "Edit" mode
-      saveButtonText = 'Actualizar'; // Change button text
-      wordController.text = wordToEdit.word; // Pre-populate word field
-      translationController.text =
-          wordToEdit.translation; // Pre-populate translation field
+  @override
+  State<AddWordDialog> createState() => _AddWordDialogState();
+}
+
+class _AddWordDialogState extends State<AddWordDialog> {
+  final _wordController = TextEditingController();
+  final _translationController = TextEditingController();
+  final _spellingController =
+      TextEditingController(); // Controlador para "Spelling"
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.wordToEdit != null) {
+      // Si se está editando una palabra, cargar los datos en los controladores
+      _wordController.text = widget.wordToEdit!.word;
+      _translationController.text = widget.wordToEdit!.translation;
+      _spellingController.text = widget
+          .wordToEdit!.spelling; // Inicializar el controlador de "spelling"
     }
+  }
 
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: Text(dialogTitle), // Use dynamic dialog title
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: wordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Palabra en Inglés',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Focus(
-                  // ... (rest of the Focus widget and TextField for translation, same as before) ...
-                  child: TextField(
-                    controller: translationController,
-                    decoration: InputDecoration(
-                      labelText: 'Traducción',
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          isAutoTranslating ? Icons.sync : Icons.sync_disabled,
-                          color: isAutoTranslating ? Colors.green : Colors.red,
-                        ),
-                        tooltip: isAutoTranslating
-                            ? 'Traducción automática activada'
-                            : 'Traducción automática desactivada',
-                        onPressed: () {
-                          setState(() {
-                            isAutoTranslating = !isAutoTranslating;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+  @override
+  void dispose() {
+    _wordController.dispose();
+    _translationController.dispose();
+    _spellingController.dispose(); // Dispose del controlador de "spelling"
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.wordToEdit == null
+          ? 'Añadir Nueva Palabra'
+          : 'Editar Palabra'), // Título dinámico
+      content: SingleChildScrollView(
+        // Para evitar problemas de overflow con el teclado
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            TextField(
+              controller: _wordController,
+              decoration: const InputDecoration(labelText: 'Palabra'),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  if (wordController.text.isNotEmpty &&
-                      translationController.text.isNotEmpty) {
-                    final word = Word(
-                      id: wordToEdit
-                          ?.id, // <---- Pass id if in edit mode, otherwise null (for insert)
-                      word: wordController.text,
-                      translation: translationController.text,
-                      spelling:
-                          "${wordController.text}.${_spelling(wordController.text)}.${wordController.text}",
-                      createdAt: wordToEdit?.createdAt ??
-                          DateTime.now(), // Keep createdAt in edit
-                    );
-                    if (wordToEdit == null) {
-                      // <---- Check if wordToEdit is null (Add mode)
-                      await WordRepository.insertWord(word); // Insert new word
-                    } else {
-                      await WordRepository.updateWord(
-                          word); // Update existing word
-                    }
-
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      onWordAdded();
-
-                      // <----  AÑADIR ESTE BLOQUE PARA ACTUALIZAR LA LISTA DE SESIONES EN PRACTICE TAB
-                      final practiceTabState = context.findAncestorStateOfType<_PracticeTabState>();
-                      if (practiceTabState != null) {
-                        practiceTabState._loadPracticeSessions(); // <---- Call _loadPracticeSessions()
-                      }
-                    }
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Por favor complete todos los campos'),
-                      ),
-                    );
-                  }
-                },
-                child: Text(saveButtonText), // Use dynamic save button text
-              ),
-            ],
-          );
-        },
+            TextField(
+              controller: _translationController,
+              decoration: const InputDecoration(labelText: 'Traducción'),
+            ),
+            TextField(
+              controller: _spellingController, // Campo para "Spelling"
+              decoration:
+                  const InputDecoration(labelText: 'Deletreo (Spelling)'),
+            ),
+          ],
+        ),
       ),
+      actions: <Widget>[
+        TextButton(
+          child: const Text('Cancelar'),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+        ElevatedButton(
+          child: Text(widget.wordToEdit == null
+              ? 'Añadir'
+              : 'Guardar'), // Texto dinámico en el botón
+          onPressed: () async {
+            final wordText = _wordController.text;
+            final translationText = _translationController.text;
+            final spellingText =
+                _spellingController.text; // Obtener el "spelling"
+
+            if (wordText.isNotEmpty &&
+                translationText.isNotEmpty &&
+                spellingText.isNotEmpty) {
+              // Asegurarse que "spelling" no esté vacío
+              final word = Word(
+                id: widget.wordToEdit?.id, // Mantener el ID si se está editando
+                word: wordText,
+                translation: translationText,
+                spelling: spellingText,
+                createdAt: DateTime.now(), // Guardar el "spelling"
+              );
+
+              if (widget.wordToEdit == null) {
+                await WordRepository.insertWord(word); // Insertar nueva palabra
+              } else {
+                await WordRepository.updateWord(
+                    word); // Actualizar palabra existente
+              }
+              widget
+                  .onWordAdded(); // Llamar al callback para recargar la lista de palabras
+              Navigator.of(context).pop(); // Cerrar el diálogo
+            } else {
+              // Mostrar un mensaje de error o validación si es necesario
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Por favor, complete todos los campos.')),
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 }
 
 class WordsTab extends StatefulWidget {
-  const WordsTab({super.key});
+  final VoidCallback
+      onSessionUpdated; // <---- Callback para actualizar sesiones en PracticeTab
+  final void Function(_WordsTabState)
+      onWordsTabCreated; // Callback para registrar el estado
+
+  const WordsTab({
+    super.key,
+    required this.onSessionUpdated, // <---- Añadir al constructor y hacerlo required
+    required this.onWordsTabCreated, // Callback para registrar el estado
+  });
 
   @override
   State<WordsTab> createState() => _WordsTabState();
@@ -236,6 +291,8 @@ class _WordsTabState extends State<WordsTab> {
   @override
   void initState() {
     super.initState();
+    widget
+        .onWordsTabCreated(this); // Registrar el estado de WordsTab en HomePage
     _loadWords();
   }
 
@@ -325,8 +382,7 @@ class _WordsTabState extends State<WordsTab> {
                       createdAt: DateTime.now(),
                       wordIds: [wordToAdd.id!],
                     );
-                    await PracticeSessionRepository.insertSession(
-                        sessionToUse); // Insertar nueva sesión
+                    await PracticeSessionRepository.insertSession(sessionToUse);
                     // Recargar sesiones para tener la nueva sesión en la lista (opcional, pero recomendable)
                     sessions = await PracticeSessionRepository.getAllSessions();
                     sessionToUse =
@@ -336,7 +392,9 @@ class _WordsTabState extends State<WordsTab> {
                   if (sessionToUse != null) {
                     // Si tenemos una sesión válida (existente o nueva)
                     if (!newSession) {
-                      await PracticeSessionRepository.addWordToSession(wordToAdd, sessionToUse); // Añadir palabra a la sesión
+                      await PracticeSessionRepository.addWordToSession(
+                          wordToAdd,
+                          sessionToUse); // Añadir palabra a la sesión
                     }
 
                     if (context.mounted) {
@@ -347,6 +405,10 @@ class _WordsTabState extends State<WordsTab> {
                               'Palabra "${wordToAdd.word}" añadida a la sesión "${sessionToUse.name}"'),
                         ),
                       );
+
+                      // <----  BLOQUE PARA ACTUALIZAR LA LISTA DE SESIONES EN PRACTICE TAB
+                      widget
+                          .onSessionUpdated(); // <----  LLAMAR AL CALLBACK AQUÍ - ¡CLAVE!
                     }
                   } else {
                     if (context.mounted) {
@@ -375,7 +437,7 @@ class _WordsTabState extends State<WordsTab> {
       floatingActionButton: FloatingActionButton(
         // FAB AHORA en WordsTab
         onPressed: () {
-          (HomePage.of(context))._showAddWordDialog(context, _loadWords);
+          (HomePage.of(context))!._showAddWordDialog(context, _loadWords);
         },
         child: const Icon(Icons.add),
       ),
@@ -407,8 +469,7 @@ class _WordsTabState extends State<WordsTab> {
                     },
                     onAddToSession: () {
                       // <----  CALLBACK onAddToSession para WordCard
-                      _showAddToSessionDialog(context,
-                          words[index]); // Llamar al diálogo y pasar la palabra
+                      _showAddToSessionDialog(context, words[index]);
                     },
                   );
                 },
@@ -457,8 +518,8 @@ class WordCard extends StatelessWidget {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit),
-                      onPressed: () {
-                        (HomePage.of(context))._showAddWordDialog(
+                      onPressed: () async { 
+                        (HomePage.of(context))!._showAddWordDialog(
                           context,
                           () {
                             final wordsTabState = context
@@ -467,7 +528,6 @@ class WordCard extends StatelessWidget {
                               wordsTabState._loadWords();
                             }
                           },
-                          wordToEdit: word,
                         );
                       },
                     ),
@@ -555,8 +615,6 @@ class _WordCardPracticeState extends State<WordCardPractice> {
 
   @override
   void initState() {
-    print(
-        "initState de _WordCardPracticeState ejecutándose para palabra: ${widget.word.word}"); // <---- AÑADE ESTE PRINT
     super.initState();
     isPracticed = widget.practicedWords.contains(widget.word.id);
 
@@ -574,8 +632,6 @@ class _WordCardPracticeState extends State<WordCardPractice> {
     super.didUpdateWidget(oldWidget);
     // **COMPROBAR SI resetCounter HA CAMBIADO**
     if (widget.resetCounter != oldWidget.resetCounter) {
-      print(
-          "didUpdateWidget de _WordCardPracticeState - resetCounter ha cambiado. Reseteando estado.");
       setState(() {
         isPracticed = false; // Forzar isPracticed a false
         practiceResult = null; // Forzar practiceResult a null
@@ -614,8 +670,6 @@ class _WordCardPracticeState extends State<WordCardPractice> {
 
   @override
   Widget build(BuildContext context) {
-    print(
-        "_WordCardPracticeState - build: Palabra: ${widget.word.word}, isPracticed: $isPracticed, practiceResult: $practiceResult"); // <---- AÑADIR ESTE PRINT
     return Card(
       margin: const EdgeInsets.all(8.0),
       elevation: 1.0,
@@ -995,7 +1049,6 @@ class TranslationService {
           await _translator.translate(text, from: from, to: to);
       return translation.text;
     } catch (e) {
-      print("$e");
       return text; // En caso de error, retorna el mismo texto sin traducir
     }
   }
@@ -1057,11 +1110,13 @@ class PracticeSessionRepository {
     }
     // If word ID was already in the list, do nothing (avoid duplicates)
   }
+
   static Future<List<Word>> loadSessionWords(PracticeSession session) async {
     // Cambia el tipo de la lista temporalmente para permitir nulos durante el proceso
     List<Word?> possibleWords = await Future.wait(
       session.wordIds.map((id) async {
-        final dbHelper = DBHelper(); // Create an instance (if you don't have one already in scope)
+        final dbHelper =
+            DBHelper(); // Create an instance (if you don't have one already in scope)
         final db = await dbHelper.database;
         final List<Map<String, dynamic>> maps = await db.query(
           dbHelper.tableWords,
@@ -1117,11 +1172,9 @@ class PracticeSession {
             .map((str) {
               String trimmedStr =
                   str.trim(); // Trim y guarda en variable para imprimir
-              print("Intentando parsear a entero: '$trimmedStr'"); // <---- AÑADE ESTA LÍNEA
               try {
                 return int.parse(trimmedStr);
               } catch (e) {
-                print("Error al parsear: '$trimmedStr'. Error: $e"); // Imprime el error también
                 return null; // O algún valor por defecto, o relanza la excepción si quieres que falle
               }
             })
@@ -1184,7 +1237,13 @@ class PracticeHistory {
 }
 
 class PracticeTab extends StatefulWidget {
-  const PracticeTab({super.key});
+  final void Function(_PracticeTabState)
+      onPracticeTabCreated; // <---- Callback para registrar el estado
+
+  const PracticeTab({
+    super.key,
+    required this.onPracticeTabCreated, // <---- Añadir al constructor
+  });
 
   @override
   State<PracticeTab> createState() => _PracticeTabState();
@@ -1206,10 +1265,11 @@ class _PracticeTabState extends State<PracticeTab>
   @override
   void initState() {
     super.initState();
-    _loadInitialData(); // Call the combined data loading function
+    widget.onPracticeTabCreated(this); // <----  Llama al callback en initState
+    _loadInitialData();
   }
 
-  Future<void> _loadInitialData() async { // Renamed and combined function
+  Future<void> _loadInitialData() async {
     print("_loadInitialData: Starting data initialization");
     final dbHelper = DBHelper();
     final db = await dbHelper.database;
@@ -1221,34 +1281,39 @@ class _PracticeTabState extends State<PracticeTab>
       await loadSampleData();
     }
 
-    await _loadSessions(); // Load sessions after initial data check
+    await _loadSessions(); // Cargar sesiones después de la verificación inicial de datos
     print("_loadInitialData: Data initialization complete.");
   }
 
-
-  Future<void> _loadSessions() async { // Simplified _loadSessions
+  Future<void> _loadSessions() async {
     print("_loadSessions: Loading practice sessions from database.");
     List<PracticeSession> loadedSessions =
         await PracticeSessionRepository.getAllSessions();
 
     setState(() {
+      print("_loadSessions: setState INICIANDO...");
       sessions = loadedSessions;
       if (sessions.isNotEmpty) {
         selectedSession = sessions.first;
-        _loadSessionWords(); // Load session words immediately for the first session
+        _loadSessionWords(); // Cargar palabras de la sesión inmediatamente para la primera sesión
       } else {
         selectedSession = null;
-        words = []; // Clear words if no sessions are available
+        words = []; // Limpiar palabras si no hay sesiones disponibles
       }
+      print("_loadSessions: setState COMPLETADO.");
     });
-    print("_loadSessions: Sessions loaded. Selected session: ${selectedSession?.name ?? 'None'}. Word count: ${words.length}");
+    print(
+        "_loadSessions: Sessions loaded. Selected session: ${selectedSession?.name ?? 'None'}. Word count: ${words.length}");
   }
 
-  Future<void> _loadPracticeSessions() async { // <-- NEW FUNCTION for reloading sessions from outside
-    print("_loadPracticeSessions: Reloading practice sessions and updating UI.");
-    await _loadSessions(); // Simply call _loadSessions to refresh everything
+  Future<void> _loadPracticeSessions() async {
+    // <-- NEW FUNCTION for reloading sessions from outside
+    print(
+        "_loadPracticeSessions: INICIANDO recarga de sesiones y actualizando UI.");
+    await _loadSessions(); // Simplemente llama _loadSessions para refrescar todo
+    print(
+        "_loadPracticeSessions: _loadSessions() completado. Llamando a setState...");
   }
-
 
   Future<void> _loadSessionWords() async {
     if (selectedSession == null) {
@@ -1256,11 +1321,12 @@ class _PracticeTabState extends State<PracticeTab>
       setState(() {
         words = [];
       });
-      return; // Exit if no session is selected
+      return; // Salir si no hay sesión seleccionada
     }
-    print("_loadSessionWords: Loading words for session: ${selectedSession!.name}");
+    print(
+        "_loadSessionWords: Loading words for session: ${selectedSession!.name}");
     words = await PracticeSessionRepository.loadSessionWords(selectedSession!);
-    setState(() { });
+    setState(() {});
     print("_loadSessionWords: Words loaded. Count: ${words.length}");
   }
 
@@ -1302,14 +1368,14 @@ class _PracticeTabState extends State<PracticeTab>
       practicedWords.clear();
       correctCount = 0;
       incorrectCount = 0;
-      _loadSessionWords(); // Reload words after reset
+      _loadSessionWords(); // Recargar palabras después de resetear
       resetCounter++;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Important for AutomaticKeepAliveClientMixin
+    super.build(context); // Importante para AutomaticKeepAliveClientMixin
     return Scaffold(
       body: Column(
         children: [
@@ -1331,8 +1397,8 @@ class _PracticeTabState extends State<PracticeTab>
                     onChanged: (PracticeSession? newValue) {
                       setState(() {
                         selectedSession = newValue;
-                        _resetPractice(); // Reset practice when session changes
-                        _loadSessionWords(); // Load words for the new session
+                        _resetPractice(); // Resetear práctica cuando cambia la sesión
+                        _loadSessionWords(); // Cargar palabras para la nueva sesión
                       });
                     },
                   ),
@@ -1364,7 +1430,7 @@ class _PracticeTabState extends State<PracticeTab>
                   word: word,
                   onDelete: () async {
                     await WordRepository.deleteWord(words[index].id!);
-                    _loadSessionWords(); // Consider if you need to reload session words here, maybe _loadSessions is better if session words depend on session.
+                    _loadSessionWords(); // Considerar si necesitas recargar session words aquí, quizás _loadSessions es mejor si las palabras de sesión dependen de la sesión.
                   },
                   onRecordPracticeCallback: _recordPracticeWrapper,
                   practicedWords: practicedWords,
@@ -1379,6 +1445,7 @@ class _PracticeTabState extends State<PracticeTab>
     );
   }
 }
+
 // Función para cargar datos de ejemplo
 Future<void> loadSampleData() async {
   final dbHelper =
@@ -1890,7 +1957,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
         selectedWords = shuffledWords.take(numberOfWords).toList();
       }
     } catch (e) {
-      print("Error al cargar palabras para SpellingBee: $e"); // Manejo de error
       // En caso de error, retornar una lista vacía para evitar problemas
       return [];
     }
