@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:translator/translator.dart';
 import 'dart:math';
+import 'dart:async'; // Importante para Timer (debounce)
 
 void main() {
   runApp(const MyApp());
@@ -39,6 +39,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _debounce; // Para el debounce de la traducción
 
   String _spelling(String word) {
     String letterSeparated = '';
@@ -68,62 +69,26 @@ class _HomePageState extends State<HomePage>
 
   @override
   void dispose() {
+    _debounce
+        ?.cancel(); // MUY IMPORTANTE cancelar el timer en dispose para evitar leaks
     _tabController.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mi Diccionario'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // TODO: Implementar configuración
-            },
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Palabras', icon: Icon(Icons.book)),
-            Tab(text: 'Práctica', icon: Icon(Icons.edit)),
-            Tab(text: 'SpelliongBee', icon: Icon(Icons.bug_report_rounded)),
-            //Tab(text: 'Estadísticas', icon: Icon(Icons.bar_chart)),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          WordsTab(),
-          PracticeTab(),
-          SpellingBeeView(),
-          //StatsTab(),
-        ],
-      ),
-    );
-  }
-
   void _showAddWordDialog(BuildContext context, VoidCallback onWordAdded,
       {Word? wordToEdit}) {
-    // <---- Optional Word parameter
     final wordController = TextEditingController();
     final translationController = TextEditingController();
     bool isAutoTranslating = true;
 
-    String dialogTitle = 'Nueva Palabra'; // Default title for "Add" mode
-    String saveButtonText = 'Guardar'; // Default button text
+    String dialogTitle = 'Nueva Palabra';
+    String saveButtonText = 'Guardar';
 
     if (wordToEdit != null) {
-      // <---- Check if wordToEdit is provided (Edit mode)
-      dialogTitle = 'Editar Palabra'; // Change title for "Edit" mode
-      saveButtonText = 'Actualizar'; // Change button text
-      wordController.text = wordToEdit.word; // Pre-populate word field
-      translationController.text =
-          wordToEdit.translation; // Pre-populate translation field
+      dialogTitle = 'Editar Palabra';
+      saveButtonText = 'Actualizar';
+      wordController.text = wordToEdit.word;
+      translationController.text = wordToEdit.translation;
     }
 
     showDialog(
@@ -131,7 +96,7 @@ class _HomePageState extends State<HomePage>
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            title: Text(dialogTitle), // Use dynamic dialog title
+            title: Text(dialogTitle),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -140,10 +105,29 @@ class _HomePageState extends State<HomePage>
                   decoration: const InputDecoration(
                     labelText: 'Palabra en Inglés',
                   ),
+                  onChanged: (value) {
+                    // Debounce para la traducción automática
+                    if (_debounce?.isActive ?? false) _debounce!.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 500), () {
+                      if (isAutoTranslating && value.isNotEmpty) {
+                        TranslationService.translate(text: value)
+                            .then((translated) {
+                          if (mounted) {
+                            setState(() {
+                              translationController.text = translated;
+                            });
+                          }
+                        }).catchError((e) { // Manejo de errores de traducción
+                            if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al traducir: $e")));
+                            }
+                        });
+                      }
+                    });
+                  },
                 ),
                 const SizedBox(height: 8),
                 Focus(
-                  // ... (rest of the Focus widget and TextField for translation, same as before) ...
                   child: TextField(
                     controller: translationController,
                     decoration: InputDecoration(
@@ -159,6 +143,21 @@ class _HomePageState extends State<HomePage>
                         onPressed: () {
                           setState(() {
                             isAutoTranslating = !isAutoTranslating;
+                            // Forzar traducción si se reactiva
+                            if (isAutoTranslating && wordController.text.isNotEmpty){
+                                TranslationService.translate(text: wordController.text)
+                                    .then((translated) {
+                                  if (mounted) {
+                                    setState(() {
+                                      translationController.text = translated;
+                                    });
+                                  }
+                                }).catchError((e) { // Manejo de errores
+                                    if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al traducir: $e")));
+                                    }
+                                });
+                            }
                           });
                         },
                       ),
@@ -177,42 +176,49 @@ class _HomePageState extends State<HomePage>
                   if (wordController.text.isNotEmpty &&
                       translationController.text.isNotEmpty) {
                     final word = Word(
-                      id: wordToEdit
-                          ?.id, // <---- Pass id if in edit mode, otherwise null (for insert)
+                      id: wordToEdit?.id,
                       word: wordController.text,
                       translation: translationController.text,
                       spelling:
                           "${wordController.text}.${_spelling(wordController.text)}.${wordController.text}",
-                      createdAt: wordToEdit?.createdAt ??
-                          DateTime.now(), // Keep createdAt in edit
+                      createdAt: wordToEdit?.createdAt ?? DateTime.now(),
                     );
-                    if (wordToEdit == null) {
-                      // <---- Check if wordToEdit is null (Add mode)
-                      await WordRepository.insertWord(word); // Insert new word
-                    } else {
-                      await WordRepository.updateWord(
-                          word); // Update existing word
-                    }
-
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      onWordAdded();
-
-                      // <----  AÑADIR ESTE BLOQUE PARA ACTUALIZAR LA LISTA DE SESIONES EN PRACTICE TAB
-                      final practiceTabState = context.findAncestorStateOfType<_PracticeTabState>();
-                      if (practiceTabState != null) {
-                        practiceTabState._loadPracticeSessions(); // <---- Call _loadPracticeSessions()
+                    try {
+                      if (wordToEdit == null) {
+                        await WordRepository.insertWord(word);
+                      } else {
+                        await WordRepository.updateWord(word);
                       }
+
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        onWordAdded(); // Usar el callback
+
+                        // Actualizar PracticeTab (si existe)
+                        final practiceTabState = context
+                            .findAncestorStateOfType<_PracticeTabState>();
+                        if (practiceTabState != null) {
+                          practiceTabState
+                              ._loadPracticeSessions(); // Actualizar sesiones
+                        }
+                      }
+                    } catch (e) { //Manejo de errores de guardado
+                        if (context.mounted){
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar/actualizar: $e")));
+                        }
                     }
+
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    if (context.mounted){
+                        ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Por favor complete todos los campos'),
                       ),
                     );
+                    }
                   }
                 },
-                child: Text(saveButtonText), // Use dynamic save button text
+                child: Text(saveButtonText),
               ),
             ],
           );
@@ -220,6 +226,39 @@ class _HomePageState extends State<HomePage>
       ),
     );
   }
+
+    @override
+    Widget build(BuildContext context) {
+        return Scaffold(
+            appBar: AppBar(
+                title: const Text('Mi Diccionario'),
+                actions: [
+                    IconButton(
+                        icon: const Icon(Icons.settings),
+                        onPressed: () {
+                            // TODO: Implementar configuración
+                        },
+                    ),
+                ],
+                bottom: TabBar(
+                    controller: _tabController,
+                    tabs: const [
+                        Tab(text: 'Palabras', icon: Icon(Icons.book)),
+                        Tab(text: 'Práctica', icon: Icon(Icons.edit)),
+                        Tab(text: 'SpellingBee', icon: Icon(Icons.bug_report_rounded)),
+                    ],
+                ),
+            ),
+            body: TabBarView(
+                controller: _tabController,
+                children: const [
+                    WordsTab(),
+                    PracticeTab(),
+                    SpellingBeeView(),
+                ],
+            ),
+        );
+    }
 }
 
 class WordsTab extends StatefulWidget {
@@ -230,42 +269,38 @@ class WordsTab extends StatefulWidget {
 }
 
 class _WordsTabState extends State<WordsTab> {
-  List<Word> words = [];
+  Future<List<Word>>? _wordsFuture; // Usar Future para carga asíncrona
   String searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _loadWords();
+    _loadWords(); // Inicializar la carga de palabras
   }
 
-  Future<void> _loadWords() async {
-    if (searchQuery.isEmpty) {
-      words = await WordRepository.getAllWords();
-    } else {
-      words = await WordRepository.searchWords(searchQuery);
-    }
-    if (mounted) setState(() {});
+    Future<void> _loadWords() async {
+        setState(() { //Set state antes de asignar el futuro
+            if (searchQuery.isEmpty) {
+              _wordsFuture = WordRepository.getAllWords();
+            } else {
+              _wordsFuture = WordRepository.searchWords(searchQuery);
+            }
+        });
   }
 
   void _showAddToSessionDialog(BuildContext context, Word wordToAdd) async {
-    // <----  Función para el diálogo "Añadir a Sesión"
-    List<PracticeSession> sessions = await PracticeSessionRepository
-        .getAllSessions(); // Cargar sesiones existentes
-    PracticeSession?
-        selectedSession; // Variable para rastrear la sesión seleccionada
-    final newSessionNameController =
-        TextEditingController(); // Controlador para el nombre de nueva sesión
+    List<PracticeSession> sessions =
+        await PracticeSessionRepository.getAllSessions();
+    PracticeSession? selectedSession;
+    final newSessionNameController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        // StatefulBuilder para el setState dentro del diálogo
         builder: (context, setState) {
           return AlertDialog(
             title: const Text('Añadir palabra a Sesión'),
             content: SingleChildScrollView(
-              // Para permitir scroll si hay muchas sesiones
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -273,7 +308,6 @@ class _WordsTabState extends State<WordsTab> {
                       'Seleccione una sesión existente o cree una nueva:'),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<PracticeSession>(
-                    // Dropdown para sesiones existentes
                     value: selectedSession,
                     decoration: const InputDecoration(
                       labelText: 'Sesión Existente (Opcional)',
@@ -295,7 +329,6 @@ class _WordsTabState extends State<WordsTab> {
                   const Text('O'),
                   const SizedBox(height: 16),
                   TextField(
-                    // TextField para crear nueva sesión
                     controller: newSessionNameController,
                     decoration: const InputDecoration(
                       labelText: 'Nombre de Nueva Sesión (Opcional)',
@@ -313,51 +346,60 @@ class _WordsTabState extends State<WordsTab> {
               TextButton(
                 onPressed: () async {
                   bool newSession = false;
-                  PracticeSession? sessionToUse =
-                      selectedSession; // Usar sesión seleccionada o nueva
+                  PracticeSession? sessionToUse = selectedSession;
 
                   if (sessionToUse == null &&
                       newSessionNameController.text.isNotEmpty) {
-                    // Crear nueva sesión si no se seleccionó una existente y se proporcionó un nombre
                     newSession = true;
                     sessionToUse = PracticeSession(
                       name: newSessionNameController.text,
                       createdAt: DateTime.now(),
                       wordIds: [wordToAdd.id!],
                     );
-                    await PracticeSessionRepository.insertSession(
-                        sessionToUse); // Insertar nueva sesión
-                    // Recargar sesiones para tener la nueva sesión en la lista (opcional, pero recomendable)
-                    sessions = await PracticeSessionRepository.getAllSessions();
-                    sessionToUse =
-                        sessions.last; // Seleccionar la recién creada
-                  }
-
-                  if (sessionToUse != null) {
-                    // Si tenemos una sesión válida (existente o nueva)
-                    if (!newSession) {
-                      await PracticeSessionRepository.addWordToSession(wordToAdd, sessionToUse); // Añadir palabra a la sesión
-                    }
-
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Palabra "${wordToAdd.word}" añadida a la sesión "${sessionToUse.name}"'),
-                        ),
-                      );
-                    }
-                  } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                              'Por favor, seleccione una sesión existente o ingrese un nombre para una nueva sesión.'),
-                        ),
-                      );
+                    try{
+                        await PracticeSessionRepository.insertSession(sessionToUse);
+                        sessions = await PracticeSessionRepository.getAllSessions(); //Recargar después de añadir
+                        sessionToUse = sessions.last;
+                    } catch (e){ //Manejo de errores
+                        if (context.mounted){
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al crear sesión: $e")));
+                        }
+                        return; //Importante salir si hay un error
                     }
                   }
+
+                    if (sessionToUse != null) {
+                        try {
+                            if (!newSession) {
+                                await PracticeSessionRepository.addWordToSession(
+                                    wordToAdd, sessionToUse);
+                            }
+                            if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Palabra "${wordToAdd.word}" añadida a la sesión "${sessionToUse.name}"'),
+                                    ),
+                                );
+                            }
+
+                        } catch (e){
+                            if (context.mounted){
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al añadir palabra: $e")));
+                            }
+                        }
+                    } else {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Por favor, seleccione una sesión existente o ingrese un nombre para una nueva sesión.'),
+                            ),
+                          );
+                        }
+                    }
+
                 },
                 child: const Text('Añadir'),
               ),
@@ -371,16 +413,17 @@ class _WordsTabState extends State<WordsTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Envolvemos el Column con Scaffold para el FAB
       floatingActionButton: FloatingActionButton(
-        // FAB AHORA en WordsTab
         onPressed: () {
-          (HomePage.of(context))._showAddWordDialog(context, _loadWords);
+          (HomePage.of(context))._showAddWordDialog(context, () {
+            setState(() { // Actualizar la lista de palabras al añadir una nueva
+              _loadWords();
+            });
+          });
         },
         child: const Icon(Icons.add),
       ),
       body: Column(
-        // Column ahora como body del Scaffold
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -388,31 +431,57 @@ class _WordsTabState extends State<WordsTab> {
               hintText: 'Buscar palabra...',
               leading: const Icon(Icons.search),
               onChanged: (value) {
-                searchQuery = value;
-                _loadWords();
+                setState(() { // Actualizar la búsqueda al escribir
+                  searchQuery = value;
+                  _loadWords();
+                });
               },
             ),
           ),
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: _loadWords,
-              child: ListView.builder(
-                itemCount: words.length,
-                itemBuilder: (context, index) {
-                  return WordCard(
-                    word: words[index],
-                    onDelete: () async {
-                      await WordRepository.deleteWord(words[index].id!);
-                      _loadWords();
-                    },
-                    onAddToSession: () {
-                      // <----  CALLBACK onAddToSession para WordCard
-                      _showAddToSessionDialog(context,
-                          words[index]); // Llamar al diálogo y pasar la palabra
-                    },
+            child: FutureBuilder<List<Word>>( // Usar FutureBuilder
+              future: _wordsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator()); // Mostrar indicador de carga
+                } else if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}')); // Mostrar error
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('No words found.'));
+                }
+                else {
+                  return RefreshIndicator(
+                    onRefresh: _loadWords, // Recargar al deslizar hacia abajo
+                    child: ListView.builder(
+                      itemCount: snapshot.data!.length,
+                      itemBuilder: (context, index) {
+                        return WordCard(
+                          word: snapshot.data![index],
+                          onDelete: () async {
+                            try {
+                              await WordRepository.deleteWord(
+                                  snapshot.data![index].id!);
+                                  setState(() {
+                                     _loadWords();
+                                  });
+
+                            } catch (e) {
+                                if (context.mounted){
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text("Error al eliminar: $e")));
+                                }
+                            }
+                          },
+                          onAddToSession: () {
+                            _showAddToSessionDialog(
+                                context, snapshot.data![index]);
+                          },
+                        );
+                      },
+                    ),
                   );
-                },
-              ),
+                }
+              },
             ),
           ),
         ],
@@ -420,18 +489,16 @@ class _WordsTabState extends State<WordsTab> {
     );
   }
 }
-
 class WordCard extends StatelessWidget {
   final Word word;
   final VoidCallback onDelete;
-  final VoidCallback?
-      onAddToSession; // <----  NUEVO: Callback para "Añadir a Sesión"
+  final VoidCallback? onAddToSession;
 
   const WordCard({
     super.key,
     required this.word,
     required this.onDelete,
-    this.onAddToSession, // <----  Añadido al constructor
+    this.onAddToSession,
   });
 
   @override
@@ -464,7 +531,8 @@ class WordCard extends StatelessWidget {
                             final wordsTabState = context
                                 .findAncestorStateOfType<_WordsTabState>();
                             if (wordsTabState != null) {
-                              wordsTabState._loadWords();
+                              wordsTabState
+                                  ._loadWords(); //Recargar usando el estado del tab
                             }
                           },
                           wordToEdit: word,
@@ -477,8 +545,7 @@ class WordCard extends StatelessWidget {
                       onPressed: onDelete,
                     ),
                     const SizedBox(width: 8),
-                    if (onAddToSession !=
-                        null) // <----  CONDICIONAL: Mostrar "Añadir a Sesión" solo si onAddToSession está definido
+                    if (onAddToSession != null)
                       IconButton(
                         icon: const Icon(
                             Icons.add_circle_outline), // Icono de "añadir"
@@ -528,10 +595,10 @@ class WordCardPractice extends StatefulWidget {
           Word word, bool isCorrect, _WordCardPracticeState cardState)
       onRecordPracticeCallback;
   final Set<int> practicedWords;
-  final PracticeSession? selectedSession; // <---- ASEGÚRATE DE QUE ESTÉ AÑADIDO
-  final int resetCounter; // <---- AÑADE ESTA LÍNEA:  Propiedad resetCounter
+  final PracticeSession? selectedSession;
+  final int resetCounter;
   final bool
-      showRemoveButton; // <---- AÑADE ESTA LÍNEA: Nueva propiedad showRemoveButton
+      showRemoveButton; //  propiedad showRemoveButton
 
   const WordCardPractice({
     super.key,
@@ -539,10 +606,10 @@ class WordCardPractice extends StatefulWidget {
     required this.onDelete,
     required this.onRecordPracticeCallback,
     required this.practicedWords,
-    this.selectedSession, // <---- ASEGÚRATE DE QUE ESTÉ EN EL CONSTRUCTOR
-    required this.resetCounter, // <---- ASEGÚRATE DE AÑADIR resetCounter AQUÍ
+    this.selectedSession,
+    required this.resetCounter,
     this.showRemoveButton =
-        true, // <----  Valor por defecto: true (mostrar botón)
+        true, //  Valor por defecto: true (mostrar botón)
   });
 
   @override
@@ -555,67 +622,63 @@ class _WordCardPracticeState extends State<WordCardPractice> {
 
   @override
   void initState() {
-    print(
-        "initState de _WordCardPracticeState ejecutándose para palabra: ${widget.word.word}"); // <---- AÑADE ESTE PRINT
     super.initState();
     isPracticed = widget.practicedWords.contains(widget.word.id);
 
-    // **INICIALIZAR practiceResult BASADO EN practicedWords (y si es practicada)**
     if (isPracticed) {
-      _loadLastPracticeResult(); // <---- LLAMAR a nueva función para cargar el último resultado
+      _loadLastPracticeResult();
     } else {
-      practiceResult =
-          null; // Si no practicada, practiceResult es null inicialmente
+      practiceResult = null;
     }
   }
 
   @override
   void didUpdateWidget(covariant WordCardPractice oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // **COMPROBAR SI resetCounter HA CAMBIADO**
     if (widget.resetCounter != oldWidget.resetCounter) {
-      print(
-          "didUpdateWidget de _WordCardPracticeState - resetCounter ha cambiado. Reseteando estado.");
       setState(() {
-        isPracticed = false; // Forzar isPracticed a false
-        practiceResult = null; // Forzar practiceResult a null
+        isPracticed = false;
+        practiceResult = null;
       });
     }
   }
 
   Future<void> _loadLastPracticeResult() async {
-    // Función para cargar el último resultado de práctica desde la base de datos
-    final dbHelper =
-        DBHelper(); // Create an instance (if you don't have one already in scope)
-    final db = await dbHelper.database; // Correct instance access
-    final List<Map<String, dynamic>> history = await db.query(
-      'practice_history',
-      orderBy:
-          'practiced_at DESC', // Ordenar por fecha descendente para obtener el más reciente primero
-      where: 'word_Id = ? AND session_Id = ?',
-      whereArgs: [
-        widget.word.id,
-        widget.selectedSession?.id
-      ], // Filtrar por palabra y sesión actual
-      limit: 1, // Limitar a 1 resultado (el más reciente)
-    );
+    final dbHelper = DBHelper();
+      try{
+          final db = await dbHelper.database;
+          final List<Map<String, dynamic>> history = await db.query(
+            'practice_history',
+            orderBy:
+            'practiced_at DESC',
+            where: 'word_id = ? AND session_id = ?',
+            whereArgs: [
+              widget.word.id,
+              widget.selectedSession?.id
+            ],
+            limit: 1,
+          );
 
-    if (history.isNotEmpty) {
-      final lastPractice = PracticeHistory.fromMap(history.first);
-      setState(() {
-        practiceResult = lastPractice
-            .isCorrect; // Establecer practiceResult con el resultado del historial
-      });
-    } else {
-      practiceResult =
-          null; // Si no hay historial, practiceResult es null (aunque isPracticed sea true, caso raro)
-    }
+          if (history.isNotEmpty) {
+            final lastPractice = PracticeHistory.fromMap(history.first);
+            setState(() {
+              practiceResult = lastPractice
+                  .isCorrect;
+            });
+          } else {
+            practiceResult = null;
+          }
+      } catch (e){ //Manejo de errores
+          if (mounted){
+              ScaffoldMessenger.of(context as BuildContext).showSnackBar(SnackBar(content: Text("Error cargando historial: $e")));
+          }
+      }
+
   }
 
   @override
   Widget build(BuildContext context) {
-    print(
-        "_WordCardPracticeState - build: Palabra: ${widget.word.word}, isPracticed: $isPracticed, practiceResult: $practiceResult"); // <---- AÑADIR ESTE PRINT
+
     return Card(
       margin: const EdgeInsets.all(8.0),
       elevation: 1.0,
@@ -698,7 +761,7 @@ class _WordCardPracticeState extends State<WordCardPractice> {
                   ),
                 ),
                 if (widget
-                    .showRemoveButton) // <----  CONDICIÓN: Mostrar solo si showRemoveButton es true
+                    .showRemoveButton) //  Mostrar solo si showRemoveButton es true
                   ElevatedButton.icon(
                     onPressed: widget.onDelete,
                     icon: const Icon(Icons.remove),
@@ -716,6 +779,7 @@ class _WordCardPracticeState extends State<WordCardPractice> {
   }
 }
 
+//Vista de estadisticas (borrar si no se usa al final)
 class StatsTab extends StatelessWidget {
   const StatsTab({super.key});
 
@@ -729,8 +793,15 @@ class StatsTab extends StatelessWidget {
 
 class DBHelper {
   static Database? _database;
+  static final DBHelper _instance =
+      DBHelper._privateConstructor(); // Instancia Singleton
 
-  // Nombres de tablas
+  factory DBHelper() {
+    return _instance;
+  }
+
+  DBHelper._privateConstructor(); // Constructor privado
+
   String tableWords = 'words';
   String tablePractice = 'practice';
   String tableCategories = 'categories';
@@ -742,73 +813,70 @@ class DBHelper {
     return _database!;
   }
 
-  // Inicializar base de datos
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'word_trainer_database.db');
     return await openDatabase(path, version: 1, onCreate: _onCreate);
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Crear tabla de categorías
     await db.execute('''
-          CREATE TABLE $tableCategories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        ''');
-
-    // Crear tabla de palabras
-    await db.execute('''
-          CREATE TABLE $tableWords (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            word TEXT NOT NULL,
-            translation TEXT NOT NULL,
-            pronunciation TEXT,
-            spelling TEXT,
-            category_id INTEGER,
-            notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_practice TIMESTAMP,
-            FOREIGN KEY (category_id) REFERENCES $tableCategories (id)
-          )
-        ''');
-
-    // Crear tabla de práctica
-    await db.execute('''
-          CREATE TABLE $tablePractice (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            word_id INTEGER,
-            success BOOLEAN,
-            practice_type TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (word_id) REFERENCES $tableWords (id)
-          )
-        ''');
+      CREATE TABLE $tableCategories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    ''');
 
     await db.execute('''
-          CREATE TABLE practice_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            word_ids TEXT NOT NULL
-          )
-        ''');
+      CREATE TABLE $tableWords (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        word TEXT NOT NULL,
+        translation TEXT NOT NULL,
+        pronunciation TEXT,
+        spelling TEXT,
+        category_id INTEGER,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_practice TIMESTAMP,
+        FOREIGN KEY (category_id) REFERENCES $tableCategories (id)
+      )
+    ''');
 
     await db.execute('''
-          CREATE TABLE practice_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            word_id INTEGER NOT NULL,
-            session_id INTEGER NOT NULL,
-            is_correct BOOLEAN NOT NULL,
-            practiced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (word_id) REFERENCES words (id),
-            FOREIGN KEY (session_id) REFERENCES practice_sessions (id)
-          )
-        ''');
+      CREATE TABLE $tablePractice (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        word_id INTEGER,
+        success BOOLEAN,
+        practice_type TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (word_id) REFERENCES $tableWords (id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE practice_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        word_ids TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE practice_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        word_id INTEGER NOT NULL,
+        session_id INTEGER NOT NULL,
+        is_correct BOOLEAN NOT NULL,
+        practiced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (word_id) REFERENCES words (id),
+        FOREIGN KEY (session_id) REFERENCES practice_sessions (id)
+      )
+    ''');
   }
-} // word_model.dart
+}
 
+// word_model.dart
 class Word {
   final int? id;
   final String word;
@@ -865,93 +933,107 @@ class Word {
 
 // word_repository.dart
 class WordRepository {
-  // Insertar nueva palabra
   static Future<int> insertWord(Word word) async {
-    final dbHelper =
-        DBHelper(); // Create an instance (if you don't have one already in scope)
-    final db = await dbHelper.database; // Correct instance access
-    return await db.insert(dbHelper.tableWords, word.toMap());
+    final db = await DBHelper()
+        .database; // Acceder a la instancia de base de datos del Singleton
+    try {
+      return await db.insert(DBHelper().tableWords, word.toMap());
+    } catch (e) {
+      print("Error inserting word: $e");
+      rethrow;
+    }
   }
 
-  // Obtener todas las palabras
   static Future<List<Word>> getAllWords() async {
-    final dbHelper =
-        DBHelper(); // Create an instance (if you don't have one already in scope)
-    final db = await dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query(dbHelper.tableWords);
-    return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
+    final db = await DBHelper().database;
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(DBHelper().tableWords);
+      return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
+    } catch (e) {
+      print("Error getting all words: $e");
+      rethrow;
+    }
   }
 
-  // Buscar palabras
   static Future<List<Word>> searchWords(String query) async {
-    final dbHelper =
-        DBHelper(); // Create an instance (if you don't have one already in scope)
-    final db = await dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      dbHelper.tableWords,
-      where: 'word LIKE ? OR translation LIKE ?',
-      whereArgs: ['%$query%', '%$query%'],
-    );
-    return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
+    final db = await DBHelper().database;
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        DBHelper().tableWords,
+        where: 'word LIKE ? OR translation LIKE ?',
+        whereArgs: ['%$query%', '%$query%'],
+      );
+      return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
+    } catch (e) {
+      print("Error searching words: $e");
+      rethrow;
+    }
   }
 
-  // Actualizar palabra
   static Future<int> updateWord(Word word) async {
-    final dbHelper =
-        DBHelper(); // Create an instance (if you don't have one already in scope)
-    final db = await dbHelper.database;
-    return await db.update(
-      dbHelper.tableWords,
-      word.toMap(),
-      where: 'id = ?',
-      whereArgs: [word.id],
-    );
+    final db = await DBHelper().database;
+    try {
+      return await db.update(
+        DBHelper().tableWords,
+        word.toMap(),
+        where: 'id = ?',
+        whereArgs: [word.id],
+      );
+    } catch (e) {
+      print("Error updating word: $e");
+      rethrow;
+    }
   }
 
-  // Eliminar palabra
   static Future<int> deleteWord(int id) async {
-    final dbHelper =
-        DBHelper(); // Create an instance (if you don't have one already in scope)
-    final db = await dbHelper.database;
-    return await db.delete(
-      dbHelper.tableWords,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    final db = await DBHelper().database;
+    try {
+      return await db.delete(
+        DBHelper().tableWords,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      print("Error deleting word: $e");
+      rethrow;
+    }
   }
 
-  // Actualizar última práctica
   static Future<int> updateLastPractice(int wordId) async {
-    final dbHelper =
-        DBHelper(); // Create an instance (if you don't have one already in scope)
-    final db = await dbHelper.database;
-    return await db.update(
-      dbHelper.tableWords,
-      {'last_practice': DateTime.now().toIso8601String()},
-      where: 'id = ?',
-      whereArgs: [wordId],
-    );
+    final db = await DBHelper().database;
+    try {
+      return await db.update(
+        DBHelper().tableWords,
+        {'last_practice': DateTime.now().toIso8601String()},
+        where: 'id = ?',
+        whereArgs: [wordId],
+      );
+    } catch (e) {
+      print("Error updating last practice: $e");
+      rethrow;
+    }
   }
 
-  // Ejemplo de cómo modificar WordRepository.getWords() para que sea asíncrona
-  static Future<List<Word>> getWords() async {
-    final dbHelper = DBHelper();
-    final db = await dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query(dbHelper.tableWords);
-    return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
-  }
+    static Future<List<Word>> getWords() async {
+        final db = await DBHelper().database;
+        try {
+            final List<Map<String, dynamic>> maps = await db.query(DBHelper().tableWords);
+            return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
+        } catch (e) {
+            print("Error al obtener palabras $e");
+            return []; // Return an empty list in case of error.
+        }
+    }
 }
 
 class TextToSpeechService {
   static FlutterTts? _flutterTts;
 
-  // Método para obtener o inicializar la instancia de FlutterTts
   static Future<FlutterTts> _getInstance() async {
     if (_flutterTts == null) {
       _flutterTts = FlutterTts();
 
       try {
-        // Intentar configurar opciones básicas
         await _flutterTts!.setEngine('com.google.android.tts');
         await _flutterTts!.setLanguage('en-US');
         await _flutterTts!.setPitch(1.0);
@@ -959,28 +1041,29 @@ class TextToSpeechService {
         await _flutterTts!.setVolume(1.0);
       } catch (e) {
         debugPrint('Error inicializando TTS: $e');
+        // Consider showing a SnackBar to the user
       }
     }
     return _flutterTts!;
   }
 
-  // Método para pronunciar una palabra
   static Future<void> speak(String text) async {
     try {
       final tts = await _getInstance();
       await tts.speak(text);
     } catch (e) {
       debugPrint('Error al pronunciar: $e');
+      // Show a SnackBar (you'll need a BuildContext for this)
     }
   }
 
-  // Detener la pronunciación
   static Future<void> stop() async {
     try {
       final tts = await _getInstance();
       await tts.stop();
     } catch (e) {
       debugPrint('Error al detener TTS: $e');
+      // Show a SnackBar
     }
   }
 }
@@ -995,94 +1078,133 @@ class TranslationService {
           await _translator.translate(text, from: from, to: to);
       return translation.text;
     } catch (e) {
-      print("$e");
-      return text; // En caso de error, retorna el mismo texto sin traducir
+      print("Error en la traduccion: $e");
+      return text; // Return original text on error
     }
   }
 }
 
-//VISTA DE PRACTICAS
-// practice_session_repository.dart (ejemplo, ajusta según tu estructura)
 class PracticeSessionRepository {
   static Future<List<PracticeSession>> getAllSessions() async {
-    final dbHelper = DBHelper();
-    final db = await dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query('practice_sessions');
-    return List.generate(maps.length, (i) => PracticeSession.fromMap(maps[i]));
+    final db = await DBHelper().database;
+    try {
+      final List<Map<String, dynamic>> maps =
+          await db.query('practice_sessions');
+      return List.generate(maps.length, (i) => PracticeSession.fromMap(maps[i]));
+    } catch (e) {
+      print("Error getting all sessions: $e");
+      rethrow;
+    }
   }
 
   static Future<void> insertSession(PracticeSession session) async {
-    final dbHelper = DBHelper();
-    final db = await dbHelper.database;
-    await db.insert('practice_sessions', session.toMap());
+    final db = await DBHelper().database;
+    try {
+      await db.insert('practice_sessions', session.toMap());
+    } catch (e) {
+      print("Error inserting session: $e");
+      rethrow;
+    }
   }
-
-  // ... (otras funciones de PracticeSessionRepository si las tienes) ...
 
   static Future<void> addWordToSession(
       Word word, PracticeSession session) async {
-    final dbHelper = DBHelper();
-    final db = await dbHelper.database;
-
-    // 1. Fetch the current PracticeSession to get the existing wordIds (List<int>)
-    final List<Map<String, dynamic>> sessionMap = await db.query(
-      'practice_sessions',
-      where: 'id = ?',
-      whereArgs: [session.id],
-    );
-    if (sessionMap.isEmpty) {
-      return; // Session not found (should not happen, but handle just in case)
-    }
-    final PracticeSession currentSession =
-        PracticeSession.fromMap(sessionMap.first);
-    List<int> wordIdList = currentSession.wordIds; // Get wordIds as List<int>
-
-    // 2. Check if the wordId is already in the list to avoid duplicates
-    if (!wordIdList.contains(word.id)) {
-      // Check for int directly, not String
-      // 3. Add the new word's ID to the list
-      wordIdList.add(word.id!); // Add word.id (int) directly to the list
-
-      // 4. Convert the updated List<int> wordIdList back to a comma-separated string for database storage
-      final updatedWordIdsString =
-          wordIdList.map((id) => id.toString()).join(',');
-
-      // 5. Update the PracticeSession in the database with the new word_ids string
-      await db.update(
+    final db = await DBHelper().database;
+    try {
+      final List<Map<String, dynamic>> sessionMap = await db.query(
         'practice_sessions',
-        {'word_ids': updatedWordIdsString}, // Store as comma-separated string
         where: 'id = ?',
         whereArgs: [session.id],
       );
-    }
-    // If word ID was already in the list, do nothing (avoid duplicates)
-  }
-  static Future<List<Word>> loadSessionWords(PracticeSession session) async {
-    // Cambia el tipo de la lista temporalmente para permitir nulos durante el proceso
-    List<Word?> possibleWords = await Future.wait(
-      session.wordIds.map((id) async {
-        final dbHelper = DBHelper(); // Create an instance (if you don't have one already in scope)
-        final db = await dbHelper.database;
-        final List<Map<String, dynamic>> maps = await db.query(
-          dbHelper.tableWords,
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-        if (maps.isEmpty) {
-          // Retorna un Future<Word?> que se completa con null
-          return Future<Word?>.value(null);
-        }
-        return Word.fromMap(maps.first);
-      }),
-    );
-    // Filtra los valores nulos de la lista resultingWords y asigna el resultado a words
-    var words = possibleWords
-        .whereType<Word>()
-        .toList(); // Usa whereType<Word>() para filtrar los null y asegurar List<Word>
-    return words;
-  }
-}
+      if (sessionMap.isEmpty) {
+        return;
+      }
+      final PracticeSession currentSession =
+          PracticeSession.fromMap(sessionMap.first);
+      List<int> wordIdList = currentSession.wordIds;
 
+      if (!wordIdList.contains(word.id)) {
+        wordIdList.add(word.id!);
+        final updatedWordIdsString = wordIdList.map((id) => id.toString()).join(',');
+
+        await db.update(
+          'practice_sessions',
+          {'word_ids': updatedWordIdsString},
+          where: 'id = ?',
+          whereArgs: [session.id],
+        );
+      }
+    } catch (e) {
+      print("Error adding word to session: $e");
+      rethrow;
+    }
+  }
+
+  //Optimización de la consulta a base de datos.
+  static Future<List<Word>> loadSessionWords(PracticeSession session) async {
+    final db = await DBHelper().database;
+    try{
+        if (session.wordIds.isEmpty) {
+            return []; // Return empty list if no word IDs
+        }
+        final List<Map<String, dynamic>> maps = await db.query(
+            DBHelper().tableWords,
+            where: 'id IN (${session.wordIds.map((_) => '?').join(',')})', // Create placeholders
+            whereArgs: session.wordIds, // Pass the IDs as arguments
+        );
+        return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
+    } catch (e) {
+        print("Error loading session words: $e");
+        rethrow;
+      }
+  }
+
+    //Borrado de sesiones
+    static Future<void> deleteSession(int sessionId) async {
+      final db = await DBHelper().database;
+      try{
+        await db.delete(
+          'practice_sessions',
+          where: 'id = ?',
+          whereArgs: [sessionId],
+        );
+      } catch (e){
+        print("Error deleting session: $e");
+        rethrow;
+      }
+
+    }
+
+    //Quitar palabras de una sesión
+    static Future<void> removeWordFromSession(Word word, PracticeSession session) async {
+    final db = await DBHelper().database;
+    try {
+            final List<Map<String, dynamic>> sessionMap = await db.query(
+                'practice_sessions',
+                where: 'id = ?',
+                whereArgs: [session.id],
+            );
+            if(sessionMap.isEmpty) { return; }
+
+            final PracticeSession currentSession = PracticeSession.fromMap(sessionMap.first);
+            List<int> wordIdList = currentSession.wordIds;
+
+            if(wordIdList.contains(word.id)) {
+                wordIdList.remove(word.id);  // Remove the word ID
+                final updatedWordIdsString = wordIdList.map((id) => id.toString()).join(',');
+
+                await db.update('practice_sessions',
+                    {'word_ids': updatedWordIdsString},
+                    where: 'id = ?',
+                    whereArgs: [session.id]
+                );
+            }
+       } catch (e) {
+            print("Error removing word from session: $e");
+            rethrow;
+       }
+    }
+}
 // Modelo para las sesiones de práctica
 class PracticeSession {
   final int? id;
@@ -1108,7 +1230,6 @@ class PracticeSession {
   }
 
   factory PracticeSession.fromMap(Map<String, dynamic> map) {
-    // Manejar el caso cuando word_ids es una cadena
     List<int> parseWordIds(dynamic wordIdsData) {
       if (wordIdsData is String) {
         return wordIdsData
@@ -1117,23 +1238,19 @@ class PracticeSession {
             .map((str) {
               String trimmedStr =
                   str.trim(); // Trim y guarda en variable para imprimir
-              print("Intentando parsear a entero: '$trimmedStr'"); // <---- AÑADE ESTA LÍNEA
               try {
                 return int.parse(trimmedStr);
               } catch (e) {
-                print("Error al parsear: '$trimmedStr'. Error: $e"); // Imprime el error también
-                return null; // O algún valor por defecto, o relanza la excepción si quieres que falle
+                print(
+                    "Error al parsear: '$trimmedStr'. Error: $e"); // Imprime el error también
+                return 0; // or handle as needed
               }
             })
-            .whereType<
-                int>() // Usa whereType<int>() para filtrar los nulls y asegurar List<int>
+            .whereType<int>()
             .toList();
-      }
-      // Si ya es una lista, convertir cada elemento a int
-      else if (wordIdsData is List) {
+      } else if (wordIdsData is List) {
         return wordIdsData.map((e) => int.parse(e.toString())).toList();
       }
-      // Si no es ninguno de los anteriores, retornar lista vacía
       return [];
     }
 
@@ -1192,7 +1309,7 @@ class PracticeTab extends StatefulWidget {
 
 class _PracticeTabState extends State<PracticeTab>
     with AutomaticKeepAliveClientMixin {
-  List<Word> words = [];
+  Future<List<Word>>? _wordsFuture; // Usar Future para la carga
   List<PracticeSession> sessions = [];
   PracticeSession? selectedSession;
   Set<int> practicedWords = {};
@@ -1201,67 +1318,74 @@ class _PracticeTabState extends State<PracticeTab>
   int resetCounter = 0;
 
   @override
-  bool get wantKeepAlive => true;
+  bool get wantKeepAlive => true; // Para mantener el estado
 
   @override
   void initState() {
     super.initState();
-    _loadInitialData(); // Call the combined data loading function
+    _loadInitialData();
   }
 
-  Future<void> _loadInitialData() async { // Renamed and combined function
-    print("_loadInitialData: Starting data initialization");
-    final dbHelper = DBHelper();
-    final db = await dbHelper.database;
-    final wordCount = Sqflite.firstIntValue(
-        await db.rawQuery('SELECT COUNT(*) FROM ${dbHelper.tableWords}'));
+    Future<void> _loadInitialData() async {
+        final dbHelper = DBHelper();
+        try {
+            final db = await dbHelper.database;
+            final wordCount = Sqflite.firstIntValue(
+                await db.rawQuery('SELECT COUNT(*) FROM ${dbHelper.tableWords}'));
 
-    if (wordCount == 0) {
-      print("_loadInitialData: No word data found, loading sample data.");
-      await loadSampleData();
+            if (wordCount == 0) {
+                await loadSampleData();
+            }
+        } catch(e) {
+            if(mounted) { // context check
+                ScaffoldMessenger.of(context as BuildContext).showSnackBar(SnackBar(content: Text("Error al cargar datos iniciales: $e")));
+            }
+            return; // Early return on error
+        }
+
+        await _loadSessions();
     }
 
-    await _loadSessions(); // Load sessions after initial data check
-    print("_loadInitialData: Data initialization complete.");
-  }
-
-
-  Future<void> _loadSessions() async { // Simplified _loadSessions
-    print("_loadSessions: Loading practice sessions from database.");
-    List<PracticeSession> loadedSessions =
-        await PracticeSessionRepository.getAllSessions();
-
-    setState(() {
-      sessions = loadedSessions;
-      if (sessions.isNotEmpty) {
-        selectedSession = sessions.first;
-        _loadSessionWords(); // Load session words immediately for the first session
-      } else {
-        selectedSession = null;
-        words = []; // Clear words if no sessions are available
+  Future<void> _loadSessions() async {
+    try {
+      List<PracticeSession> loadedSessions =
+          await PracticeSessionRepository.getAllSessions();
+      setState(() {
+        sessions = loadedSessions;
+        if (sessions.isNotEmpty) {
+          selectedSession = sessions.first;
+          _loadSessionWords(); // Cargar palabras de la primera sesión
+        } else {
+          selectedSession = null;
+            _wordsFuture = Future.value([]); // Set future to empty list
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context as BuildContext)
+            .showSnackBar(SnackBar(content: Text("Error al cargar sesiones: $e")));
       }
-    });
-    print("_loadSessions: Sessions loaded. Selected session: ${selectedSession?.name ?? 'None'}. Word count: ${words.length}");
+    }
   }
 
-  Future<void> _loadPracticeSessions() async { // <-- NEW FUNCTION for reloading sessions from outside
-    print("_loadPracticeSessions: Reloading practice sessions and updating UI.");
-    await _loadSessions(); // Simply call _loadSessions to refresh everything
+  Future<void> _loadPracticeSessions() async {
+      setState(() {
+        _loadSessions(); //Recargar sesiones
+      }); 
   }
-
 
   Future<void> _loadSessionWords() async {
     if (selectedSession == null) {
-      print("_loadSessionWords: No session selected, clearing words list.");
-      setState(() {
-        words = [];
-      });
-      return; // Exit if no session is selected
+        setState(() {
+            _wordsFuture = Future.value([]); // Set future to an empty list
+        });
+      return;
     }
-    print("_loadSessionWords: Loading words for session: ${selectedSession!.name}");
-    words = await PracticeSessionRepository.loadSessionWords(selectedSession!);
-    setState(() { });
-    print("_loadSessionWords: Words loaded. Count: ${words.length}");
+
+    setState(() {
+        // Assign the future to _wordsFuture *before* the async operation starts.
+        _wordsFuture = PracticeSessionRepository.loadSessionWords(selectedSession!);
+    });
   }
 
   Future<void> _recordPractice(Word word, bool isCorrect) async {
@@ -1274,25 +1398,31 @@ class _PracticeTabState extends State<PracticeTab>
       );
 
       final dbHelper = DBHelper();
-      final db = await dbHelper.database;
-      await db.insert('practice_history', practice.toMap());
+        try {
+            final db = await dbHelper.database;
+            await db.insert('practice_history', practice.toMap());
 
-      setState(() {
-        practicedWords.add(word.id!);
-        if (isCorrect) {
-          correctCount++;
-        } else {
-          incorrectCount++;
+              setState(() {
+                practicedWords.add(word.id!);
+                if (isCorrect) {
+                  correctCount++;
+                } else {
+                  incorrectCount++;
+                }
+              });
+        } catch (e) {
+            if(mounted){ // context check
+                ScaffoldMessenger.of(context as BuildContext).showSnackBar(SnackBar(content: Text("Error al registrar la práctica: $e")));
+            }
         }
-      });
     }
   }
 
   void _recordPracticeWrapper(
       Word word, bool isCorrect, _WordCardPracticeState cardState) {
-    _recordPractice(word, isCorrect);
+    _recordPractice(word, isCorrect); // Registrar el resultado
     cardState.setState(() {
-      cardState.practiceResult = isCorrect;
+      cardState.practiceResult = isCorrect; // Actualizar estado de la tarjeta
       cardState.isPracticed = true;
     });
   }
@@ -1302,14 +1432,97 @@ class _PracticeTabState extends State<PracticeTab>
       practicedWords.clear();
       correctCount = 0;
       incorrectCount = 0;
-      _loadSessionWords(); // Reload words after reset
-      resetCounter++;
+      _loadSessionWords(); // Recargar las palabras
+      resetCounter++; // Incrementar para forzar actualización
     });
   }
 
+    //Función para mostrar dialogo de borrado de sesión
+    void _showDeleteSessionDialog(BuildContext context, PracticeSession session) {
+        showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+                title: const Text('Borrar Sesión'),
+                content: Text('¿Estás seguro de que quieres borrar la sesión "${session.name}"?'),
+                actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancelar'),
+                    ),
+                    TextButton(
+                        onPressed: () async {
+                            try {
+                                await PracticeSessionRepository.deleteSession(session.id!);
+
+                                if(context.mounted){
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                         SnackBar(content: Text('Sesión "${session.name}" borrada')),
+                                    );
+                                }
+                                _loadPracticeSessions();  //Recargar lista
+
+                            } catch (e) {
+                                if(context.mounted){
+                                    Navigator.pop(context);
+                                     ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text("Error al borrar la sesión: $e")),
+                                    );
+                                }
+                            }
+                        },
+                        child: const Text('Borrar'),
+                    ),
+                ],
+            ),
+        );
+    }
+
+  //Función para mostrar el dialogo de quitar palabra de sesión
+    void _showRemoveWordDialog(BuildContext context, Word word, PracticeSession session) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Quitar Palabra'),
+          content: Text('¿Estás seguro de que quieres quitar la palabra "${word.word}" de la sesión "${session.name}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try{
+                    await PracticeSessionRepository.removeWordFromSession(word, session);
+
+                    if(context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Palabra "${word.word}" eliminada de la sesión "${session.name}"')),
+                        );
+                    }
+                    _loadSessionWords(); // Reload after removing the word
+                } catch(e) {
+                    if(context.mounted){
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error al quitar palabra: $e")),
+                      );
+                    }
+                }
+              },
+              child: const Text('Quitar'),
+            ),
+          ],
+        ),
+      );
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Important for AutomaticKeepAliveClientMixin
+    super.build(context); // Importante para AutomaticKeepAliveClientMixin
+
     return Scaffold(
       body: Column(
         children: [
@@ -1325,14 +1538,24 @@ class _PracticeTabState extends State<PracticeTab>
                     items: sessions.map((session) {
                       return DropdownMenuItem(
                         value: session,
-                        child: Text(session.name),
+                        child: Row( //Para poder añadir el icono de borrado
+                            children: [
+                                Expanded(child: Text(session.name)),
+                                IconButton(
+                                    icon: const Icon(Icons.delete),
+                                    onPressed: (){
+                                        _showDeleteSessionDialog(context, session); //Mostrar dialogo de borrado
+                                    },
+                                ),
+                            ],
+                        )
                       );
                     }).toList(),
                     onChanged: (PracticeSession? newValue) {
                       setState(() {
                         selectedSession = newValue;
-                        _resetPractice(); // Reset practice when session changes
-                        _loadSessionWords(); // Load words for the new session
+                        _resetPractice();
+                        _loadSessionWords();
                       });
                     },
                   ),
@@ -1341,7 +1564,7 @@ class _PracticeTabState extends State<PracticeTab>
                   icon: const Icon(Icons.refresh),
                   onPressed: () {
                     _resetPractice();
-                    _loadSessionWords();
+                    _loadSessionWords(); // Recargar palabras
                   },
                 ),
               ],
@@ -1355,22 +1578,39 @@ class _PracticeTabState extends State<PracticeTab>
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: words.length,
-              itemBuilder: (context, index) {
-                final word = words[index];
-                return WordCardPractice(
-                  key: Key(word.id.toString()),
-                  word: word,
-                  onDelete: () async {
-                    await WordRepository.deleteWord(words[index].id!);
-                    _loadSessionWords(); // Consider if you need to reload session words here, maybe _loadSessions is better if session words depend on session.
-                  },
-                  onRecordPracticeCallback: _recordPracticeWrapper,
-                  practicedWords: practicedWords,
-                  selectedSession: selectedSession,
-                  resetCounter: resetCounter,
-                );
+            child: FutureBuilder<List<Word>>( // Usar FutureBuilder
+              future: _wordsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text("No hay palabras en esta sesión."));
+                }
+                else {
+                  return ListView.builder(
+                    itemCount: snapshot.data!.length,
+                    itemBuilder: (context, index) {
+                      final word = snapshot.data![index];
+                      return WordCardPractice(
+                        key: ValueKey(word.id), // Usar ValueKey
+                        word: word,
+                        onDelete: () async {
+                            if(selectedSession != null){
+                                _showRemoveWordDialog(context, word, selectedSession!); //Mostrar el dialogo de quitar palabra
+                            }
+                        },
+                        onRecordPracticeCallback: _recordPracticeWrapper,
+                        practicedWords: practicedWords,
+                        selectedSession: selectedSession,
+                        resetCounter: resetCounter,  // Pasar resetCounter
+                        showRemoveButton:
+                            true, //Mostrar botón de quitar
+                      );
+                    },
+                  );
+                }
               },
             ),
           ),
@@ -1778,53 +2018,54 @@ Future<void> loadSampleData() async {
       'spelling': 'shrimp---s---h---r---i---m---p---shrimp'
     },
   ];
-  // Insertar palabras y obtener sus IDs
-  List<int> wordIds = [];
-  for (var wordData in sampleWords) {
-    final id = await db.insert(dbHelper.tableWords, wordData);
-    wordIds.add(id);
-  }
 
-  // Crear una sesión de práctica de ejemplo
-  final sessionId = await db.insert('practice_sessions', {
-    'name': '3o de Primaria',
-    'created_at': DateTime.now().toIso8601String(),
-    'word_ids': wordIds.join(','),
-  });
+  try {
+    List<int> wordIds = [];
+    for (var wordData in sampleWords) {
+      final id = await db.insert(dbHelper.tableWords, wordData);
+      wordIds.add(id);
+    }
 
-  // Crear algunos registros históricos de ejemplo
-  final sampleHistory = [
-    {
-      'word_id': wordIds[0],
-      'session_id': sessionId,
-      'is_correct': 1,
-      'practiced_at':
-          DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-    },
-    {
-      'word_id': wordIds[1],
-      'session_id': sessionId,
-      'is_correct': 1,
-      'practiced_at':
-          DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-    },
-    {
-      'word_id': wordIds[2],
-      'session_id': sessionId,
-      'is_correct': 0,
-      'practiced_at':
-          DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-    },
-  ];
+    final sessionId = await db.insert('practice_sessions', {
+      'name': '3o de Primaria',
+      'created_at': DateTime.now().toIso8601String(),
+      'word_ids': wordIds.join(','),
+    });
 
-  for (var historyData in sampleHistory) {
-    await db.insert('practice_history', historyData);
+    final sampleHistory = [
+      {
+        'word_id': wordIds[0],
+        'session_id': sessionId,
+        'is_correct': 1,
+        'practiced_at':
+            DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+      },
+      {
+        'word_id': wordIds[1],
+        'session_id': sessionId,
+        'is_correct': 1,
+        'practiced_at':
+            DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+      },
+      {
+        'word_id': wordIds[2],
+        'session_id': sessionId,
+        'is_correct': 0,
+        'practiced_at':
+            DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+      },
+    ];
+
+    for (var historyData in sampleHistory) {
+      await db.insert('practice_history', historyData);
+    }
+  } catch (e) {
+    print("Error loading sample data: $e");
+    // Consider showing a SnackBar to the user.  You'll need a BuildContext.
   }
 }
 
 //VISTA SPELLINGBEE
-// Importar para usar Random
-
 class SpellingBeeView extends StatefulWidget {
   const SpellingBeeView({super.key});
 
@@ -1838,6 +2079,7 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
   List<Word> currentWordList = [];
   int currentWordIndex = 0;
   Word? currentWord;
+  String? displayedSpelling; // Variable para mostrar el deletreo
 
   @override
   void initState() {
@@ -1851,51 +2093,51 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
       incorrectCount = 0;
       currentWordIndex = 0;
       currentWord = null; // Reset currentWord to null initially while loading
+      displayedSpelling = null; // Reset displayed spelling
 
       _generateRandomWordList().then((wordList) {
-        // Llamar a _generateRandomWordList y usar .then()
         setState(() {
-          currentWordList = wordList; // Asignar la lista de palabras obtenida
-          _loadCurrentWord(); // Cargar la primera palabra DESPUÉS de obtener la lista
+          currentWordList = wordList;
+          _loadCurrentWord();
         });
       });
     });
   }
 
-  void _loadCurrentWord() {
-    if (currentWordIndex < currentWordList.length) {
-      setState(() {
-        currentWord = currentWordList[currentWordIndex];
-      });
-    } else {
-      currentWord = null;
-      // Aquí mostraremos el score final (implementar después)
+    void _loadCurrentWord() {
+        if (currentWordIndex < currentWordList.length) {
+            setState(() {
+                currentWord = currentWordList[currentWordIndex];
+                displayedSpelling = null; // Reset spelling on new word.
+            });
+        } else {
+            setState(() {
+              currentWord = null; // Set to null to indicate end of session
+              displayedSpelling = null; // Also clear spelling at the end.
+
+            });
+        }
     }
-  }
 
   Future<List<Word>> _generateRandomWordList() async {
-    // <----  FUNCIÓN async y retorna Future<List<Word>>
     final random = Random();
-    final allWordsFuture =
-        WordRepository.getWords(); // Obtener Future<List<Word>>
-    List<Word> selectedWords = [];
-    const numberOfWords = 10;
-
     try {
       final wordsData =
-          await allWordsFuture; // AWAIT para obtener la lista de palabras
+          await WordRepository.getWords(); // Obtener la lista de palabras
       if (wordsData.isNotEmpty) {
         List<Word> shuffledWords = List.from(wordsData);
         shuffledWords.shuffle(random);
-        selectedWords = shuffledWords.take(numberOfWords).toList();
+        return shuffledWords.take(10).toList(); // Tomar 10 palabras aleatorias
       }
     } catch (e) {
-      print("Error al cargar palabras para SpellingBee: $e"); // Manejo de error
-      // En caso de error, retornar una lista vacía para evitar problemas
-      return [];
+      print("Error al cargar palabras para SpellingBee: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+            SnackBar(content: Text("Error al cargar palabras: $e")));
+      }
+      return []; // Return empty list on error
     }
-
-    return selectedWords; // Retornar la lista de palabras seleccionadas
+    return []; // Return empty list if no words
   }
 
   void _recordSpellingBeeResult(bool isCorrect) {
@@ -1909,11 +2151,11 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
       });
     }
     currentWordIndex++;
-    _loadCurrentWord();
+    _loadCurrentWord(); // Cargar la siguiente palabra
   }
 
   void _resetSpellingBee() {
-    _startNewSpellingBeeSession();
+    _startNewSpellingBeeSession(); // Reiniciar la sesión
   }
 
   @override
@@ -1937,21 +2179,81 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
+          //Instrucciones
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'Presiona el botón para escuchar el deletreo de la palabra. Luego, indica si lo has deletreado correctamente.',
+              textAlign: TextAlign.center,
+            ),
+          ),
           Expanded(
             child: Center(
               child: currentWord != null
-                  ? WordCardPractice(
-                      word: currentWord!,
-                      onDelete: () {},
-                      onRecordPracticeCallback: (word, isCorrect, cardState) {
-                        _recordSpellingBeeResult(isCorrect);
-                      },
-                      practicedWords: {},
-                      selectedSession: null,
-                      showRemoveButton: false,
-                      resetCounter: 0,
+                  ? Column( // Mostrar palabra y deletreo
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          currentWord!.word,
+                          style: Theme.of(context).textTheme.headlineLarge,
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            TextToSpeechService.speak(currentWord!.spelling)
+                            .then((_){
+                                setState(() {
+                                    // Remove "word." and ".word" and split by "---"
+                                    String cleanedSpelling = currentWord!.spelling
+                                    .replaceAll("${currentWord!.word}.", "") // Remove word at start.
+                                    .replaceAll(".${currentWord!.word}", "")   // Remove word at the end.
+                                    .trim();         // Remove leading/trailing spaces if any
+                                    displayedSpelling = cleanedSpelling;
+                                });
+                            });
+                          },
+                          icon: const Icon(Icons.volume_up),
+                          label: const Text('Escuchar Deletreo'),
+                        ),
+                        const SizedBox(height: 20),
+                        if (displayedSpelling != null)
+                          Text(
+                            displayedSpelling!, // Mostrar el deletreo
+                            style: Theme.of(context).textTheme.titleLarge,
+                            textAlign: TextAlign.center,
+                          ),
+                        const SizedBox(height: 20),
+                        Row( // Botones de correcto/incorrecto
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.check_circle, color: Colors.green),
+                              onPressed: () =>
+                                  _recordSpellingBeeResult(true),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.cancel, color: Colors.red),
+                              onPressed: () =>
+                                  _recordSpellingBeeResult(false),
+                            ),
+                          ],
+                        ),
+                      ],
                     )
-                  : const Text('¡SpellingBee Finalizado!'),
+                  :  Column( // Mostrar mensaje de finalización
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                        const Text('¡SpellingBee Finalizado!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 20),
+                        Text('Puntuación Final: $correctCount / ${correctCount + incorrectCount}', style: const TextStyle(fontSize: 18)),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                            onPressed: _resetSpellingBee,
+                            child: const Text('Volver a Jugar'),
+                        ),
+                    ]
+
+                  )
             ),
           ),
           const SizedBox(height: 20),
