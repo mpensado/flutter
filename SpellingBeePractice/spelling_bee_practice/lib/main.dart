@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -2129,9 +2130,11 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
   Word? currentWord;
   bool gameOver = false;
   String? errorMessage;
-  int roundCorrectCount = 0; // Contador de aciertos en la ronda actual
-  int roundIncorrectCount = 0; // Contador de errores en la ronda actual
-  bool gameStarted = false; // Controla si el juego ha comenzado
+  int roundCorrectCount = 0;
+  int roundIncorrectCount = 0;
+  bool gameStarted = false;
+  bool roundCompleted = false; // Nueva variable
+  final AudioPlayer _audioPlayer = AudioPlayer(); // Instancia de AudioPlayer
 
 
   List<Round> rounds = [
@@ -2142,10 +2145,12 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
     Round(roundNumber: 5, numberOfWords: 1, canRepeat: false, canPause: false),
   ];
 
+  Map<int, Map<String, int>> roundResults = {}; // Resultados por ronda
+
   @override
   void initState() {
     super.initState();
-    //_startNewSpellingBeeSession(); // YA NO SE INICIA AUTOMÁTICAMENTE
+    _audioPlayer.setReleaseMode(ReleaseMode.stop);
   }
 
   void _startNewSpellingBeeSession() {
@@ -2160,27 +2165,37 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
       roundCorrectCount = 0; // Resetear contadores
       roundIncorrectCount = 0;
       gameStarted = false; // <--- Resetear el estado del juego
-      //_generateWordsForRound(currentRound); // YA NO SE GENERAN PALABRAS AQUÍ
+      roundCompleted = false; // Resetear al iniciar nueva sesión
+      roundResults.clear();
     });
   }
 
+
     void _nextRound() {
-        if (currentRound < rounds.length) { //Si no es la ultima ronda
-            setState(() {
-              currentRound++;
-              currentWordIndexInRound = 0; // Reset index for the new round
-              hasRepeated = false; // Reset repeat flag
-              roundCorrectCount = 0; // Resetear contadores
-              roundIncorrectCount = 0;
-              _generateWordsForRound(currentRound); // Generar palabras
-            });
+        //Guardar resultados antes de pasar de ronda
+        roundResults[currentRound] = {
+          'correct': roundCorrectCount,
+          'incorrect': roundIncorrectCount,
+        };
+
+        if (currentRound < rounds.length) {
+
+          setState(() {
+            currentRound++;
+            currentWordIndexInRound = 0;
+            hasRepeated = false;
+            roundCorrectCount = 0; // Resetear contadores
+            roundIncorrectCount = 0;
+            roundCompleted = false; // Resetear para la nueva ronda.
+            _generateWordsForRound(currentRound);
+          });
         } else {
-            // Ya no hay "muerte súbita".  Podrías mostrar un mensaje de felicitación
-            // o simplemente reiniciar la ronda 5 indefinidamente.
-            setState(() {
-              gameOver = true; // O reiniciar: currentRound = 5;
-              errorMessage = "¡Has completado todas las rondas!";
-            });
+          // Ya no hay "muerte súbita".  Podrías mostrar un mensaje de felicitación
+          // o simplemente reiniciar la ronda 5 indefinidamente.
+          setState(() {
+            gameOver = true;
+            errorMessage = "¡Has completado todas las rondas!";
+          });
         }
     }
 
@@ -2189,7 +2204,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
     if (roundNumber <= rounds.length) {
       numWords = rounds[roundNumber - 1].numberOfWords;
     } else {
-      //Ya no hay muerte súbita, pero se mantiene la generación de 1 palabra
       numWords = 1;
     }
 
@@ -2200,7 +2214,7 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
         allWords.shuffle(random);
         setState(() {
           wordsForCurrentRound = allWords.take(numWords).toList();
-          _loadCurrentWord(); // Cargar la primera palabra
+          _loadCurrentWord();
         });
       } else {
         setState(() {
@@ -2231,7 +2245,8 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
         TextToSpeechService.speak(currentWord!.word);
       });
     } else {
-        _nextRound(); //Avanzar a la siguiente ronda.
+      // Ya no se llama _nextRound directamente.  _recordSpellingBeeResult se encarga.
+      // _nextRound();
     }
   }
 
@@ -2244,44 +2259,62 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
     }
   }
 
-  void _recordSpellingBeeResult(bool isCorrect) {
+void _recordSpellingBeeResult(bool isCorrect) {
     if (currentWord == null) return;
 
-    Round currentRoundRules =
-        rounds[min(currentRound - 1, rounds.length - 1)]; //Para evitar out of bounds
+    Round currentRoundRules = rounds[min(currentRound - 1, rounds.length - 1)];
 
     setState(() {
       if (!isCorrect) {
-          roundIncorrectCount++; // Incrementar contador de errores
-        // Fin del juego (Game Over) si la respuesta es incorrecta y no se permiten errores.
+        roundIncorrectCount++;
+        // Fin del juego si no se permiten errores Y no se permiten repeticiones
         if (!currentRoundRules.canRepeat) {
-          // Si la ronda actual no permite repetir
+          roundResults[currentRound] = {
+            'correct': roundCorrectCount,
+            'incorrect': roundIncorrectCount,
+          };
           gameOver = true;
           errorMessage = "Error en la Ronda $currentRound";
-          return;
+           _audioPlayer.setVolume(1.0); // Volumen máximo
+          _audioPlayer.play(AssetSource('sounds/failure.mp3'));
+          return; // Terminar el juego
         }
       } else {
-          roundCorrectCount++; // Incrementar contador de aciertos
+        roundCorrectCount++;
       }
-      //Acierto. Avanzar palabra o ronda
+
       currentWordIndexInRound++;
       if (currentWordIndexInRound < wordsForCurrentRound.length) {
         _loadCurrentWord();
       } else {
-        _nextRound();
+        // Fin de la ronda.  Determinar si pasó o no.
+        roundCompleted = true; // Establecer antes de la reproducción del sonido
+         roundResults[currentRound] = {
+            'correct': roundCorrectCount,
+            'incorrect': roundIncorrectCount,
+        };
+        if (roundCorrectCount >= wordsForCurrentRound.length) {
+            _audioPlayer.setVolume(1.0); // Volumen máximo
+          _audioPlayer.play(AssetSource('sounds/success.mp3'));
+
+        } else {
+            _audioPlayer.setVolume(1.0); // Volumen máximo
+          _audioPlayer.play(AssetSource('sounds/failure.mp3'));
+
+        }
       }
     });
   }
 
 
-@override
+  @override
   Widget build(BuildContext context) {
     if (gameOver) {
       return Scaffold(
         appBar: AppBar(
           title: const Text("Spelling Bee"),
-            actions: [
-            IconButton( // Botón de reinicio en la AppBar
+          actions: [
+            IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: _startNewSpellingBeeSession,
             ),
@@ -2295,6 +2328,14 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
                 errorMessage ?? "¡Completaste todas las rondas!",
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
+              const SizedBox(height: 20),
+                Text("Resultados por Ronda:", style: Theme.of(context).textTheme.titleLarge),
+              for (var round = 1; round <= roundResults.length; round++) ...[ //Uso de la expansión de colecciones
+                Text("Ronda $round: Aciertos: ${roundResults[round]!['correct']}, Errores: ${roundResults[round]!['incorrect']}",
+                  style: Theme.of(context).textTheme.bodyLarge
+                ),
+              ],
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _startNewSpellingBeeSession,
                 child: const Text("Jugar de Nuevo"),
@@ -2305,37 +2346,36 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
       );
     }
 
-    //Mostrar botón de inicio
-     if (!gameStarted) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text("Spelling Bee"),
-              actions: [
-              IconButton( // Botón de reinicio en la AppBar
-                icon: const Icon(Icons.refresh),
-                onPressed: _startNewSpellingBeeSession,
-              ),
-            ],
-          ),
-          body: Center(
-            child: ElevatedButton(
-              child: const Text("Iniciar Spelling Bee"),
-              onPressed: () {
-                setState(() {
-                  gameStarted = true; // Inicia el juego
-                  _generateWordsForRound(currentRound);
-                });
-              },
+    if (!gameStarted) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text("Spelling Bee"),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _startNewSpellingBeeSession,
             ),
+          ],
+        ),
+        body: Center(
+          child: ElevatedButton(
+            child: const Text("Iniciar Spelling Bee"),
+            onPressed: () {
+              setState(() {
+                gameStarted = true;
+                _generateWordsForRound(currentRound);
+              });
+            },
           ),
-        );
-      }
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('SpellingBee'),
         actions: [
-          IconButton( // Botón de reinicio en la AppBar
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _startNewSpellingBeeSession,
           ),
@@ -2349,62 +2389,90 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
                 style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 8),
 
-            // Mostrar progreso dentro de la ronda (e.g., "Palabra 2 de 3")
-            if (currentWord != null)
+            // Mostrar/Ocultar "Palabra X de Y"
+            if (currentWord != null && !roundCompleted)
               Text(
-                  "Palabra ${currentWordIndexInRound + 1} de ${wordsForCurrentRound.length}",
-                  style: Theme.of(context).textTheme.titleMedium),
+                "Palabra ${currentWordIndexInRound + 1} de ${wordsForCurrentRound.length}",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
 
             const SizedBox(height: 20),
-            if (currentWord != null) ...[
+
+            if (roundCompleted) ...[
+              if (roundCorrectCount == wordsForCurrentRound.length) ...[
+                const Icon(Icons.check_circle, size: 100, color: Colors.green),
+                const Text("¡Felicidades! Pasaste a la siguiente ronda.",
+                    textAlign: TextAlign.center),
+              ] else ...[
+                const Icon(Icons.cancel, size: 100, color: Colors.red),
+                Text("Lo siento, no pasaste la ronda $currentRound",
+                    textAlign: TextAlign.center),
+              ],
+              const SizedBox(height: 20),
+
+              // Mostrar/Ocultar botón "Siguiente Ronda"
+                if (!gameOver && roundCorrectCount == wordsForCurrentRound.length)  // Mostrar solo si no es Game Over y pasó la ronda.
+                ElevatedButton(
+                    onPressed: _nextRound,
+                    child: const Text("Iniciar Siguiente Ronda"),
+                ),
+
+
+            ],
+
+            if (currentWord != null && !roundCompleted) ...[
               Text(currentWord!.word,
                   style: Theme.of(context).textTheme.headlineLarge),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed:
-                    rounds[currentRound - 1].canRepeat && !hasRepeated
-                        ? _handleRepeat
-                        : null, // Más limpio
+                onPressed: rounds[currentRound - 1].canRepeat && !hasRepeated
+                    ? _handleRepeat
+                    : null,
                 child: Text(hasRepeated ? "Repetición usada" : "Repetir Palabra"),
               ),
-
               const SizedBox(height: 20),
-              Row( // Botones de Correcto/Incorrecto
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.check, color: Colors.white),
-                      label: const Text("Correcto"),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                      onPressed: () {
-                        _recordSpellingBeeResult(true);
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      label: const Text("Incorrecto"),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                      onPressed: () {
-                        _recordSpellingBeeResult(false);
-                      }
-                    )
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.check, color: Colors.white),
+                    label: const Text("Correcto"),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green),
+                    onPressed: () {
+                      _recordSpellingBeeResult(true);
+                    },
+                  ),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    label: const Text("Incorrecto"),
+                    style:
+                        ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () {
+                      _recordSpellingBeeResult(false);
+                    },
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
-                // Mostrar contadores de aciertos y errores
-                Text("Aciertos: $roundCorrectCount - Errores: $roundIncorrectCount",
-                    style: Theme.of(context).textTheme.titleMedium),
-
-            ] else
+              Text(
+                "Aciertos: $roundCorrectCount - Errores: $roundIncorrectCount",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ] else if (!roundCompleted)
               const CircularProgressIndicator(),
           ],
         ),
       ),
     );
   }
-}
 
-//Clase Round
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+}//Clase Round
 class Round {
   final int roundNumber;
   final int numberOfWords;
