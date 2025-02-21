@@ -41,6 +41,19 @@ class _HomePageState extends State<HomePage>
   late TabController _tabController;
   Timer? _debounce; // Para el debounce de la traducción
 
+  void refreshPracticeTab() {
+    Builder(
+      builder: (BuildContext context) {
+        final practiceTabState =
+            context.findAncestorStateOfType<_PracticeTabState>();
+        if (practiceTabState != null) {
+          practiceTabState._loadPracticeSessions();
+        }
+        return const SizedBox.shrink(); // Builder debe devolver un widget
+      },
+    );
+  }
+
   String _spelling(String word) {
     String letterSeparated = '';
     List<String> words =
@@ -117,10 +130,12 @@ class _HomePageState extends State<HomePage>
                               translationController.text = translated;
                             });
                           }
-                        }).catchError((e) { // Manejo de errores de traducción
-                            if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al traducir: $e")));
-                            }
+                        }).catchError((e) {
+                          // Manejo de errores de traducción
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text("Error al traducir: $e")));
+                          }
                         });
                       }
                     });
@@ -144,19 +159,25 @@ class _HomePageState extends State<HomePage>
                           setState(() {
                             isAutoTranslating = !isAutoTranslating;
                             // Forzar traducción si se reactiva
-                            if (isAutoTranslating && wordController.text.isNotEmpty){
-                                TranslationService.translate(text: wordController.text)
-                                    .then((translated) {
-                                  if (mounted) {
-                                    setState(() {
-                                      translationController.text = translated;
-                                    });
-                                  }
-                                }).catchError((e) { // Manejo de errores
-                                    if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al traducir: $e")));
-                                    }
-                                });
+                            if (isAutoTranslating &&
+                                wordController.text.isNotEmpty) {
+                              TranslationService.translate(
+                                      text: wordController.text)
+                                  .then((translated) {
+                                if (mounted) {
+                                  setState(() {
+                                    translationController.text = translated;
+                                  });
+                                }
+                              }).catchError((e) {
+                                // Manejo de errores
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content:
+                                              Text("Error al traducir: $e")));
+                                }
+                              });
                             }
                           });
                         },
@@ -202,19 +223,20 @@ class _HomePageState extends State<HomePage>
                               ._loadPracticeSessions(); // Actualizar sesiones
                         }
                       }
-                    } catch (e) { //Manejo de errores de guardado
-                        if (context.mounted){
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al guardar/actualizar: $e")));
-                        }
+                    } catch (e) {
+                      //Manejo de errores de guardado
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text("Error al guardar/actualizar: $e")));
+                      }
                     }
-
                   } else {
-                    if (context.mounted){
-                        ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Por favor complete todos los campos'),
-                      ),
-                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Por favor complete todos los campos'),
+                        ),
+                      );
                     }
                   }
                 },
@@ -227,42 +249,45 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-    @override
-    Widget build(BuildContext context) {
-        return Scaffold(
-            appBar: AppBar(
-                title: const Text('Mi Diccionario'),
-                actions: [
-                    IconButton(
-                        icon: const Icon(Icons.settings),
-                        onPressed: () {
-                            // TODO: Implementar configuración
-                        },
-                    ),
-                ],
-                bottom: TabBar(
-                    controller: _tabController,
-                    tabs: const [
-                        Tab(text: 'Palabras', icon: Icon(Icons.book)),
-                        Tab(text: 'Práctica', icon: Icon(Icons.edit)),
-                        Tab(text: 'SpellingBee', icon: Icon(Icons.bug_report_rounded)),
-                    ],
-                ),
-            ),
-            body: TabBarView(
-                controller: _tabController,
-                children: const [
-                    WordsTab(),
-                    PracticeTab(),
-                    SpellingBeeView(),
-                ],
-            ),
-        );
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Mi Diccionario'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              // TODO: Implementar configuración
+            },
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController, // Usa el TabController
+          tabs: const [
+            Tab(text: 'Palabras', icon: Icon(Icons.book)),
+            Tab(text: 'Práctica', icon: Icon(Icons.edit)),
+            Tab(text: 'SpellingBee', icon: Icon(Icons.bug_report_rounded)),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController, // Usa el TabController
+        children: [
+          WordsTab(onSessionUpdated: refreshPracticeTab),
+          const PracticeTab(),
+          const SpellingBeeView(),
+        ],
+      ),
+    );
+  }
 }
 
 class WordsTab extends StatefulWidget {
-  const WordsTab({super.key});
+  final VoidCallback? onSessionUpdated; // <---  Añade el callback
+
+  const WordsTab(
+      {super.key, this.onSessionUpdated}); // <---  Añade al constructor
 
   @override
   State<WordsTab> createState() => _WordsTabState();
@@ -278,14 +303,15 @@ class _WordsTabState extends State<WordsTab> {
     _loadWords(); // Inicializar la carga de palabras
   }
 
-    Future<void> _loadWords() async {
-        setState(() { //Set state antes de asignar el futuro
-            if (searchQuery.isEmpty) {
-              _wordsFuture = WordRepository.getAllWords();
-            } else {
-              _wordsFuture = WordRepository.searchWords(searchQuery);
-            }
-        });
+  Future<void> _loadWords() async {
+    setState(() {
+      //Set state antes de asignar el futuro
+      if (searchQuery.isEmpty) {
+        _wordsFuture = WordRepository.getAllWords();
+      } else {
+        _wordsFuture = WordRepository.searchWords(searchQuery);
+      }
+    });
   }
 
   void _showAddToSessionDialog(BuildContext context, Word wordToAdd) async {
@@ -356,50 +382,59 @@ class _WordsTabState extends State<WordsTab> {
                       createdAt: DateTime.now(),
                       wordIds: [wordToAdd.id!],
                     );
-                    try{
-                        await PracticeSessionRepository.insertSession(sessionToUse);
-                        sessions = await PracticeSessionRepository.getAllSessions(); //Recargar después de añadir
-                        sessionToUse = sessions.last;
-                    } catch (e){ //Manejo de errores
-                        if (context.mounted){
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al crear sesión: $e")));
-                        }
-                        return; //Importante salir si hay un error
+                    try {
+                      await PracticeSessionRepository.insertSession(
+                          sessionToUse);
+                      sessions = await PracticeSessionRepository
+                          .getAllSessions(); //Recargar después de añadir
+                      sessionToUse = sessions.last;
+                    } catch (e) {
+                      //Manejo de errores
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text("Error al crear sesión: $e")));
+                      }
+                      return; //Importante salir si hay un error
                     }
                   }
 
-                    if (sessionToUse != null) {
-                        try {
-                            if (!newSession) {
-                                await PracticeSessionRepository.addWordToSession(
-                                    wordToAdd, sessionToUse);
-                            }
-                            if (context.mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text(
-                                            'Palabra "${wordToAdd.word}" añadida a la sesión "${sessionToUse.name}"'),
-                                    ),
-                                );
-                            }
+                  if (sessionToUse != null) {
+                    try {
+                      if (!newSession) {
+                        await PracticeSessionRepository.addWordToSession(
+                            wordToAdd, sessionToUse);
+                      }
 
-                        } catch (e){
-                            if (context.mounted){
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al añadir palabra: $e")));
-                            }
-                        }
-                    } else {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                  'Por favor, seleccione una sesión existente o ingrese un nombre para una nueva sesión.'),
-                            ),
-                          );
-                        }
+                      if (widget.onSessionUpdated != null) {
+                        // <---  Usa widget.onSessionUpdated
+                        widget.onSessionUpdated!();
+                      }
+
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'Palabra "${wordToAdd.word}" añadida a la sesión "${sessionToUse.name}"'),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text("Error al añadir palabra: $e")));
+                      }
                     }
-
+                  } else {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              'Por favor, seleccione una sesión existente o ingrese un nombre para una nueva sesión.'),
+                        ),
+                      );
+                    }
+                  }
                 },
                 child: const Text('Añadir'),
               ),
@@ -416,7 +451,8 @@ class _WordsTabState extends State<WordsTab> {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           (HomePage.of(context))._showAddWordDialog(context, () {
-            setState(() { // Actualizar la lista de palabras al añadir una nueva
+            setState(() {
+              // Actualizar la lista de palabras al añadir una nueva
               _loadWords();
             });
           });
@@ -431,7 +467,8 @@ class _WordsTabState extends State<WordsTab> {
               hintText: 'Buscar palabra...',
               leading: const Icon(Icons.search),
               onChanged: (value) {
-                setState(() { // Actualizar la búsqueda al escribir
+                setState(() {
+                  // Actualizar la búsqueda al escribir
                   searchQuery = value;
                   _loadWords();
                 });
@@ -439,17 +476,20 @@ class _WordsTabState extends State<WordsTab> {
             ),
           ),
           Expanded(
-            child: FutureBuilder<List<Word>>( // Usar FutureBuilder
+            child: FutureBuilder<List<Word>>(
+              // Usar FutureBuilder
               future: _wordsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator()); // Mostrar indicador de carga
+                  return const Center(
+                      child:
+                          CircularProgressIndicator()); // Mostrar indicador de carga
                 } else if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}')); // Mostrar error
+                  return Center(
+                      child: Text('Error: ${snapshot.error}')); // Mostrar error
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('No words found.'));
-                }
-                else {
+                  return const Center(child: Text('No words found.'));
+                } else {
                   return RefreshIndicator(
                     onRefresh: _loadWords, // Recargar al deslizar hacia abajo
                     child: ListView.builder(
@@ -461,15 +501,16 @@ class _WordsTabState extends State<WordsTab> {
                             try {
                               await WordRepository.deleteWord(
                                   snapshot.data![index].id!);
-                                  setState(() {
-                                     _loadWords();
-                                  });
-
+                              setState(() {
+                                _loadWords();
+                              });
                             } catch (e) {
-                                if (context.mounted){
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text("Error al eliminar: $e")));
-                                }
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content:
+                                            Text("Error al eliminar: $e")));
+                              }
                             }
                           },
                           onAddToSession: () {
@@ -489,6 +530,7 @@ class _WordsTabState extends State<WordsTab> {
     );
   }
 }
+
 class WordCard extends StatelessWidget {
   final Word word;
   final VoidCallback onDelete;
@@ -597,8 +639,7 @@ class WordCardPractice extends StatefulWidget {
   final Set<int> practicedWords;
   final PracticeSession? selectedSession;
   final int resetCounter;
-  final bool
-      showRemoveButton; //  propiedad showRemoveButton
+  final bool showRemoveButton; //  propiedad showRemoveButton
 
   const WordCardPractice({
     super.key,
@@ -608,8 +649,7 @@ class WordCardPractice extends StatefulWidget {
     required this.practicedWords,
     this.selectedSession,
     required this.resetCounter,
-    this.showRemoveButton =
-        true, //  Valor por defecto: true (mostrar botón)
+    this.showRemoveButton = true, //  Valor por defecto: true (mostrar botón)
   });
 
   @override
@@ -645,40 +685,35 @@ class _WordCardPracticeState extends State<WordCardPractice> {
 
   Future<void> _loadLastPracticeResult() async {
     final dbHelper = DBHelper();
-      try{
-          final db = await dbHelper.database;
-          final List<Map<String, dynamic>> history = await db.query(
-            'practice_history',
-            orderBy:
-            'practiced_at DESC',
-            where: 'word_id = ? AND session_id = ?',
-            whereArgs: [
-              widget.word.id,
-              widget.selectedSession?.id
-            ],
-            limit: 1,
-          );
+    try {
+      final db = await dbHelper.database;
+      final List<Map<String, dynamic>> history = await db.query(
+        'practice_history',
+        orderBy: 'practiced_at DESC',
+        where: 'word_id = ? AND session_id = ?',
+        whereArgs: [widget.word.id, widget.selectedSession?.id],
+        limit: 1,
+      );
 
-          if (history.isNotEmpty) {
-            final lastPractice = PracticeHistory.fromMap(history.first);
-            setState(() {
-              practiceResult = lastPractice
-                  .isCorrect;
-            });
-          } else {
-            practiceResult = null;
-          }
-      } catch (e){ //Manejo de errores
-          if (mounted){
-              ScaffoldMessenger.of(context as BuildContext).showSnackBar(SnackBar(content: Text("Error cargando historial: $e")));
-          }
+      if (history.isNotEmpty) {
+        final lastPractice = PracticeHistory.fromMap(history.first);
+        setState(() {
+          practiceResult = lastPractice.isCorrect;
+        });
+      } else {
+        practiceResult = null;
       }
-
+    } catch (e) {
+      //Manejo de errores
+      if (mounted) {
+        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+            SnackBar(content: Text("Error cargando historial: $e")));
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-
     return Card(
       margin: const EdgeInsets.all(8.0),
       elevation: 1.0,
@@ -746,7 +781,7 @@ class _WordCardPracticeState extends State<WordCardPractice> {
                   },
                   icon: const Icon(Icons.volume_up),
                   label: const Text(
-                    'Escuchar',
+                    'Pronunciar',
                     style: TextStyle(fontSize: 10.0),
                   ),
                 ),
@@ -780,17 +815,6 @@ class _WordCardPracticeState extends State<WordCardPractice> {
 }
 
 //Vista de estadisticas (borrar si no se usa al final)
-class StatsTab extends StatelessWidget {
-  const StatsTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Pantalla de Estadísticas'),
-    );
-  }
-}
-
 class DBHelper {
   static Database? _database;
   static final DBHelper _instance =
@@ -947,7 +971,8 @@ class WordRepository {
   static Future<List<Word>> getAllWords() async {
     final db = await DBHelper().database;
     try {
-      final List<Map<String, dynamic>> maps = await db.query(DBHelper().tableWords);
+      final List<Map<String, dynamic>> maps =
+          await db.query(DBHelper().tableWords);
       return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
     } catch (e) {
       print("Error getting all words: $e");
@@ -1014,16 +1039,17 @@ class WordRepository {
     }
   }
 
-    static Future<List<Word>> getWords() async {
-        final db = await DBHelper().database;
-        try {
-            final List<Map<String, dynamic>> maps = await db.query(DBHelper().tableWords);
-            return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
-        } catch (e) {
-            print("Error al obtener palabras $e");
-            return []; // Return an empty list in case of error.
-        }
+  static Future<List<Word>> getWords() async {
+    final db = await DBHelper().database;
+    try {
+      final List<Map<String, dynamic>> maps =
+          await db.query(DBHelper().tableWords);
+      return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
+    } catch (e) {
+      print("Error al obtener palabras $e");
+      return []; // Return an empty list in case of error.
     }
+  }
 }
 
 class TextToSpeechService {
@@ -1090,7 +1116,8 @@ class PracticeSessionRepository {
     try {
       final List<Map<String, dynamic>> maps =
           await db.query('practice_sessions');
-      return List.generate(maps.length, (i) => PracticeSession.fromMap(maps[i]));
+      return List.generate(
+          maps.length, (i) => PracticeSession.fromMap(maps[i]));
     } catch (e) {
       print("Error getting all sessions: $e");
       rethrow;
@@ -1125,7 +1152,8 @@ class PracticeSessionRepository {
 
       if (!wordIdList.contains(word.id)) {
         wordIdList.add(word.id!);
-        final updatedWordIdsString = wordIdList.map((id) => id.toString()).join(',');
+        final updatedWordIdsString =
+            wordIdList.map((id) => id.toString()).join(',');
 
         await db.update(
           'practice_sessions',
@@ -1143,68 +1171,71 @@ class PracticeSessionRepository {
   //Optimización de la consulta a base de datos.
   static Future<List<Word>> loadSessionWords(PracticeSession session) async {
     final db = await DBHelper().database;
-    try{
-        if (session.wordIds.isEmpty) {
-            return []; // Return empty list if no word IDs
-        }
-        final List<Map<String, dynamic>> maps = await db.query(
-            DBHelper().tableWords,
-            where: 'id IN (${session.wordIds.map((_) => '?').join(',')})', // Create placeholders
-            whereArgs: session.wordIds, // Pass the IDs as arguments
-        );
-        return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
-    } catch (e) {
-        print("Error loading session words: $e");
-        rethrow;
+    try {
+      if (session.wordIds.isEmpty) {
+        return []; // Return empty list if no word IDs
       }
+      final List<Map<String, dynamic>> maps = await db.query(
+        DBHelper().tableWords,
+        where:
+            'id IN (${session.wordIds.map((_) => '?').join(',')})', // Create placeholders
+        whereArgs: session.wordIds, // Pass the IDs as arguments
+      );
+      return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
+    } catch (e) {
+      print("Error loading session words: $e");
+      rethrow;
+    }
   }
 
-    //Borrado de sesiones
-    static Future<void> deleteSession(int sessionId) async {
-      final db = await DBHelper().database;
-      try{
-        await db.delete(
-          'practice_sessions',
-          where: 'id = ?',
-          whereArgs: [sessionId],
-        );
-      } catch (e){
-        print("Error deleting session: $e");
-        rethrow;
-      }
-
-    }
-
-    //Quitar palabras de una sesión
-    static Future<void> removeWordFromSession(Word word, PracticeSession session) async {
+  //Borrado de sesiones
+  static Future<void> deleteSession(int sessionId) async {
     final db = await DBHelper().database;
     try {
-            final List<Map<String, dynamic>> sessionMap = await db.query(
-                'practice_sessions',
-                where: 'id = ?',
-                whereArgs: [session.id],
-            );
-            if(sessionMap.isEmpty) { return; }
-
-            final PracticeSession currentSession = PracticeSession.fromMap(sessionMap.first);
-            List<int> wordIdList = currentSession.wordIds;
-
-            if(wordIdList.contains(word.id)) {
-                wordIdList.remove(word.id);  // Remove the word ID
-                final updatedWordIdsString = wordIdList.map((id) => id.toString()).join(',');
-
-                await db.update('practice_sessions',
-                    {'word_ids': updatedWordIdsString},
-                    where: 'id = ?',
-                    whereArgs: [session.id]
-                );
-            }
-       } catch (e) {
-            print("Error removing word from session: $e");
-            rethrow;
-       }
+      await db.delete(
+        'practice_sessions',
+        where: 'id = ?',
+        whereArgs: [sessionId],
+      );
+    } catch (e) {
+      print("Error deleting session: $e");
+      rethrow;
     }
+  }
+
+  //Quitar palabras de una sesión
+  static Future<void> removeWordFromSession(
+      Word word, PracticeSession session) async {
+    final db = await DBHelper().database;
+    try {
+      final List<Map<String, dynamic>> sessionMap = await db.query(
+        'practice_sessions',
+        where: 'id = ?',
+        whereArgs: [session.id],
+      );
+      if (sessionMap.isEmpty) {
+        return;
+      }
+
+      final PracticeSession currentSession =
+          PracticeSession.fromMap(sessionMap.first);
+      List<int> wordIdList = currentSession.wordIds;
+
+      if (wordIdList.contains(word.id)) {
+        wordIdList.remove(word.id); // Remove the word ID
+        final updatedWordIdsString =
+            wordIdList.map((id) => id.toString()).join(',');
+
+        await db.update('practice_sessions', {'word_ids': updatedWordIdsString},
+            where: 'id = ?', whereArgs: [session.id]);
+      }
+    } catch (e) {
+      print("Error removing word from session: $e");
+      rethrow;
+    }
+  }
 }
+
 // Modelo para las sesiones de práctica
 class PracticeSession {
   final int? id;
@@ -1326,25 +1357,27 @@ class _PracticeTabState extends State<PracticeTab>
     _loadInitialData();
   }
 
-    Future<void> _loadInitialData() async {
-        final dbHelper = DBHelper();
-        try {
-            final db = await dbHelper.database;
-            final wordCount = Sqflite.firstIntValue(
-                await db.rawQuery('SELECT COUNT(*) FROM ${dbHelper.tableWords}'));
+  Future<void> _loadInitialData() async {
+    final dbHelper = DBHelper();
+    try {
+      final db = await dbHelper.database;
+      final wordCount = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM ${dbHelper.tableWords}'));
 
-            if (wordCount == 0) {
-                await loadSampleData();
-            }
-        } catch(e) {
-            if(mounted) { // context check
-                ScaffoldMessenger.of(context as BuildContext).showSnackBar(SnackBar(content: Text("Error al cargar datos iniciales: $e")));
-            }
-            return; // Early return on error
-        }
-
-        await _loadSessions();
+      if (wordCount == 0) {
+        await loadSampleData();
+      }
+    } catch (e) {
+      if (mounted) {
+        // context check
+        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+            SnackBar(content: Text("Error al cargar datos iniciales: $e")));
+      }
+      return; // Early return on error
     }
+
+    await _loadSessions();
+  }
 
   Future<void> _loadSessions() async {
     try {
@@ -1357,34 +1390,35 @@ class _PracticeTabState extends State<PracticeTab>
           _loadSessionWords(); // Cargar palabras de la primera sesión
         } else {
           selectedSession = null;
-            _wordsFuture = Future.value([]); // Set future to empty list
+          _wordsFuture = Future.value([]); // Set future to empty list
         }
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context as BuildContext)
-            .showSnackBar(SnackBar(content: Text("Error al cargar sesiones: $e")));
+        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+            SnackBar(content: Text("Error al cargar sesiones: $e")));
       }
     }
   }
 
   Future<void> _loadPracticeSessions() async {
-      setState(() {
-        _loadSessions(); //Recargar sesiones
-      }); 
+    setState(() {
+      _loadSessions(); //Recargar sesiones
+    });
   }
 
   Future<void> _loadSessionWords() async {
     if (selectedSession == null) {
-        setState(() {
-            _wordsFuture = Future.value([]); // Set future to an empty list
-        });
+      setState(() {
+        _wordsFuture = Future.value([]); // Set future to an empty list
+      });
       return;
     }
 
     setState(() {
-        // Assign the future to _wordsFuture *before* the async operation starts.
-        _wordsFuture = PracticeSessionRepository.loadSessionWords(selectedSession!);
+      // Assign the future to _wordsFuture *before* the async operation starts.
+      _wordsFuture =
+          PracticeSessionRepository.loadSessionWords(selectedSession!);
     });
   }
 
@@ -1398,23 +1432,25 @@ class _PracticeTabState extends State<PracticeTab>
       );
 
       final dbHelper = DBHelper();
-        try {
-            final db = await dbHelper.database;
-            await db.insert('practice_history', practice.toMap());
+      try {
+        final db = await dbHelper.database;
+        await db.insert('practice_history', practice.toMap());
 
-              setState(() {
-                practicedWords.add(word.id!);
-                if (isCorrect) {
-                  correctCount++;
-                } else {
-                  incorrectCount++;
-                }
-              });
-        } catch (e) {
-            if(mounted){ // context check
-                ScaffoldMessenger.of(context as BuildContext).showSnackBar(SnackBar(content: Text("Error al registrar la práctica: $e")));
-            }
+        setState(() {
+          practicedWords.add(word.id!);
+          if (isCorrect) {
+            correctCount++;
+          } else {
+            incorrectCount++;
+          }
+        });
+      } catch (e) {
+        if (mounted) {
+          // context check
+          ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+              SnackBar(content: Text("Error al registrar la práctica: $e")));
         }
+      }
     }
   }
 
@@ -1437,91 +1473,95 @@ class _PracticeTabState extends State<PracticeTab>
     });
   }
 
-    //Función para mostrar dialogo de borrado de sesión
-    void _showDeleteSessionDialog(BuildContext context, PracticeSession session) {
-        showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-                title: const Text('Borrar Sesión'),
-                content: Text('¿Estás seguro de que quieres borrar la sesión "${session.name}"?'),
-                actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancelar'),
-                    ),
-                    TextButton(
-                        onPressed: () async {
-                            try {
-                                await PracticeSessionRepository.deleteSession(session.id!);
+  //Función para mostrar dialogo de borrado de sesión
+  void _showDeleteSessionDialog(BuildContext context, PracticeSession session) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Borrar Sesión'),
+        content: Text(
+            '¿Estás seguro de que quieres borrar la sesión "${session.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await PracticeSessionRepository.deleteSession(session.id!);
 
-                                if(context.mounted){
-                                    Navigator.pop(context);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                         SnackBar(content: Text('Sesión "${session.name}" borrada')),
-                                    );
-                                }
-                                _loadPracticeSessions();  //Recargar lista
-
-                            } catch (e) {
-                                if(context.mounted){
-                                    Navigator.pop(context);
-                                     ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text("Error al borrar la sesión: $e")),
-                                    );
-                                }
-                            }
-                        },
-                        child: const Text('Borrar'),
-                    ),
-                ],
-            ),
-        );
-    }
-
-  //Función para mostrar el dialogo de quitar palabra de sesión
-    void _showRemoveWordDialog(BuildContext context, Word word, PracticeSession session) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Quitar Palabra'),
-          content: Text('¿Estás seguro de que quieres quitar la palabra "${word.word}" de la sesión "${session.name}"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () async {
-                try{
-                    await PracticeSessionRepository.removeWordFromSession(word, session);
-
-                    if(context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Palabra "${word.word}" eliminada de la sesión "${session.name}"')),
-                        );
-                    }
-                    _loadSessionWords(); // Reload after removing the word
-                } catch(e) {
-                    if(context.mounted){
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("Error al quitar palabra: $e")),
-                      );
-                    }
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Sesión "${session.name}" borrada')),
+                  );
                 }
-              },
-              child: const Text('Quitar'),
-            ),
-          ],
-        ),
-      );
+                _loadPracticeSessions(); //Recargar lista
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Error al borrar la sesión: $e")),
+                  );
+                }
+              }
+            },
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
   }
 
+  //Función para mostrar el dialogo de quitar palabra de sesión
+  void _showRemoveWordDialog(
+      BuildContext context, Word word, PracticeSession session) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Quitar Palabra'),
+        content: Text(
+            '¿Estás seguro de que quieres quitar la palabra "${word.word}" de la sesión "${session.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await PracticeSessionRepository.removeWordFromSession(
+                    word, session);
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(
+                            'Palabra "${word.word}" eliminada de la sesión "${session.name}"')),
+                  );
+                }
+                _loadSessionWords(); // Reload after removing the word
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Error al quitar palabra: $e")),
+                  );
+                }
+              }
+            },
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Importante para AutomaticKeepAliveClientMixin
+    super.build(context);
 
     return Scaffold(
       body: Column(
@@ -1537,19 +1577,20 @@ class _PracticeTabState extends State<PracticeTab>
                     isExpanded: true,
                     items: sessions.map((session) {
                       return DropdownMenuItem(
-                        value: session,
-                        child: Row( //Para poder añadir el icono de borrado
+                          value: session,
+                          child: Row(
+                            //Para poder añadir el icono de borrado
                             children: [
-                                Expanded(child: Text(session.name)),
-                                IconButton(
-                                    icon: const Icon(Icons.delete),
-                                    onPressed: (){
-                                        _showDeleteSessionDialog(context, session); //Mostrar dialogo de borrado
-                                    },
-                                ),
+                              Expanded(child: Text(session.name)),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () {
+                                  _showDeleteSessionDialog(context,
+                                      session); //Mostrar dialogo de borrado
+                                },
+                              ),
                             ],
-                        )
-                      );
+                          ));
                     }).toList(),
                     onChanged: (PracticeSession? newValue) {
                       setState(() {
@@ -1578,7 +1619,7 @@ class _PracticeTabState extends State<PracticeTab>
             ),
           ),
           Expanded(
-            child: FutureBuilder<List<Word>>( // Usar FutureBuilder
+            child: FutureBuilder<List<Word>>(
               future: _wordsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1586,29 +1627,35 @@ class _PracticeTabState extends State<PracticeTab>
                 } else if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text("No hay palabras en esta sesión."));
-                }
-                else {
-                  return ListView.builder(
-                    itemCount: snapshot.data!.length,
-                    itemBuilder: (context, index) {
-                      final word = snapshot.data![index];
-                      return WordCardPractice(
-                        key: ValueKey(word.id), // Usar ValueKey
-                        word: word,
-                        onDelete: () async {
-                            if(selectedSession != null){
-                                _showRemoveWordDialog(context, word, selectedSession!); //Mostrar el dialogo de quitar palabra
+                  return const Center(
+                      child: Text("No hay palabras en esta sesión."));
+                } else {
+                  // ENVUELVE el ListView.builder con RefreshIndicator.
+                  return RefreshIndicator(
+                    onRefresh:
+                        _loadSessions, // <--- Llama a _loadSessions() al recargar
+                    child: ListView.builder(
+                      itemCount: snapshot.data!.length,
+                      itemBuilder: (context, index) {
+                        // ... (resto del itemBuilder: creación de WordCardPractice) ...
+                        final word = snapshot.data![index];
+                        return WordCardPractice(
+                          key: ValueKey(word.id), // Usar ValueKey
+                          word: word,
+                          onDelete: () async {
+                            if (selectedSession != null) {
+                              _showRemoveWordDialog(context, word,
+                                  selectedSession!); //Mostrar el dialogo de quitar palabra
                             }
-                        },
-                        onRecordPracticeCallback: _recordPracticeWrapper,
-                        practicedWords: practicedWords,
-                        selectedSession: selectedSession,
-                        resetCounter: resetCounter,  // Pasar resetCounter
-                        showRemoveButton:
-                            true, //Mostrar botón de quitar
-                      );
-                    },
+                          },
+                          onRecordPracticeCallback: _recordPracticeWrapper,
+                          practicedWords: practicedWords,
+                          selectedSession: selectedSession,
+                          resetCounter: resetCounter, // Pasar resetCounter
+                          showRemoveButton: true, //Mostrar botón de quitar
+                        );
+                      },
+                    ),
                   );
                 }
               },
@@ -1619,6 +1666,7 @@ class _PracticeTabState extends State<PracticeTab>
     );
   }
 }
+
 // Función para cargar datos de ejemplo
 Future<void> loadSampleData() async {
   final dbHelper =
@@ -2079,7 +2127,7 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
   List<Word> currentWordList = [];
   int currentWordIndex = 0;
   Word? currentWord;
-  String? displayedSpelling; // Variable para mostrar el deletreo
+  //String? displayedSpelling; // Variable para mostrar el deletreo
 
   @override
   void initState() {
@@ -2093,7 +2141,7 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
       incorrectCount = 0;
       currentWordIndex = 0;
       currentWord = null; // Reset currentWord to null initially while loading
-      displayedSpelling = null; // Reset displayed spelling
+      //displayedSpelling = null; // Reset displayed spelling
 
       _generateRandomWordList().then((wordList) {
         setState(() {
@@ -2104,20 +2152,20 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
     });
   }
 
-    void _loadCurrentWord() {
-        if (currentWordIndex < currentWordList.length) {
-            setState(() {
-                currentWord = currentWordList[currentWordIndex];
-                displayedSpelling = null; // Reset spelling on new word.
-            });
-        } else {
-            setState(() {
-              currentWord = null; // Set to null to indicate end of session
-              displayedSpelling = null; // Also clear spelling at the end.
-
-            });
-        }
+  void _loadCurrentWord() {
+    if (currentWordIndex < currentWordList.length) {
+      setState(() {
+        currentWord = currentWordList[currentWordIndex];
+        TextToSpeechService.speak(currentWord!.word);
+        //displayedSpelling = null; // Reset spelling on new word.
+      });
+    } else {
+      setState(() {
+        currentWord = null; // Set to null to indicate end of session
+        //displayedSpelling = null; // Also clear spelling at the end.
+      });
     }
+  }
 
   Future<List<Word>> _generateRandomWordList() async {
     final random = Random();
@@ -2189,72 +2237,79 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
           ),
           Expanded(
             child: Center(
-              child: currentWord != null
-                  ? Column( // Mostrar palabra y deletreo
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          currentWord!.word,
-                          style: Theme.of(context).textTheme.headlineLarge,
-                        ),
-                        const SizedBox(height: 20),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            TextToSpeechService.speak(currentWord!.spelling)
-                            .then((_){
-                                setState(() {
-                                    // Remove "word." and ".word" and split by "---"
-                                    String cleanedSpelling = currentWord!.spelling
-                                    .replaceAll("${currentWord!.word}.", "") // Remove word at start.
-                                    .replaceAll(".${currentWord!.word}", "")   // Remove word at the end.
-                                    .trim();         // Remove leading/trailing spaces if any
-                                    displayedSpelling = cleanedSpelling;
-                                });
-                            });
-                          },
-                          icon: const Icon(Icons.volume_up),
-                          label: const Text('Escuchar Deletreo'),
-                        ),
-                        const SizedBox(height: 20),
-                        if (displayedSpelling != null)
+                child: currentWord != null
+                    ? Column(
+                        // Mostrar palabra y deletreo
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
                           Text(
-                            displayedSpelling!, // Mostrar el deletreo
-                            style: Theme.of(context).textTheme.titleLarge,
-                            textAlign: TextAlign.center,
+                            currentWord!.word,
+                            style: Theme.of(context).textTheme.headlineLarge,
                           ),
-                        const SizedBox(height: 20),
-                        Row( // Botones de correcto/incorrecto
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.check_circle, color: Colors.green),
-                              onPressed: () =>
-                                  _recordSpellingBeeResult(true),
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              TextToSpeechService.speak(currentWord!.spelling)
+                                  .then((_) {
+                                // setState(() {
+                                //   // Remove "word." and ".word" and split by "---"
+                                //   String cleanedSpelling = currentWord!.spelling
+                                //       .replaceAll("${currentWord!.word}.",
+                                //           "") // Remove word at start.
+                                //       .replaceAll(".${currentWord!.word}",
+                                //           "") // Remove word at the end.
+                                //       .trim(); // Remove leading/trailing spaces if any
+                                //   displayedSpelling = cleanedSpelling;
+                                // });
+                              });
+                            },
+                            icon: const Icon(Icons.volume_up),
+                            label: const Text('Escuchar Deletreo'),
+                          ),
+                          //const SizedBox(height: 20),
+                          // if (displayedSpelling != null)
+                          //   Text(
+                          //     displayedSpelling!, // Mostrar el deletreo
+                          //     style: Theme.of(context).textTheme.titleLarge,
+                          //     textAlign: TextAlign.center,
+                          //   ),
+                          const SizedBox(height: 20),
+                          Row(
+                            // Botones de correcto/incorrecto
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.check_circle,
+                                    color: Colors.green),
+                                onPressed: () => _recordSpellingBeeResult(true),
+                              ),
+                              IconButton(
+                                icon:
+                                    const Icon(Icons.cancel, color: Colors.red),
+                                onPressed: () =>
+                                    _recordSpellingBeeResult(false),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    : Column(
+                        // Mostrar mensaje de finalización
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                            const Text('¡SpellingBee Finalizado!',
+                                style: TextStyle(
+                                    fontSize: 24, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 20),
+                            Text(
+                                'Puntuación Final: $correctCount / ${correctCount + incorrectCount}',
+                                style: const TextStyle(fontSize: 18)),
+                            const SizedBox(height: 20),
+                            ElevatedButton(
+                              onPressed: _resetSpellingBee,
+                              child: const Text('Volver a Jugar'),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.cancel, color: Colors.red),
-                              onPressed: () =>
-                                  _recordSpellingBeeResult(false),
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                  :  Column( // Mostrar mensaje de finalización
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                        const Text('¡SpellingBee Finalizado!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 20),
-                        Text('Puntuación Final: $correctCount / ${correctCount + incorrectCount}', style: const TextStyle(fontSize: 18)),
-                        const SizedBox(height: 20),
-                        ElevatedButton(
-                            onPressed: _resetSpellingBee,
-                            child: const Text('Volver a Jugar'),
-                        ),
-                    ]
-
-                  )
-            ),
+                          ])),
           ),
           const SizedBox(height: 20),
         ],

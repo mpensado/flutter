@@ -1,0 +1,2 @@
+C:/Users/Deintec/Downloads/Ejemplos Flutter/Personales/flutter/SpellingBeePractice/spelling_bee_practice/android/app/.cxx/RelWithDebInfo/b5y6q1c7/x86_64/CMakeFiles/edit_cache.dir
+C:/Users/Deintec/Downloads/Ejemplos Flutter/Personales/flutter/SpellingBeePractice/spelling_bee_practice/android/app/.cxx/RelWithDebInfo/b5y6q1c7/x86_64/CMakeFiles/rebuild_cache.dir
