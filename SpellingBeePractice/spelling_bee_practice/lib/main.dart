@@ -2127,9 +2127,12 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
   int currentWordIndexInRound = 0;
   bool hasRepeated = false;
   Word? currentWord;
-  //TextEditingController _spellingController = TextEditingController(); // ELIMINADO
   bool gameOver = false;
-  String? errorMessage; // Mensaje de error específico (ronda, etc.)
+  String? errorMessage;
+  int roundCorrectCount = 0; // Contador de aciertos en la ronda actual
+  int roundIncorrectCount = 0; // Contador de errores en la ronda actual
+  bool gameStarted = false; // Controla si el juego ha comenzado
+
 
   List<Round> rounds = [
     Round(roundNumber: 1, numberOfWords: 3, canRepeat: true, canPause: true),
@@ -2142,7 +2145,7 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
   @override
   void initState() {
     super.initState();
-    _startNewSpellingBeeSession();
+    //_startNewSpellingBeeSession(); // YA NO SE INICIA AUTOMÁTICAMENTE
   }
 
   void _startNewSpellingBeeSession() {
@@ -2154,33 +2157,21 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
       currentWord = null;
       gameOver = false;
       errorMessage = null;
-      //_spellingController.clear(); // ELIMINADO
-      _generateWordsForRound(currentRound);
+      roundCorrectCount = 0; // Resetear contadores
+      roundIncorrectCount = 0;
+      gameStarted = false; // <--- Resetear el estado del juego
+      //_generateWordsForRound(currentRound); // YA NO SE GENERAN PALABRAS AQUÍ
     });
   }
 
-  //   void _nextSpeller() { //QUITAR ESTA FUNCION
-  //     setState(() {
-  //         currentSpellerIndex = (currentSpellerIndex + 1) % remainingSpellers.length;
-  //         hasRepeated = false; // Resetear para el nuevo speller
-  //         spellingAttempt = null; // Reset
-  //         _spellingController.clear(); // Reset
-  //         if(currentSpellerIndex == 0){ //Si vuelve a ser el turno del primer speller, avanzamos de ronda
-  //             _nextRound();
-  //         } else {
-  //             _loadCurrentWord(); //Carga la palabra
-  //         }
-
-  //     });
-  // }
     void _nextRound() {
         if (currentRound < rounds.length) { //Si no es la ultima ronda
             setState(() {
               currentRound++;
               currentWordIndexInRound = 0; // Reset index for the new round
               hasRepeated = false; // Reset repeat flag
-              //spellingAttempt = null; // ELIMINADO, ya no se necesita
-                //_spellingController.clear();// ELIMINADO
+              roundCorrectCount = 0; // Resetear contadores
+              roundIncorrectCount = 0;
               _generateWordsForRound(currentRound); // Generar palabras
             });
         } else {
@@ -2238,7 +2229,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
         currentWord = wordsForCurrentRound[currentWordIndexInRound];
         hasRepeated = false; // Resetear en cada palabra nueva
         TextToSpeechService.speak(currentWord!.word);
-        //_spellingController.clear(); //ELIMINADO
       });
     } else {
         _nextRound(); //Avanzar a la siguiente ronda.
@@ -2254,44 +2244,55 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
     }
   }
 
-    void _recordSpellingBeeResult(bool isCorrect) {
+  void _recordSpellingBeeResult(bool isCorrect) {
     if (currentWord == null) return;
 
-    Round currentRoundRules = rounds[min(currentRound - 1, rounds.length -1)]; //Para evitar out of bounds
+    Round currentRoundRules =
+        rounds[min(currentRound - 1, rounds.length - 1)]; //Para evitar out of bounds
 
     setState(() {
       if (!isCorrect) {
+          roundIncorrectCount++; // Incrementar contador de errores
         // Fin del juego (Game Over) si la respuesta es incorrecta y no se permiten errores.
-        if (!currentRoundRules.canRepeat) { // Si la ronda actual no permite repetir
-            gameOver = true;
-            errorMessage = "Error en la Ronda $currentRound";
-            return;
+        if (!currentRoundRules.canRepeat) {
+          // Si la ronda actual no permite repetir
+          gameOver = true;
+          errorMessage = "Error en la Ronda $currentRound";
+          return;
         }
-
-
+      } else {
+          roundCorrectCount++; // Incrementar contador de aciertos
       }
-        //Acierto. Avanzar palabra o ronda
-        currentWordIndexInRound++;
-        if (currentWordIndexInRound < wordsForCurrentRound.length) {
-          _loadCurrentWord();
-        } else {
-          _nextRound();
-        }
-
+      //Acierto. Avanzar palabra o ronda
+      currentWordIndexInRound++;
+      if (currentWordIndexInRound < wordsForCurrentRound.length) {
+        _loadCurrentWord();
+      } else {
+        _nextRound();
+      }
     });
   }
-  @override
+
+
+@override
   Widget build(BuildContext context) {
     if (gameOver) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Spelling Bee")),
+        appBar: AppBar(
+          title: const Text("Spelling Bee"),
+            actions: [
+            IconButton( // Botón de reinicio en la AppBar
+              icon: const Icon(Icons.refresh),
+              onPressed: _startNewSpellingBeeSession,
+            ),
+          ],
+        ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                errorMessage ??
-                    "¡Completaste todas las rondas!", // Muestra mensaje de error o de completado
+                errorMessage ?? "¡Completaste todas las rondas!",
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               ElevatedButton(
@@ -2304,8 +2305,42 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
       );
     }
 
+    //Mostrar botón de inicio
+     if (!gameStarted) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text("Spelling Bee"),
+              actions: [
+              IconButton( // Botón de reinicio en la AppBar
+                icon: const Icon(Icons.refresh),
+                onPressed: _startNewSpellingBeeSession,
+              ),
+            ],
+          ),
+          body: Center(
+            child: ElevatedButton(
+              child: const Text("Iniciar Spelling Bee"),
+              onPressed: () {
+                setState(() {
+                  gameStarted = true; // Inicia el juego
+                  _generateWordsForRound(currentRound);
+                });
+              },
+            ),
+          ),
+        );
+      }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('SpellingBee')),
+      appBar: AppBar(
+        title: const Text('SpellingBee'),
+        actions: [
+          IconButton( // Botón de reinicio en la AppBar
+            icon: const Icon(Icons.refresh),
+            onPressed: _startNewSpellingBeeSession,
+          ),
+        ],
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -2333,8 +2368,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
                 child: Text(hasRepeated ? "Repetición usada" : "Repetir Palabra"),
               ),
 
-              //TEXTFIELD ELIMINADO
-
               const SizedBox(height: 20),
               Row( // Botones de Correcto/Incorrecto
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -2356,7 +2389,11 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
                       }
                     )
                 ],
-              )
+              ),
+              const SizedBox(height: 16),
+                // Mostrar contadores de aciertos y errores
+                Text("Aciertos: $roundCorrectCount - Errores: $roundIncorrectCount",
+                    style: Theme.of(context).textTheme.titleMedium),
 
             ] else
               const CircularProgressIndicator(),
@@ -2365,13 +2402,9 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
       ),
     );
   }
-    /*@override //YA NO ES NECESARIO
-    void dispose() {
-      _spellingController.dispose();
-      super.dispose();
-    }*/
 }
-//Clase Round (fuera de la clase _SpellingBeeViewState)
+
+//Clase Round
 class Round {
   final int roundNumber;
   final int numberOfWords;
