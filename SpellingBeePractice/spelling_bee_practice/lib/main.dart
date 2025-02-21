@@ -2122,12 +2122,22 @@ class SpellingBeeView extends StatefulWidget {
 }
 
 class _SpellingBeeViewState extends State<SpellingBeeView> {
-  int correctCount = 0;
-  int incorrectCount = 0;
-  List<Word> currentWordList = [];
-  int currentWordIndex = 0;
+  int currentRound = 1;
+  List<Word> wordsForCurrentRound = [];
+  int currentWordIndexInRound = 0;
+  bool hasRepeated = false;
   Word? currentWord;
-  //String? displayedSpelling; // Variable para mostrar el deletreo
+  //TextEditingController _spellingController = TextEditingController(); // ELIMINADO
+  bool gameOver = false;
+  String? errorMessage; // Mensaje de error específico (ronda, etc.)
+
+  List<Round> rounds = [
+    Round(roundNumber: 1, numberOfWords: 3, canRepeat: true, canPause: true),
+    Round(roundNumber: 2, numberOfWords: 3, canRepeat: true, canPause: false),
+    Round(roundNumber: 3, numberOfWords: 2, canRepeat: false, canPause: false),
+    Round(roundNumber: 4, numberOfWords: 1, canRepeat: false, canPause: false),
+    Round(roundNumber: 5, numberOfWords: 1, canRepeat: false, canPause: false),
+  ];
 
   @override
   void initState() {
@@ -2137,183 +2147,241 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
 
   void _startNewSpellingBeeSession() {
     setState(() {
-      correctCount = 0;
-      incorrectCount = 0;
-      currentWordIndex = 0;
-      currentWord = null; // Reset currentWord to null initially while loading
-      //displayedSpelling = null; // Reset displayed spelling
-
-      _generateRandomWordList().then((wordList) {
-        setState(() {
-          currentWordList = wordList;
-          _loadCurrentWord();
-        });
-      });
+      currentRound = 1;
+      wordsForCurrentRound = [];
+      currentWordIndexInRound = 0;
+      hasRepeated = false;
+      currentWord = null;
+      gameOver = false;
+      errorMessage = null;
+      //_spellingController.clear(); // ELIMINADO
+      _generateWordsForRound(currentRound);
     });
   }
 
-  void _loadCurrentWord() {
-    if (currentWordIndex < currentWordList.length) {
-      setState(() {
-        currentWord = currentWordList[currentWordIndex];
-        TextToSpeechService.speak(currentWord!.word);
-        //displayedSpelling = null; // Reset spelling on new word.
-      });
-    } else {
-      setState(() {
-        currentWord = null; // Set to null to indicate end of session
-        //displayedSpelling = null; // Also clear spelling at the end.
-      });
-    }
-  }
+  //   void _nextSpeller() { //QUITAR ESTA FUNCION
+  //     setState(() {
+  //         currentSpellerIndex = (currentSpellerIndex + 1) % remainingSpellers.length;
+  //         hasRepeated = false; // Resetear para el nuevo speller
+  //         spellingAttempt = null; // Reset
+  //         _spellingController.clear(); // Reset
+  //         if(currentSpellerIndex == 0){ //Si vuelve a ser el turno del primer speller, avanzamos de ronda
+  //             _nextRound();
+  //         } else {
+  //             _loadCurrentWord(); //Carga la palabra
+  //         }
 
-  Future<List<Word>> _generateRandomWordList() async {
+  //     });
+  // }
+    void _nextRound() {
+        if (currentRound < rounds.length) { //Si no es la ultima ronda
+            setState(() {
+              currentRound++;
+              currentWordIndexInRound = 0; // Reset index for the new round
+              hasRepeated = false; // Reset repeat flag
+              //spellingAttempt = null; // ELIMINADO, ya no se necesita
+                //_spellingController.clear();// ELIMINADO
+              _generateWordsForRound(currentRound); // Generar palabras
+            });
+        } else {
+            // Ya no hay "muerte súbita".  Podrías mostrar un mensaje de felicitación
+            // o simplemente reiniciar la ronda 5 indefinidamente.
+            setState(() {
+              gameOver = true; // O reiniciar: currentRound = 5;
+              errorMessage = "¡Has completado todas las rondas!";
+            });
+        }
+    }
+
+  Future<void> _generateWordsForRound(int roundNumber) async {
+    int numWords;
+    if (roundNumber <= rounds.length) {
+      numWords = rounds[roundNumber - 1].numberOfWords;
+    } else {
+      //Ya no hay muerte súbita, pero se mantiene la generación de 1 palabra
+      numWords = 1;
+    }
+
     final random = Random();
     try {
-      final wordsData =
-          await WordRepository.getWords(); // Obtener la lista de palabras
-      if (wordsData.isNotEmpty) {
-        List<Word> shuffledWords = List.from(wordsData);
-        shuffledWords.shuffle(random);
-        return shuffledWords.take(10).toList(); // Tomar 10 palabras aleatorias
+      final allWords = await WordRepository.getWords();
+      if (allWords.isNotEmpty) {
+        allWords.shuffle(random);
+        setState(() {
+          wordsForCurrentRound = allWords.take(numWords).toList();
+          _loadCurrentWord(); // Cargar la primera palabra
+        });
+      } else {
+        setState(() {
+          wordsForCurrentRound = [];
+          currentWord = null;
+        });
       }
     } catch (e) {
-      print("Error al cargar palabras para SpellingBee: $e");
       if (mounted) {
         ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-            SnackBar(content: Text("Error al cargar palabras: $e")));
+          SnackBar(content: Text("Error al generar palabras: $e")),
+        );
       }
-      return []; // Return empty list on error
+      setState(() {
+        wordsForCurrentRound = [];
+        currentWord = null;
+      });
     }
-    return []; // Return empty list if no words
   }
 
-  void _recordSpellingBeeResult(bool isCorrect) {
-    if (isCorrect) {
+  void _loadCurrentWord() {
+      //Comprobaciones de seguridad
+    if (wordsForCurrentRound.isNotEmpty &&
+        currentWordIndexInRound < wordsForCurrentRound.length) {
       setState(() {
-        correctCount++;
+        currentWord = wordsForCurrentRound[currentWordIndexInRound];
+        hasRepeated = false; // Resetear en cada palabra nueva
+        TextToSpeechService.speak(currentWord!.word);
+        //_spellingController.clear(); //ELIMINADO
       });
     } else {
-      setState(() {
-        incorrectCount++;
-      });
+        _nextRound(); //Avanzar a la siguiente ronda.
     }
-    currentWordIndex++;
-    _loadCurrentWord(); // Cargar la siguiente palabra
   }
 
-  void _resetSpellingBee() {
-    _startNewSpellingBeeSession(); // Reiniciar la sesión
+  void _handleRepeat() {
+    if (rounds[currentRound - 1].canRepeat && !hasRepeated) {
+      setState(() {
+        hasRepeated = true;
+      });
+      TextToSpeechService.speak(currentWord!.spelling);
+    }
   }
 
+    void _recordSpellingBeeResult(bool isCorrect) {
+    if (currentWord == null) return;
+
+    Round currentRoundRules = rounds[min(currentRound - 1, rounds.length -1)]; //Para evitar out of bounds
+
+    setState(() {
+      if (!isCorrect) {
+        // Fin del juego (Game Over) si la respuesta es incorrecta y no se permiten errores.
+        if (!currentRoundRules.canRepeat) { // Si la ronda actual no permite repetir
+            gameOver = true;
+            errorMessage = "Error en la Ronda $currentRound";
+            return;
+        }
+
+
+      }
+        //Acierto. Avanzar palabra o ronda
+        currentWordIndexInRound++;
+        if (currentWordIndexInRound < wordsForCurrentRound.length) {
+          _loadCurrentWord();
+        } else {
+          _nextRound();
+        }
+
+    });
+  }
   @override
   Widget build(BuildContext context) {
+    if (gameOver) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Spelling Bee")),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                errorMessage ??
+                    "¡Completaste todas las rondas!", // Muestra mensaje de error o de completado
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              ElevatedButton(
+                onPressed: _startNewSpellingBeeSession,
+                child: const Text("Jugar de Nuevo"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('SpellingBee'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _resetSpellingBee,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              'Aciertos: $correctCount | Errores: $incorrectCount',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          //Instrucciones
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text(
-              'Presiona el botón para escuchar el deletreo de la palabra. Luego, indica si lo has deletreado correctamente.',
-              textAlign: TextAlign.center,
-            ),
-          ),
-          Expanded(
-            child: Center(
-                child: currentWord != null
-                    ? Column(
-                        // Mostrar palabra y deletreo
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            currentWord!.word,
-                            style: Theme.of(context).textTheme.headlineLarge,
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              TextToSpeechService.speak(currentWord!.spelling)
-                                  .then((_) {
-                                // setState(() {
-                                //   // Remove "word." and ".word" and split by "---"
-                                //   String cleanedSpelling = currentWord!.spelling
-                                //       .replaceAll("${currentWord!.word}.",
-                                //           "") // Remove word at start.
-                                //       .replaceAll(".${currentWord!.word}",
-                                //           "") // Remove word at the end.
-                                //       .trim(); // Remove leading/trailing spaces if any
-                                //   displayedSpelling = cleanedSpelling;
-                                // });
-                              });
-                            },
-                            icon: const Icon(Icons.volume_up),
-                            label: const Text('Escuchar Deletreo'),
-                          ),
-                          //const SizedBox(height: 20),
-                          // if (displayedSpelling != null)
-                          //   Text(
-                          //     displayedSpelling!, // Mostrar el deletreo
-                          //     style: Theme.of(context).textTheme.titleLarge,
-                          //     textAlign: TextAlign.center,
-                          //   ),
-                          const SizedBox(height: 20),
-                          Row(
-                            // Botones de correcto/incorrecto
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.check_circle,
-                                    color: Colors.green),
-                                onPressed: () => _recordSpellingBeeResult(true),
-                              ),
-                              IconButton(
-                                icon:
-                                    const Icon(Icons.cancel, color: Colors.red),
-                                onPressed: () =>
-                                    _recordSpellingBeeResult(false),
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                    : Column(
-                        // Mostrar mensaje de finalización
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                            const Text('¡SpellingBee Finalizado!',
-                                style: TextStyle(
-                                    fontSize: 24, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 20),
-                            Text(
-                                'Puntuación Final: $correctCount / ${correctCount + incorrectCount}',
-                                style: const TextStyle(fontSize: 18)),
-                            const SizedBox(height: 20),
-                            ElevatedButton(
-                              onPressed: _resetSpellingBee,
-                              child: const Text('Volver a Jugar'),
-                            ),
-                          ])),
-          ),
-          const SizedBox(height: 20),
-        ],
+      appBar: AppBar(title: const Text('SpellingBee')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text("Ronda $currentRound",
+                style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 8),
+
+            // Mostrar progreso dentro de la ronda (e.g., "Palabra 2 de 3")
+            if (currentWord != null)
+              Text(
+                  "Palabra ${currentWordIndexInRound + 1} de ${wordsForCurrentRound.length}",
+                  style: Theme.of(context).textTheme.titleMedium),
+
+            const SizedBox(height: 20),
+            if (currentWord != null) ...[
+              Text(currentWord!.word,
+                  style: Theme.of(context).textTheme.headlineLarge),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed:
+                    rounds[currentRound - 1].canRepeat && !hasRepeated
+                        ? _handleRepeat
+                        : null, // Más limpio
+                child: Text(hasRepeated ? "Repetición usada" : "Repetir Palabra"),
+              ),
+
+              //TEXTFIELD ELIMINADO
+
+              const SizedBox(height: 20),
+              Row( // Botones de Correcto/Incorrecto
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.check, color: Colors.white),
+                      label: const Text("Correcto"),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      onPressed: () {
+                        _recordSpellingBeeResult(true);
+                      },
+                    ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      label: const Text("Incorrecto"),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      onPressed: () {
+                        _recordSpellingBeeResult(false);
+                      }
+                    )
+                ],
+              )
+
+            ] else
+              const CircularProgressIndicator(),
+          ],
+        ),
       ),
     );
   }
+    /*@override //YA NO ES NECESARIO
+    void dispose() {
+      _spellingController.dispose();
+      super.dispose();
+    }*/
+}
+//Clase Round (fuera de la clase _SpellingBeeViewState)
+class Round {
+  final int roundNumber;
+  final int numberOfWords;
+  final bool canRepeat;
+  final bool canPause;
+
+  Round({
+    required this.roundNumber,
+    required this.numberOfWords,
+    required this.canRepeat,
+    required this.canPause,
+  });
 }
