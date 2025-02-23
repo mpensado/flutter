@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:translator/translator.dart';
 import 'dart:math';
 import 'dart:async'; // Importante para Timer (debounce)
+import 'package:collection/collection.dart'; // Importante para firstWhereOrNull
 
 void main() {
   runApp(const MyApp());
@@ -58,7 +59,7 @@ class _HomePageState extends State<HomePage>
   String _spelling(String word) {
     String letterSeparated = '';
     List<String> words =
-        word.split(' '); // Separar por espacios para palabras compuestas
+        word.split(' '); // Separar por espacios para Vocabulario compuestas
     for (int i = 0; i < words.length; i++) {
       String currentWord = words[i];
       for (int j = 0; j < currentWord.length; j++) {
@@ -69,7 +70,7 @@ class _HomePageState extends State<HomePage>
       }
       if (i < words.length - 1) {
         letterSeparated +=
-            '---space---'; // Doble coma entre palabras compuestas
+            '---space---'; // Doble coma entre Vocabulario compuestas
       }
     }
     return letterSeparated;
@@ -266,7 +267,7 @@ class _HomePageState extends State<HomePage>
         bottom: TabBar(
           controller: _tabController, // Usa el TabController
           tabs: const [
-            Tab(text: 'Palabras', icon: Icon(Icons.book)),
+            Tab(text: 'Vocabulario', icon: Icon(Icons.book)),
             Tab(text: 'Práctica', icon: Icon(Icons.edit)),
             Tab(text: 'SpellingBee', icon: Icon(Icons.bug_report_rounded)),
           ],
@@ -301,7 +302,7 @@ class _WordsTabState extends State<WordsTab> {
   @override
   void initState() {
     super.initState();
-    _loadWords(); // Inicializar la carga de palabras
+    _loadWords(); // Inicializar la carga de Vocabulario
   }
 
   Future<void> _loadWords() async {
@@ -453,7 +454,7 @@ class _WordsTabState extends State<WordsTab> {
         onPressed: () {
           (HomePage.of(context))._showAddWordDialog(context, () {
             setState(() {
-              // Actualizar la lista de palabras al añadir una nueva
+              // Actualizar la lista de Vocabulario al añadir una nueva
               _loadWords();
             });
           });
@@ -587,15 +588,15 @@ class WordCard extends StatelessWidget {
                       icon: const Icon(Icons.delete),
                       onPressed: onDelete,
                     ),
-                    const SizedBox(width: 8),
-                    if (onAddToSession != null)
-                      IconButton(
-                        icon: const Icon(
-                            Icons.add_circle_outline), // Icono de "añadir"
-                        tooltip: 'Añadir a Sesión', // Tooltip para el icono
-                        onPressed:
-                            onAddToSession, // Llama al callback onAddToSession
-                      ),
+                    // const SizedBox(width: 8),
+                    // if (onAddToSession != null)
+                    //   IconButton(
+                    //     icon: const Icon(
+                    //         Icons.add_circle_outline), // Icono de "añadir"
+                    //     tooltip: 'Añadir a Sesión', // Tooltip para el icono
+                    //     onPressed:
+                    //         onAddToSession, // Llama al callback onAddToSession
+                    //   ),
                   ],
                 ),
               ],
@@ -815,17 +816,15 @@ class _WordCardPracticeState extends State<WordCardPractice> {
   }
 }
 
-//Vista de estadisticas (borrar si no se usa al final)
 class DBHelper {
   static Database? _database;
-  static final DBHelper _instance =
-      DBHelper._privateConstructor(); // Instancia Singleton
+  static final DBHelper _instance = DBHelper._privateConstructor();
 
   factory DBHelper() {
     return _instance;
   }
 
-  DBHelper._privateConstructor(); // Constructor privado
+  DBHelper._privateConstructor();
 
   String tableWords = 'words';
   String tablePractice = 'practice';
@@ -840,7 +839,8 @@ class DBHelper {
 
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'word_trainer_database.db');
-    return await openDatabase(path, version: 1, onCreate: _onCreate);
+    return await openDatabase(path,
+        version: 4, onCreate: _onCreate, onUpgrade: _onUpgrade);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -863,6 +863,9 @@ class DBHelper {
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         last_practice TIMESTAMP,
+        correct_count INTEGER DEFAULT 0,
+        incorrect_count INTEGER DEFAULT 0,
+        total_incorrect_count INTEGER DEFAULT 0,
         FOREIGN KEY (category_id) REFERENCES $tableCategories (id)
       )
     ''');
@@ -894,14 +897,71 @@ class DBHelper {
         session_id INTEGER NOT NULL,
         is_correct BOOLEAN NOT NULL,
         practiced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        session_type TEXT NOT NULL,
         FOREIGN KEY (word_id) REFERENCES words (id),
         FOREIGN KEY (session_id) REFERENCES practice_sessions (id)
       )
     ''');
+
+    // Crear sesiones fijas DESPUÉS de crear las tablas.
+    await _createFixedSessions(db);
+  }
+
+  Future<void> _createFixedSessions(Database db) async {
+    await db.insert(
+        'practice_sessions',
+        {
+          'id': -1, // ID negativo para "Errores"
+          'name': 'Errores',
+          'created_at': DateTime.now().toIso8601String(),
+          'word_ids': '', // Inicialmente vacía
+        },
+        conflictAlgorithm:
+            ConflictAlgorithm.ignore); //Evita errores si ya existe
+
+    await db.insert(
+        'practice_sessions',
+        {
+          'id': -2, // ID negativo para "No Practicadas"
+          'name': 'No Practicadas',
+          'created_at': DateTime.now().toIso8601String(),
+          'word_ids': '', // Inicialmente vacía
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore);
+
+    await db.insert(
+        'practice_sessions',
+        {
+          'id': -3, // ID negativo para "Todas"
+          'name': 'Todas',
+          'created_at': DateTime.now().toIso8601String(),
+          'word_ids': '', // Inicialmente vacía
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+                ALTER TABLE practice_history
+                ADD COLUMN session_type TEXT NOT NULL DEFAULT 'session'
+            ''');
+    }
+    if (oldVersion < 3) {
+      await db.execute(
+          'ALTER TABLE words ADD COLUMN correct_count INTEGER DEFAULT 0');
+      await db.execute(
+          'ALTER TABLE words ADD COLUMN incorrect_count INTEGER DEFAULT 0');
+      await db.execute(
+          'ALTER TABLE words ADD COLUMN total_incorrect_count INTEGER DEFAULT 0');
+    }
+    //Añadimos las sesiones fijas
+    if (oldVersion < 4) {
+      await _createFixedSessions(db);
+    }
   }
 }
 
-// word_model.dart
 class Word {
   final int? id;
   final String word;
@@ -912,6 +972,9 @@ class Word {
   final String? notes;
   final DateTime createdAt;
   final DateTime? lastPractice;
+  final int correctCount; // Contador de aciertos
+  final int incorrectCount; // Contador de errores (para espaciado)
+  final int totalIncorrectCount; // Contador total de errores
 
   Word({
     this.id,
@@ -923,6 +986,9 @@ class Word {
     this.notes,
     required this.createdAt,
     this.lastPractice,
+    this.correctCount = 0, // Valor inicial 0
+    this.incorrectCount = 0, // Valor inicial 0
+    this.totalIncorrectCount = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -936,6 +1002,9 @@ class Word {
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
       'last_practice': lastPractice?.toIso8601String(),
+      'correct_count': correctCount,
+      'incorrect_count': incorrectCount,
+      'total_incorrect_count': totalIncorrectCount,
     };
   }
 
@@ -952,11 +1021,13 @@ class Word {
       lastPractice: map['last_practice'] != null
           ? DateTime.parse(map['last_practice'])
           : null,
+      correctCount: map['correct_count'] ?? 0, // Valor por defecto 0
+      incorrectCount: map['incorrect_count'] ?? 0, // Valor por defecto 0
+      totalIncorrectCount: map['total_incorrect_count'] ?? 0,
     );
   }
 }
 
-// word_repository.dart
 class WordRepository {
   static Future<int> insertWord(Word word) async {
     final db = await DBHelper()
@@ -1051,6 +1122,144 @@ class WordRepository {
       return []; // Return an empty list in case of error.
     }
   }
+
+  static Future<Word?> getWordsForRandomPractice() async {
+    final db = await DBHelper().database;
+
+    try {
+      // 1. Obtener TODAS las palabras.
+      final List<Map<String, dynamic>> allWordsMap =
+          await db.query(DBHelper().tableWords);
+      final List<Word> allWords =
+          allWordsMap.map((map) => Word.fromMap(map)).toList();
+
+      // 2. Obtener el historial de práctica aleatoria.  Filtra por session_type = 'random'.
+      final List<Map<String, dynamic>> practiceHistoryMap = await db.query(
+        'practice_history',
+        where: "session_type = 'random'", // Filtramos por tipo de sesión
+        orderBy: 'practiced_at DESC', // Ordenamos por fecha descendente
+      );
+      final List<PracticeHistory> practiceHistory = practiceHistoryMap
+          .map((map) => PracticeHistory.fromMap(map))
+          .toList();
+
+      // 3. Dividir las palabras en grupos.
+      final List<Word> neverPracticed = [];
+      final List<Word> incorrectWords = [];
+      final List<Word> correctWords = []; //Ya no se usa
+
+      for (final word in allWords) {
+        // Buscar la ÚLTIMA vez que se practicó esta palabra.
+        final lastPractice = practiceHistory.firstWhereOrNull(
+          (history) => history.wordId == word.id,
+        );
+
+        if (lastPractice == null) {
+          neverPracticed.add(word);
+        } else if (!lastPractice.isCorrect || word.incorrectCount>0) {
+          //Solo se añaden las incorrectas
+          incorrectWords.add(word);
+        } else {
+          //Si la palabra se ha respondido correctamente, no se vuelve a mostrar
+          //correctWords.add(word); //Ya no se usa
+        }
+      }
+      // 4. Aplicar lógica de prioridades y espaciado.
+      Word? selectedWord;
+      //Prioridad 1: Incorrectas con espaciado.
+      final List<Word> eligibleIncorrectWords = incorrectWords.where((word) {
+        //Obtener las últimas 3 palabras DISTINTAS practicadas.
+        List<int> lastPracticedDistinctWordIds = [];
+        for (final historyEntry in practiceHistory) {
+          if (!lastPracticedDistinctWordIds.contains(historyEntry.wordId)) {
+            //Si no la hemos añadido
+            lastPracticedDistinctWordIds.add(historyEntry.wordId);
+          }
+          if (lastPracticedDistinctWordIds.length == 3) {
+            break;
+          } //Ya tenemos las 3.
+        }
+
+        return word.correctCount <= 0 &&
+            !lastPracticedDistinctWordIds
+                .contains(word.id); //Filtro correctCount
+      }).toList();
+
+      // Ordenar eligibleIncorrectWords por totalIncorrectCount (mayor a menor)
+      eligibleIncorrectWords.sort(
+          (a, b) => b.totalIncorrectCount.compareTo(a.totalIncorrectCount));
+
+      if (eligibleIncorrectWords.isNotEmpty) {
+        selectedWord = eligibleIncorrectWords[
+            Random().nextInt(eligibleIncorrectWords.length)];
+      } else if (neverPracticed.isNotEmpty) {
+        // Prioridad 2: Palabras nunca practicadas.
+        selectedWord = neverPracticed[Random().nextInt(neverPracticed.length)];
+      } else {
+        // Prioridad 3: Todas las palabras, priorizando por incorrectCount
+        if (allWords.isNotEmpty) {
+          // Ordenar allWords por incorrectCount (de mayor a menor) y luego por correctCount (de menor a mayor).
+          allWords.sort((a, b) {
+            int incorrectComparison =
+                b.totalIncorrectCount.compareTo(a.totalIncorrectCount);
+            if (incorrectComparison != 0) {
+              return incorrectComparison;
+            }
+            return a.correctCount
+                .compareTo(b.correctCount); // Menos aciertos primero
+          });
+          selectedWord = allWords[Random().nextInt(allWords.length)];
+        } else {
+          selectedWord = null; // No hay palabras disponibles
+        }
+      }
+
+      return selectedWord;
+    } catch (e) {
+      print("Error en getWordsForRandomPractice: $e");
+      rethrow;
+    }
+  }
+
+  static Future<void> updateWordCounters(int wordId, bool isCorrect) async {
+    final db = await DBHelper().database;
+    try {
+      if (isCorrect) {
+        //Obtener los valores actuales
+        final List<Map<String, dynamic>> wordData = await db.query(
+          DBHelper().tableWords,
+          where: 'id = ?',
+          whereArgs: [wordId],
+        );
+        //Si el contador de incorrecto es igual a 0, entonces incrementamos el correcto
+        if (wordData.first['incorrect_count'] == 0) {
+          await db.rawUpdate('''
+                      UPDATE ${DBHelper().tableWords}
+                      SET correct_count = correct_count + 1
+                      WHERE id = ?
+                    ''', [wordId]);
+        } else {
+          //Si no, se decrementa el contador de incorrectos.
+          await db.rawUpdate('''
+                      UPDATE ${DBHelper().tableWords}
+                      SET incorrect_count = incorrect_count - 1
+                      WHERE id = ?
+                    ''', [wordId]);
+        }
+      } else {
+        //Si es incorrecto, aumentar incorrect_count y total_incorrect_count
+        await db.rawUpdate('''
+                UPDATE ${DBHelper().tableWords}
+                SET incorrect_count = incorrect_count + 1,
+                    total_incorrect_count = total_incorrect_count + 1
+                WHERE id = ?
+                ''', [wordId]);
+      }
+    } catch (e) {
+      print("Error updating word counters: $e");
+      rethrow;
+    }
+  }
 }
 
 class TextToSpeechService {
@@ -1115,8 +1324,9 @@ class PracticeSessionRepository {
   static Future<List<PracticeSession>> getAllSessions() async {
     final db = await DBHelper().database;
     try {
-      final List<Map<String, dynamic>> maps =
-          await db.query('practice_sessions');
+      final List<Map<String, dynamic>> maps = await db
+          .query('practice_sessions', where: 'id > 0' // Excluir sesiones fijas
+              );
       return List.generate(
           maps.length, (i) => PracticeSession.fromMap(maps[i]));
     } catch (e) {
@@ -1135,8 +1345,27 @@ class PracticeSessionRepository {
     }
   }
 
+  //Añadimos un nuevo método para obtener las sesiones fijas
+  static Future<List<PracticeSession>> getFixedSessions() async {
+    final db = await DBHelper().database;
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+          'practice_sessions',
+          where: 'id < 0' // Obtener solo sesiones fijas.
+          );
+      return List.generate(
+          maps.length, (i) => PracticeSession.fromMap(maps[i]));
+    } catch (e) {
+      print("Error getting fixed sessions: $e");
+      rethrow;
+    }
+  }
+
   static Future<void> addWordToSession(
       Word word, PracticeSession session) async {
+    //No permitir añadir a sesiones fijas
+    if (session.id! < 0) return;
+
     final db = await DBHelper().database;
     try {
       final List<Map<String, dynamic>> sessionMap = await db.query(
@@ -1169,28 +1398,69 @@ class PracticeSessionRepository {
     }
   }
 
-  //Optimización de la consulta a base de datos.
   static Future<List<Word>> loadSessionWords(PracticeSession session) async {
     final db = await DBHelper().database;
     try {
-      if (session.wordIds.isEmpty) {
-        return []; // Return empty list if no word IDs
+      if (session.id == -1) {
+        // Errores
+        final List<Map<String, dynamic>> maps = await db.query(
+          DBHelper().tableWords,
+          where: 'total_incorrect_count > 0', // Solo palabras con errores
+          orderBy:
+              'total_incorrect_count DESC', // Ordenar por errores (descendente)
+        );
+        return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
+      } else if (session.id == -2) {
+        // No Practicadas
+        // Obtener todas las palabras
+        final List<Map<String, dynamic>> allWordsMap =
+            await db.query(DBHelper().tableWords);
+        final List<Word> allWords =
+            allWordsMap.map((map) => Word.fromMap(map)).toList();
+
+        // Obtener todas las palabras practicadas (en cualquier tipo de sesión)
+        final List<Map<String, dynamic>> practicedWordsMap = await db.query(
+            'practice_history',
+            columns: ['word_id'],
+            distinct: true); //Usamos distinct
+        final List<int> practicedWordIds =
+            practicedWordsMap.map((map) => map['word_id'] as int).toList();
+
+        // Filtrar para obtener solo las palabras NO practicadas
+        final List<Word> neverPracticedWords = allWords
+            .where((word) => !practicedWordIds.contains(word.id))
+            .toList();
+        return neverPracticedWords;
+      } else if (session.id == -3) {
+        // Todas
+
+        final List<Map<String, dynamic>> maps = await db.query(
+          DBHelper().tableWords,
+          orderBy:
+              'correct_count + incorrect_count ASC', // Menos practicadas primero
+        );
+        return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
+      } else {
+        // Sesiones normales (IDs positivos)
+        if (session.wordIds.isEmpty) {
+          return [];
+        }
+        final List<Map<String, dynamic>> maps = await db.query(
+          DBHelper().tableWords,
+          where: 'id IN (${session.wordIds.map((_) => '?').join(',')})',
+          whereArgs: session.wordIds,
+        );
+        return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
       }
-      final List<Map<String, dynamic>> maps = await db.query(
-        DBHelper().tableWords,
-        where:
-            'id IN (${session.wordIds.map((_) => '?').join(',')})', // Create placeholders
-        whereArgs: session.wordIds, // Pass the IDs as arguments
-      );
-      return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
     } catch (e) {
       print("Error loading session words: $e");
       rethrow;
     }
   }
 
-  //Borrado de sesiones
   static Future<void> deleteSession(int sessionId) async {
+    //No se pueden borrar las sesiones fijas
+    if (sessionId < 0) return;
     final db = await DBHelper().database;
     try {
       await db.delete(
@@ -1204,9 +1474,11 @@ class PracticeSessionRepository {
     }
   }
 
-  //Quitar palabras de una sesión
   static Future<void> removeWordFromSession(
       Word word, PracticeSession session) async {
+    //No permitir quitar palabras de sesiones fijas
+    if (session.id! < 0) return;
+
     final db = await DBHelper().database;
     try {
       final List<Map<String, dynamic>> sessionMap = await db.query(
@@ -1302,6 +1574,7 @@ class PracticeHistory {
   final int sessionId;
   final bool isCorrect;
   final DateTime practicedAt;
+  final String sessionType; // Nueva columna
 
   PracticeHistory({
     this.id,
@@ -1309,6 +1582,7 @@ class PracticeHistory {
     required this.sessionId,
     required this.isCorrect,
     required this.practicedAt,
+    required this.sessionType, // Añadido al constructor
   });
 
   Map<String, dynamic> toMap() {
@@ -1318,6 +1592,7 @@ class PracticeHistory {
       'session_id': sessionId,
       'is_correct': isCorrect ? 1 : 0,
       'practiced_at': practicedAt.toIso8601String(),
+      'session_type': sessionType, // Añadido al mapa
     };
   }
 
@@ -1328,6 +1603,7 @@ class PracticeHistory {
       sessionId: map['session_id'],
       isCorrect: map['is_correct'] == 1,
       practicedAt: DateTime.parse(map['practiced_at']),
+      sessionType: map['session_type'], // Añadido desde el mapa
     );
   }
 }
@@ -1340,7 +1616,8 @@ class PracticeTab extends StatefulWidget {
 }
 
 class _PracticeTabState extends State<PracticeTab>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
+  // ... (variables de estado, como antes) ...
   Future<List<Word>>? _wordsFuture; // Usar Future para la carga
   List<PracticeSession> sessions = [];
   PracticeSession? selectedSession;
@@ -1349,12 +1626,16 @@ class _PracticeTabState extends State<PracticeTab>
   int incorrectCount = 0;
   int resetCounter = 0;
 
+  late TabController _tabController;
+
   @override
-  bool get wantKeepAlive => true; // Para mantener el estado
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
+    _tabController =
+        TabController(length: 2, vsync: this); // Initialize TabController
     _loadInitialData();
   }
 
@@ -1383,16 +1664,22 @@ class _PracticeTabState extends State<PracticeTab>
   Future<void> _loadSessions() async {
     try {
       List<PracticeSession> loadedSessions =
-          await PracticeSessionRepository.getAllSessions();
+          await PracticeSessionRepository.getAllSessions(); //Sesiones normales
+      List<PracticeSession> fixedSessions = await PracticeSessionRepository
+          .getFixedSessions(); // Obtener sesiones fijas
+
       setState(() {
-        sessions = loadedSessions;
-        if (sessions.isNotEmpty) {
-          selectedSession = sessions.first;
-          _loadSessionWords(); // Cargar palabras de la primera sesión
-        } else {
-          selectedSession = null;
-          _wordsFuture = Future.value([]); // Set future to empty list
+        sessions = [
+          ...fixedSessions,
+          ...loadedSessions
+        ]; // Combinar sesiones fijas y normales
+
+        //Seleccionar la sesión por defecto (Errores)
+        if (selectedSession == null ||
+            !sessions.any((s) => s.id == selectedSession!.id)) {
+          selectedSession = sessions.isNotEmpty ? sessions.first : null;
         }
+        _loadSessionWords();
       });
     } catch (e) {
       if (mounted) {
@@ -1403,9 +1690,7 @@ class _PracticeTabState extends State<PracticeTab>
   }
 
   Future<void> _loadPracticeSessions() async {
-    setState(() {
-      _loadSessions(); //Recargar sesiones
-    });
+    await _loadSessions(); //Recargar sesiones
   }
 
   Future<void> _loadSessionWords() async {
@@ -1426,11 +1711,12 @@ class _PracticeTabState extends State<PracticeTab>
   Future<void> _recordPractice(Word word, bool isCorrect) async {
     if (selectedSession != null) {
       final practice = PracticeHistory(
-        wordId: word.id!,
-        sessionId: selectedSession!.id!,
-        isCorrect: isCorrect,
-        practicedAt: DateTime.now(),
-      );
+          wordId: word.id!,
+          sessionId: selectedSession!.id!, //Ahora puede ser -1, -2, -3
+          isCorrect: isCorrect,
+          practicedAt: DateTime.now(),
+          sessionType: 'session' //Tipo sesión
+          );
 
       final dbHelper = DBHelper();
       try {
@@ -1473,208 +1759,141 @@ class _PracticeTabState extends State<PracticeTab>
       resetCounter++; // Incrementar para forzar actualización
     });
   }
+  //Ya no se usa
+  /*void _showDeleteSessionDialog(BuildContext context, PracticeSession session) {
 
-  //Función para mostrar dialogo de borrado de sesión
-  void _showDeleteSessionDialog(BuildContext context, PracticeSession session) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Borrar Sesión'),
-        content: Text(
-            '¿Estás seguro de que quieres borrar la sesión "${session.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                await PracticeSessionRepository.deleteSession(session.id!);
+    }*/
 
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Sesión "${session.name}" borrada')),
-                  );
-                }
-                _loadPracticeSessions(); //Recargar lista
-              } catch (e) {
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Error al borrar la sesión: $e")),
-                  );
-                }
-              }
-            },
-            child: const Text('Borrar'),
-          ),
-        ],
-      ),
-    );
-  }
+  //Ya no se usa
+  /*void _showRemoveWordDialog(BuildContext context, Word word, PracticeSession session) {
 
-  //Función para mostrar el dialogo de quitar palabra de sesión
-  void _showRemoveWordDialog(
-      BuildContext context, Word word, PracticeSession session) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Quitar Palabra'),
-        content: Text(
-            '¿Estás seguro de que quieres quitar la palabra "${word.word}" de la sesión "${session.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                await PracticeSessionRepository.removeWordFromSession(
-                    word, session);
-
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text(
-                            'Palabra "${word.word}" eliminada de la sesión "${session.name}"')),
-                  );
-                }
-                _loadSessionWords(); // Reload after removing the word
-              } catch (e) {
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Error al quitar palabra: $e")),
-                  );
-                }
-              }
-            },
-            child: const Text('Quitar'),
-          ),
-        ],
-      ),
-    );
-  }
+  }*/
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
     return Scaffold(
-      body: Column(
+      appBar: AppBar(
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Por Sesión'),
+            Tab(text: 'Aleatorio'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DropdownButton<PracticeSession>(
-                    value: selectedSession,
-                    hint: const Text('Seleccionar sesión'),
-                    isExpanded: true,
-                    items: sessions.map((session) {
-                      return DropdownMenuItem(
-                          value: session,
-                          child: Row(
-                            //Para poder añadir el icono de borrado
-                            children: [
-                              Expanded(child: Text(session.name)),
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () {
-                                  _showDeleteSessionDialog(context,
-                                      session); //Mostrar dialogo de borrado
-                                },
-                              ),
-                            ],
-                          ));
-                    }).toList(),
-                    onChanged: (PracticeSession? newValue) {
-                      setState(() {
-                        selectedSession = newValue;
-                        _resetPractice();
-                        _loadSessionWords();
-                      });
-                    },
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: () {
-                    _resetPractice();
-                    _loadSessionWords(); // Recargar palabras
-                  },
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              'Aciertos: $correctCount | Errores: $incorrectCount',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          Expanded(
-            child: FutureBuilder<List<Word>>(
-              future: _wordsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(
-                      child: Text("No hay palabras en esta sesión."));
-                } else {
-                  // ENVUELVE el ListView.builder con RefreshIndicator.
-                  return RefreshIndicator(
-                    onRefresh:
-                        _loadSessions, // <--- Llama a _loadSessions() al recargar
-                    child: ListView.builder(
-                      itemCount: snapshot.data!.length,
-                      itemBuilder: (context, index) {
-                        // ... (resto del itemBuilder: creación de WordCardPractice) ...
-                        final word = snapshot.data![index];
-                        return WordCardPractice(
-                          key: ValueKey(word.id), // Usar ValueKey
-                          word: word,
-                          onDelete: () async {
-                            if (selectedSession != null) {
-                              _showRemoveWordDialog(context, word,
-                                  selectedSession!); //Mostrar el dialogo de quitar palabra
-                            }
-                          },
-                          onRecordPracticeCallback: _recordPracticeWrapper,
-                          practicedWords: practicedWords,
-                          selectedSession: selectedSession,
-                          resetCounter: resetCounter, // Pasar resetCounter
-                          showRemoveButton: true, //Mostrar botón de quitar
-                        );
-                      },
-                    ),
-                  );
-                }
-              },
-            ),
-          ),
+          _buildSessionPractice(context), // Pasa el context
+          RandomPracticeView(),
         ],
       ),
     );
   }
+
+  Widget _buildSessionPractice(BuildContext context) {
+    // Recibe BuildContext
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: DropdownButton<PracticeSession>(
+                  value: selectedSession,
+                  hint: const Text('Seleccionar sesión'),
+                  isExpanded: true,
+                  items: sessions.map((session) {
+                    return DropdownMenuItem(
+                        value: session,
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(session.name)),
+                            //Se quita el icono de borrar
+                          ],
+                        ));
+                  }).toList(),
+                  onChanged: (PracticeSession? newValue) {
+                    setState(() {
+                      selectedSession = newValue;
+                      _resetPractice();
+                      _loadSessionWords();
+                    });
+                  },
+                ),
+              ),
+              //Se quita el icono de refrescar
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            'Aciertos: $correctCount | Errores: $incorrectCount',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium, // Usa el context del build
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<Word>>(
+            future: _wordsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(
+                    child: Text("No hay palabras en esta sesión."));
+              } else {
+                return RefreshIndicator(
+                  onRefresh: _loadSessions, //Llama a la funcion
+                  child: ListView.builder(
+                    itemCount: snapshot.data!.length,
+                    itemBuilder: (context, index) {
+                      final word = snapshot.data![index];
+                      return WordCardPractice(
+                        key: ValueKey(word.id),
+                        word: word,
+                        onDelete: () async {
+                          /*if(selectedSession != null){
+                                _showRemoveWordDialog(context, word, selectedSession!);
+                            }*/ //QUITAR
+                        },
+                        onRecordPracticeCallback: _recordPracticeWrapper,
+                        practicedWords: practicedWords,
+                        selectedSession: selectedSession,
+                        resetCounter: resetCounter,
+                        showRemoveButton: false, // <--- No mostrar el botón
+                      );
+                    },
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose(); // Dispose of the TabController
+    super.dispose();
+  }
 }
 
-// Función para cargar datos de ejemplo
 Future<void> loadSampleData() async {
   final dbHelper =
       DBHelper(); // Create an instance (if you don't have one already in scope)
   final db = await dbHelper.database;
 
-  // Lista de palabras de ejemplo
+  // Lista de Vocabulario de ejemplo
   final List<Map<String, dynamic>> sampleWords = [
     {
       'word': 'Mangoes',
@@ -2075,42 +2294,310 @@ Future<void> loadSampleData() async {
       wordIds.add(id);
     }
 
-    final sessionId = await db.insert('practice_sessions', {
-      'name': '3o de Primaria',
-      'created_at': DateTime.now().toIso8601String(),
-      'word_ids': wordIds.join(','),
-    });
+    // final sessionId = await db.insert('practice_sessions', {
+    //   'name': '3o de Primaria',
+    //   'created_at': DateTime.now().toIso8601String(),
+    //   'word_ids': wordIds.join(','),
+    // });
 
-    final sampleHistory = [
-      {
-        'word_id': wordIds[0],
-        'session_id': sessionId,
-        'is_correct': 1,
-        'practiced_at':
-            DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-      },
-      {
-        'word_id': wordIds[1],
-        'session_id': sessionId,
-        'is_correct': 1,
-        'practiced_at':
-            DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-      },
-      {
-        'word_id': wordIds[2],
-        'session_id': sessionId,
-        'is_correct': 0,
-        'practiced_at':
-            DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-      },
-    ];
+    // final sampleHistory = [
+    //   {
+    //     'word_id': wordIds[0],
+    //     'session_id': sessionId,
+    //     'is_correct': 1,
+    //     'practiced_at':
+    //         DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+    //   },
+    //   {
+    //     'word_id': wordIds[1],
+    //     'session_id': sessionId,
+    //     'is_correct': 1,
+    //     'practiced_at':
+    //         DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+    //   },
+    //   {
+    //     'word_id': wordIds[2],
+    //     'session_id': sessionId,
+    //     'is_correct': 0,
+    //     'practiced_at':
+    //         DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
+    //   },
+    // ];
 
-    for (var historyData in sampleHistory) {
-      await db.insert('practice_history', historyData);
-    }
+    // for (var historyData in sampleHistory) {
+    //   await db.insert('practice_history', historyData);
+    // }
   } catch (e) {
     print("Error loading sample data: $e");
     // Consider showing a SnackBar to the user.  You'll need a BuildContext.
+  }
+}
+
+class RandomPracticeView extends StatefulWidget {
+  const RandomPracticeView({super.key});
+
+  @override
+  State<RandomPracticeView> createState() => _RandomPracticeViewState();
+}
+
+class _RandomPracticeViewState extends State<RandomPracticeView> {
+  Word? currentWord;
+  bool hasRepeated = false;
+  bool isLoading = false; // Para mostrar un indicador de carga
+  List<int> lastPracticedWords = []; //Para controlar el espaciado.
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  int totalCorrectCount = 0; // Aciertos totales en la sesión
+  int totalIncorrectCount = 0; // Errores totales en la sesión
+  int currentWordIncorrectCount = 0; //Errores para la palabra actual.
+  bool gameStarted = false; // Para el botón de inicio
+  bool practiceEnded = false; // Para mostrar el resumen final
+  List<Map<String, dynamic>> practiceSummary = []; // Lista para el resumen
+
+  @override
+  void initState() {
+    super.initState();
+    _audioPlayer.setReleaseMode(ReleaseMode.stop);
+  }
+
+  void _startNewPractice() {
+    setState(() {
+      currentWord = null;
+      hasRepeated = false;
+      isLoading = false;
+      totalCorrectCount = 0;
+      totalIncorrectCount = 0;
+      currentWordIncorrectCount = 0;
+      gameStarted = false; // Resetear
+      practiceEnded = false; // Resetear
+      practiceSummary.clear(); // Limpiar el resumen
+      lastPracticedWords = [];
+    });
+  }
+
+  Future<void> _loadNextWord() async {
+    setState(() {
+      isLoading = true;
+      hasRepeated = false;
+      // currentWordIncorrectCount = 0; // NO REINICIAR AQUÍ
+    });
+
+    try {
+      final nextWord = await WordRepository.getWordsForRandomPractice();
+      if (mounted) {
+        setState(() {
+          currentWord = nextWord;
+          isLoading = false;
+          if (currentWord != null) {
+            TextToSpeechService.speak(currentWord!.word);
+            currentWordIncorrectCount =
+                currentWord!.totalIncorrectCount; //  CARGAR ERRORES
+            if (practiceSummary.firstWhereOrNull(
+                    (element) => element['word'] == currentWord!.word) ==
+                null) {
+              practiceSummary.add({
+                'word': currentWord!.word,
+                'attempts': 0,
+                'errors': 0,
+              });
+            }
+            practiceSummary.firstWhereOrNull((element) =>
+                element['word'] == currentWord!.word)!['attempts']++;
+
+            if (!lastPracticedWords.contains(currentWord!.id)) {
+              lastPracticedWords.insert(0, currentWord!.id!);
+              if (lastPracticedWords.length > 3) {
+                lastPracticedWords.removeLast();
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+          SnackBar(content: Text("Error al cargar la palabra: $e")),
+        );
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _recordPracticeResult(bool isCorrect) async {
+    if (currentWord == null) return;
+
+    try {
+      final dbHelper = DBHelper();
+      final db = await dbHelper.database;
+      // Usar la nueva columna session_type.  NO usamos sessionID en la práctica aleatoria.
+      await db.insert('practice_history', {
+        'word_id': currentWord!.id,
+        'session_id':
+            -1, // Usar un valor centinela (-1) o NULL para indicar que no hay sesión.
+        'is_correct': isCorrect ? 1 : 0,
+        'practiced_at': DateTime.now().toIso8601String(),
+        'session_type': 'random', //  Valor para la práctica aleatoria.
+      });
+
+      await WordRepository.updateWordCounters(currentWord!.id!, isCorrect);
+
+      setState(() {
+        if (isCorrect) {
+          totalCorrectCount++;
+        } else {
+          totalIncorrectCount++;
+          currentWordIncorrectCount++;
+          // Actualizar errores en el resumen
+          final wordSummary = practiceSummary.firstWhereOrNull(
+              (element) => element['word'] == currentWord!.word);
+          if (wordSummary != null) {
+            wordSummary['errors']++;
+          }
+        }
+      });
+
+      _loadNextWord(); // Cargar la siguiente palabra
+    } catch (e) {
+      if (mounted) {
+        //Siempre comprobar.
+        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+            SnackBar(content: Text("Error al guardar el resultado: $e")));
+      }
+    }
+  }
+
+  void _endPractice() {
+    setState(() {
+      practiceEnded = true; // Mostrar resumen
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!gameStarted) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Práctica Aleatoria")),
+        body: Center(
+          child: ElevatedButton(
+            child: const Text("Comenzar Práctica"),
+            onPressed: () {
+              setState(() {
+                gameStarted = true;
+              });
+              _loadNextWord(); // Iniciar carga de palabras
+            },
+          ),
+        ),
+      );
+    }
+
+    if (practiceEnded) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text("Práctica Aleatoria - Resumen"),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                "Resumen de la Práctica:",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: practiceSummary.length,
+                  itemBuilder: (context, index) {
+                    final sortedSummary = List<Map<String, dynamic>>.from(
+                        practiceSummary); // Copia para no modificar el original.
+                    sortedSummary.sort((a, b) => a['attempts'].compareTo(
+                        b['attempts'])); // Ordenar ASCENDENTE por intentos.
+
+                    final wordData =
+                        sortedSummary[index]; // Usa la lista ordenada.
+                    return ListTile(
+                      title: Text(wordData['word']),
+                      subtitle: Text(
+                          "Intentos: ${wordData['attempts']}, Errores: ${wordData['errors']}"),
+                    );
+                  },
+                ),
+              ),
+              ElevatedButton(
+                onPressed: _startNewPractice,
+                child: const Text("Nueva Práctica"),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Práctica Aleatoria'),
+      ),
+      body: SingleChildScrollView(
+        // <-- Añade SingleChildScrollView
+        child: Center(
+          // <-- Centra la columna
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center, // Centra verticalmente
+            children: [
+              if (isLoading) ...[
+                const CircularProgressIndicator(),
+              ] else if (currentWord != null) ...[
+                Text(
+                    "Aciertos: $totalCorrectCount | Errores: $totalIncorrectCount | Errores en palabra: $currentWordIncorrectCount"),
+                const SizedBox(height: 8),
+                Center(
+                  //Centra el Card
+                  child: WordCardPractice(
+                    key: ValueKey(currentWord!.id),
+                    word: currentWord!,
+                    onDelete: () {},
+                    onRecordPracticeCallback: (word, isCorrect, cardState) {
+                      _recordPracticeResult(isCorrect);
+                    },
+                    practicedWords: {},
+                    selectedSession: null,
+                    resetCounter: 0,
+                    showRemoveButton: false,
+                  ),
+                ),
+              ] else ...[
+                const Text("No hay palabras disponibles."),
+              ]
+            ],
+          ),
+        ),
+      ),
+      floatingActionButton: Column(
+        //Dos botones flotantes
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: _endPractice,
+            tooltip: 'Terminar Práctica',
+            child: const Icon(Icons.stop),
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            onPressed: _startNewPractice,
+            tooltip: 'Reiniciar Práctica',
+            child: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose(); // Liberar recursos
+    super.dispose();
   }
 }
 
@@ -2138,14 +2625,18 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
   bool isSuddenDeath = false; // Indica si estamos en muerte súbita
   bool playerTurn = true; // Controla el turno (true: speller, false: oponente)
   String? winner;
-  bool? isCorrect= true;
+  bool? isCorrect = true;
 
   List<Round> rounds = [
     Round(roundNumber: 1, numberOfWords: 3, canRepeat: true, canPause: true),
     Round(roundNumber: 2, numberOfWords: 3, canRepeat: true, canPause: false),
     Round(roundNumber: 3, numberOfWords: 2, canRepeat: false, canPause: false),
     Round(roundNumber: 4, numberOfWords: 1, canRepeat: false, canPause: false),
-    Round(roundNumber: 5, numberOfWords: 5, canRepeat: false, canPause: false), // AHORA 5 PALABRAS
+    Round(
+        roundNumber: 5,
+        numberOfWords: 5,
+        canRepeat: false,
+        canPause: false), // AHORA 5 Vocabulario
   ];
 
   Map<int, Map<String, int>> roundResults = {};
@@ -2156,7 +2647,7 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
     _audioPlayer.setReleaseMode(ReleaseMode.stop);
   }
 
-    void _startNewSpellingBeeSession() {
+  void _startNewSpellingBeeSession() {
     setState(() {
       currentRound = 1;
       wordsForCurrentRound = [];
@@ -2192,26 +2683,25 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
         _generateWordsForRound(currentRound);
       });
     } else {
-        //Entrar a muerte súbita
-        setState(() {
-          isSuddenDeath = true;
-          currentWordIndexInRound = 0;
-          hasRepeated = false;
-          roundCorrectCount = 0;
-          roundIncorrectCount = 0;
-          roundCompleted = false; // Reiniciar para la nueva palabra
-          _generateWordsForRound(currentRound + 1);
-        });
+      //Entrar a muerte súbita
+      setState(() {
+        isSuddenDeath = true;
+        currentWordIndexInRound = 0;
+        hasRepeated = false;
+        roundCorrectCount = 0;
+        roundIncorrectCount = 0;
+        roundCompleted = false; // Reiniciar para la nueva palabra
+        _generateWordsForRound(currentRound + 1);
+      });
     }
   }
 
-
   Future<void> _generateWordsForRound(int roundNumber) async {
-     int numWords;
+    int numWords;
     if (roundNumber <= rounds.length) {
       numWords = rounds[roundNumber - 1].numberOfWords;
     } else {
-      numWords = 1;  // Muerte súbita: 1 palabra por turno
+      numWords = 1; // Muerte súbita: 1 palabra por turno
     }
 
     final random = Random();
@@ -2232,7 +2722,7 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-          SnackBar(content: Text("Error al generar palabras: $e")),
+          SnackBar(content: Text("Error al generar Vocabulario: $e")),
         );
       }
       setState(() {
@@ -2251,19 +2741,20 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
         TextToSpeechService.speak(currentWord!.word);
       });
     } else {
-        if(!isSuddenDeath){ //Si no estamos en muerte súbita, pasamos de ronda.
-            _nextRound();
-        } //Si estamos en muerte súbita, _recordSpellingBeeResult se encarga de la lógica
-
+      if (!isSuddenDeath) {
+        //Si no estamos en muerte súbita, pasamos de ronda.
+        _nextRound();
+      } //Si estamos en muerte súbita, _recordSpellingBeeResult se encarga de la lógica
     }
   }
 
   void _handleRepeat() {
-    if (rounds[min(currentRound - 1, rounds.length - 1)].canRepeat && !hasRepeated) {
+    if (rounds[min(currentRound - 1, rounds.length - 1)].canRepeat &&
+        !hasRepeated) {
       setState(() {
         hasRepeated = true;
       });
-      TextToSpeechService.speak(currentWord!.spelling);
+      TextToSpeechService.speak(currentWord!.word);
     }
   }
 
@@ -2276,162 +2767,105 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
   void _recordSpellingBeeResult(bool isCorrect) {
     if (currentWord == null) return;
 
-      Round currentRoundRules = rounds[min(currentRound - 1, rounds.length - 1)];
+    Round currentRoundRules = rounds[min(currentRound - 1, rounds.length - 1)];
 
     setState(() {
-        //Logica de rondas normales
-        if (!isSuddenDeath) {
-            if (!isCorrect) {
-                roundIncorrectCount++;
-                if (!currentRoundRules.canRepeat) { //Si respondio incorrectamente
-                  roundResults[currentRound] = {
-                    'correct': roundCorrectCount,
-                    'incorrect': roundIncorrectCount,
-                  };
-                  gameOver = true;
-                  errorMessage = "Error en la Ronda $currentRound";
-                  _audioPlayer.setVolume(1.0);
-                  _audioPlayer.play(AssetSource('sounds/failure.mp3'));
-                  return;
-                }
-            } else {
-                roundCorrectCount++;
-            }
-
-            currentWordIndexInRound++;
-            if (currentWordIndexInRound < wordsForCurrentRound.length) { //Si aun hay palabras
-                _loadCurrentWord();
-            } else { //Si ya no hay palabras
-                roundCompleted = true; // Fin de la ronda
-                roundResults[currentRound] = {
-                    'correct': roundCorrectCount,
-                    'incorrect': roundIncorrectCount,
-                };
-
-                if (roundCorrectCount >= wordsForCurrentRound.length) {
-                    _audioPlayer.setVolume(1.0);
-                    _audioPlayer.play(AssetSource('sounds/success.mp3'));
-                } else {
-                    _audioPlayer.setVolume(1.0);
-                    _audioPlayer.play(AssetSource('sounds/failure.mp3'));
-                }
-            }
-        } else { //Logica de muerte súbita
-            //MUERTE SÚBITA
-            if (playerTurn) { // Turno del speller
-                if (isCorrect) {
-                    playerTurn = false; // Turno del oponente
-                    roundCorrectCount++; //Aumentar aciertos en la ronda.
-                    roundCompleted = true; //Mostrar mensaje.
-                    _audioPlayer.setVolume(1.0);
-                    _audioPlayer.play(AssetSource('sounds/success.mp3')); //Sonido de exito
-
-                } else {
-                    // El speller falló, ahora a ver que pasa con el oponente
-                    roundIncorrectCount++; //Aumentar fallos de la ronda
-                    if (_simulateOpponent()) { //Si el oponente virtual acierta.
-                        //El oponente virtual acertó, speller pierde
-                        gameOver = true;
-                        errorMessage = "Has perdido en la muerte súbita.";
-                        _audioPlayer.setVolume(1.0);
-                        _audioPlayer.play(AssetSource('sounds/failure.mp3')); //Sonido de fallo
-
-                    } else { //Si el oponente falla, darle otra palabra al speller
-                        roundCompleted = true;
-                        playerTurn = true;
-                        _audioPlayer.setVolume(1.0);
-                        _audioPlayer.play(AssetSource('sounds/failure.mp3'));//Sonido de fallo para el oponente
-
-                    }
-                }
-            } else { // Turno del oponente (simulado)
-                if (_simulateOpponent()) {
-                    // Oponente acertó, generar nueva palabra para el speller
-                    playerTurn = true; // Regresa el turno al speller
-                    roundCompleted = true;
-
-                } else {
-                    // Oponente falló, el speller gana
-                    gameOver = true;
-                    winner = "¡Felicidades, has ganado!"; // Define winner
-                    _audioPlayer.setVolume(1.0);
-                    _audioPlayer.play(AssetSource('sounds/success.mp3'));
-                }
-            }
+      //Logica de rondas normales
+      if (!isSuddenDeath) {
+        if (!isCorrect) {
+          roundIncorrectCount++;
+          if (!currentRoundRules.canRepeat) {
+            //Si respondio incorrectamente
+            roundResults[currentRound] = {
+              'correct': roundCorrectCount,
+              'incorrect': roundIncorrectCount,
+            };
+            gameOver = true;
+            errorMessage = "Error en la Ronda $currentRound";
+            _audioPlayer.setVolume(1.0);
+            _audioPlayer.play(AssetSource('sounds/failure.mp3'));
+            return;
+          }
+        } else {
+          roundCorrectCount++;
         }
+
+        currentWordIndexInRound++;
+        if (currentWordIndexInRound < wordsForCurrentRound.length) {
+          //Si aun hay Vocabulario
+          _loadCurrentWord();
+        } else {
+          //Si ya no hay Vocabulario
+          roundCompleted = true; // Fin de la ronda
+          roundResults[currentRound] = {
+            'correct': roundCorrectCount,
+            'incorrect': roundIncorrectCount,
+          };
+
+          if (roundCorrectCount >= wordsForCurrentRound.length) {
+            _audioPlayer.setVolume(1.0);
+            _audioPlayer.play(AssetSource('sounds/success.mp3'));
+          } else {
+            _audioPlayer.setVolume(1.0);
+            _audioPlayer.play(AssetSource('sounds/failure.mp3'));
+          }
+        }
+      } else {
+        //Logica de muerte súbita
+        //MUERTE SÚBITA
+        if (playerTurn) {
+          // Turno del speller
+          if (isCorrect) {
+            playerTurn = false; // Turno del oponente
+            roundCorrectCount++; //Aumentar aciertos en la ronda.
+            roundCompleted = true; //Mostrar mensaje.
+            _audioPlayer.setVolume(1.0);
+            _audioPlayer
+                .play(AssetSource('sounds/success.mp3')); //Sonido de exito
+          } else {
+            // El speller falló, ahora a ver que pasa con el oponente
+            roundIncorrectCount++; //Aumentar fallos de la ronda
+            if (_simulateOpponent()) {
+              //Si el oponente virtual acierta.
+              //El oponente virtual acertó, speller pierde
+              gameOver = true;
+              errorMessage = "Has perdido en la muerte súbita.";
+              _audioPlayer.setVolume(1.0);
+              _audioPlayer
+                  .play(AssetSource('sounds/failure.mp3')); //Sonido de fallo
+            } else {
+              //Si el oponente falla, darle otra palabra al speller
+              roundCompleted = true;
+              playerTurn = true;
+              _audioPlayer.setVolume(1.0);
+              _audioPlayer.play(AssetSource(
+                  'sounds/failure.mp3')); //Sonido de fallo para el oponente
+            }
+          }
+        } else {
+          // Turno del oponente (simulado)
+          if (_simulateOpponent()) {
+            // Oponente acertó, generar nueva palabra para el speller
+            playerTurn = true; // Regresa el turno al speller
+            roundCompleted = true;
+          } else {
+            // Oponente falló, el speller gana
+            gameOver = true;
+            winner = "¡Felicidades, has ganado!"; // Define winner
+            _audioPlayer.setVolume(1.0);
+            _audioPlayer.play(AssetSource('sounds/success.mp3'));
+          }
+        }
+      }
     });
   }
 
-
-    @override
-    Widget build(BuildContext context) {
-      if (gameOver) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text("Spelling Bee"),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _startNewSpellingBeeSession,
-              ),
-            ],
-          ),
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  //Si winner es null, mostramos el mensaje de error, si no, mostramos el de ganador
-                  winner ?? errorMessage ?? "¡Completaste todas las rondas!",
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                  Text("Resultados por Ronda:", style: Theme.of(context).textTheme.titleLarge),
-                for (var round = 1; round <= roundResults.length; round++) ...[ //Uso de la expansión de colecciones
-                  Text("Ronda $round: Aciertos: ${roundResults[round]!['correct']}, Errores: ${roundResults[round]!['incorrect']}",
-                    style: Theme.of(context).textTheme.bodyLarge
-                  ),
-                ],
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _startNewSpellingBeeSession,
-                  child: const Text("Jugar de Nuevo"),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-
-      if (!gameStarted) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text("Spelling Bee"),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _startNewSpellingBeeSession,
-              ),
-            ],
-          ),
-          body: Center(
-            child: ElevatedButton(
-              child: const Text("Iniciar Spelling Bee"),
-              onPressed: () {
-                setState(() {
-                  gameStarted = true;
-                  _generateWordsForRound(currentRound);
-                });
-              },
-            ),
-          ),
-        );
-      }
-
+  @override
+  Widget build(BuildContext context) {
+    if (gameOver) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('SpellingBee'),
+          title: const Text("Spelling Bee"),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -2443,128 +2877,209 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text("Ronda $currentRound${isSuddenDeath ? ' (Muerte Súbita)' : ''}",
-                style: Theme.of(context).textTheme.headlineMedium,
+              Text(
+                //Si winner es null, mostramos el mensaje de error, si no, mostramos el de ganador
+                winner ?? errorMessage ?? "¡Completaste todas las rondas!",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
-
-              if (currentWord != null && !roundCompleted)
-                Text(
-                  "Palabra ${currentWordIndexInRound + 1} de ${wordsForCurrentRound.length}",
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-
               const SizedBox(height: 20),
-
-              if (roundCompleted) ...[ // Mensajes de final de ronda
-                if (!isSuddenDeath && roundCorrectCount == wordsForCurrentRound.length) ...[
-                  const Icon(Icons.check_circle, size: 100, color: Colors.green),
-                  const Text("¡Felicidades! Pasaste a la siguiente ronda.",
-                      textAlign: TextAlign.center),
-                ] else if (!isSuddenDeath) ...[
-                    const Icon(Icons.cancel, size: 100, color: Colors.red),
-                    Text("Lo siento, no pasaste la ronda $currentRound",
-                        textAlign: TextAlign.center),
-                ] else if (isSuddenDeath) ...[ //Mensajes para la muerte súbita.
-                    if(!playerTurn && isCorrect!) ...[ //Si acierta el speller, turno del oponente
-                        const Icon(Icons.check_circle, size: 100, color: Colors.green),
-                        const Text("Turno del contrincante.",
-                        textAlign: TextAlign.center),
-                    ] else if (!playerTurn && !isCorrect!) ...[
-                        const Icon(Icons.cancel, size: 100, color: Colors.red),
-                        const Text("¡Felicidades!.",
-                        textAlign: TextAlign.center),
-                    ] else if(playerTurn && isCorrect!) ...[
-                        const Icon(Icons.check_circle, size: 100, color: Colors.green),
-                        const Text("Contrincante ha acertado. Tu turno",
-                        textAlign: TextAlign.center),
-                    ]else ...[ //Falla el speller, turno del oponente a ver que pasa.
-                        const Icon(Icons.cancel, size: 100, color: Colors.red),
-                         Text("Turno del contrincante",
-                        textAlign: TextAlign.center),
-                    ]
-                ],
-
-                const SizedBox(height: 20),
-                if (!gameOver && (!isSuddenDeath && roundCorrectCount == wordsForCurrentRound.length) || (isSuddenDeath)  )  // Mostrar solo si no es Game Over y pasó la ronda.
-                  ElevatedButton(
-                    onPressed: () {
-                      if(isSuddenDeath){
-                        if(playerTurn){
-                          _generateWordsForRound(currentRound +1);
-                          setState(() { //Resetear variables
-                            roundCompleted = false;
-                          });
-                        } else { //Si le toca al oponente, simular
-                            if(_simulateOpponent()){
-                                setState(() {
-                                  roundCompleted = false;
-                                  playerTurn = true;
-                                });
-                                _generateWordsForRound(currentRound + 1); //Generar nueva palabra para el speller
-                            } else { //El oponente ha fallado, el speller gana.
-                              setState(() {
-                                 gameOver = true;
-                                  winner = "¡Felicidades, has ganado!";
-                                  _audioPlayer.setVolume(1.0);
-                                  _audioPlayer.play(AssetSource('sounds/success.mp3'));
-                              });
-                            }
-                        }
-                      }
-                      else if (!isSuddenDeath && roundCorrectCount == wordsForCurrentRound.length) { //Si pasamos la ronda, y no estamos en muerte súbita, siguiente ronda.
-                        _nextRound();
-                      }
-                    },
-                    child:  Text(isSuddenDeath? "Siguiente Palabra" : "Iniciar Siguiente Ronda"), //Texto del botón
-                  ),
-              ],
-
-              if (currentWord != null && !roundCompleted) ...[
-                Text(currentWord!.word,
-                    style: Theme.of(context).textTheme.headlineLarge),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: rounds[min(currentRound - 1, rounds.length - 1)].canRepeat && !hasRepeated
-                      ? _handleRepeat
-                      : null,
-                  child: Text(hasRepeated ? "Repetición usada" : "Repetir Palabra"),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.check, color: Colors.white),
-                      label: const Text("Correcto"),
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green),
-                      onPressed: () {
-                        _recordSpellingBeeResult(true);
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      label: const Text("Incorrecto"),
-                      style:
-                          ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                      onPressed: () {
-                        _recordSpellingBeeResult(false);
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+              Text("Resultados por Ronda:",
+                  style: Theme.of(context).textTheme.titleLarge),
+              for (var round = 1; round <= roundResults.length; round++) ...[
+                //Uso de la expansión de colecciones
                 Text(
-                  "Aciertos: $roundCorrectCount - Errores: $roundIncorrectCount",
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ] else if (!roundCompleted)
-                const CircularProgressIndicator(),
+                    "Ronda $round: Aciertos: ${roundResults[round]!['correct']}, Errores: ${roundResults[round]!['incorrect']}",
+                    style: Theme.of(context).textTheme.bodyLarge),
+              ],
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _startNewSpellingBeeSession,
+                child: const Text("Jugar de Nuevo"),
+              ),
             ],
           ),
         ),
       );
+    }
+
+    if (!gameStarted) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text("Spelling Bee"),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _startNewSpellingBeeSession,
+            ),
+          ],
+        ),
+        body: Center(
+          child: ElevatedButton(
+            child: const Text("Iniciar Spelling Bee"),
+            onPressed: () {
+              setState(() {
+                gameStarted = true;
+                _generateWordsForRound(currentRound);
+              });
+            },
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('SpellingBee'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _startNewSpellingBeeSession,
+          ),
+        ],
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "Ronda $currentRound${isSuddenDeath ? ' (Muerte Súbita)' : ''}",
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 8),
+            if (currentWord != null && !roundCompleted)
+              Text(
+                "Palabra ${currentWordIndexInRound + 1} de ${wordsForCurrentRound.length}",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            const SizedBox(height: 20),
+            if (roundCompleted) ...[
+              // Mensajes de final de ronda
+              if (!isSuddenDeath &&
+                  roundCorrectCount == wordsForCurrentRound.length) ...[
+                const Icon(Icons.check_circle, size: 100, color: Colors.green),
+                const Text("¡Felicidades! Pasaste a la siguiente ronda.",
+                    textAlign: TextAlign.center),
+              ] else if (!isSuddenDeath) ...[
+                const Icon(Icons.cancel, size: 100, color: Colors.red),
+                Text("Lo siento, no pasaste la ronda $currentRound",
+                    textAlign: TextAlign.center),
+              ] else if (isSuddenDeath) ...[
+                //Mensajes para la muerte súbita.
+                if (!playerTurn && isCorrect!) ...[
+                  //Si acierta el speller, turno del oponente
+                  const Icon(Icons.check_circle,
+                      size: 100, color: Colors.green),
+                  const Text("Turno del contrincante.",
+                      textAlign: TextAlign.center),
+                ] else if (!playerTurn && !isCorrect!) ...[
+                  const Icon(Icons.cancel, size: 100, color: Colors.red),
+                  const Text("¡Felicidades!.", textAlign: TextAlign.center),
+                ] else if (playerTurn && isCorrect!) ...[
+                  const Icon(Icons.check_circle,
+                      size: 100, color: Colors.green),
+                  const Text("Contrincante ha acertado. Tu turno",
+                      textAlign: TextAlign.center),
+                ] else ...[
+                  //Falla el speller, turno del oponente a ver que pasa.
+                  const Icon(Icons.cancel, size: 100, color: Colors.red),
+                  Text("Turno del contrincante", textAlign: TextAlign.center),
+                ]
+              ],
+
+              const SizedBox(height: 20),
+              if (!gameOver &&
+                      (!isSuddenDeath &&
+                          roundCorrectCount == wordsForCurrentRound.length) ||
+                  (isSuddenDeath)) // Mostrar solo si no es Game Over y pasó la ronda.
+                ElevatedButton(
+                  onPressed: () {
+                    if (isSuddenDeath) {
+                      if (playerTurn) {
+                        _generateWordsForRound(currentRound + 1);
+                        setState(() {
+                          //Resetear variables
+                          roundCompleted = false;
+                        });
+                      } else {
+                        //Si le toca al oponente, simular
+                        if (_simulateOpponent()) {
+                          setState(() {
+                            roundCompleted = false;
+                            playerTurn = true;
+                          });
+                          _generateWordsForRound(currentRound +
+                              1); //Generar nueva palabra para el speller
+                        } else {
+                          //El oponente ha fallado, el speller gana.
+                          setState(() {
+                            gameOver = true;
+                            winner = "¡Felicidades, has ganado!";
+                            _audioPlayer.setVolume(1.0);
+                            _audioPlayer
+                                .play(AssetSource('sounds/success.mp3'));
+                          });
+                        }
+                      }
+                    } else if (!isSuddenDeath &&
+                        roundCorrectCount == wordsForCurrentRound.length) {
+                      //Si pasamos la ronda, y no estamos en muerte súbita, siguiente ronda.
+                      _nextRound();
+                    }
+                  },
+                  child: Text(isSuddenDeath
+                      ? "Siguiente Palabra"
+                      : "Iniciar Siguiente Ronda"), //Texto del botón
+                ),
+            ],
+            if (currentWord != null && !roundCompleted) ...[
+              Text(currentWord!.word,
+                  style: Theme.of(context).textTheme.headlineLarge),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: rounds[min(currentRound - 1, rounds.length - 1)]
+                            .canRepeat &&
+                        !hasRepeated
+                    ? _handleRepeat
+                    : null,
+                child:
+                    Text(hasRepeated ? "Repetición usada" : "Repetir Palabra"),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.check, color: Colors.white),
+                    label: const Text("Correcto"),
+                    style:
+                        ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    onPressed: () {
+                      _recordSpellingBeeResult(true);
+                    },
+                  ),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    label: const Text("Incorrecto"),
+                    style:
+                        ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () {
+                      _recordSpellingBeeResult(false);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Aciertos: $roundCorrectCount - Errores: $roundIncorrectCount",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ] else if (!roundCompleted)
+              const CircularProgressIndicator(),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
