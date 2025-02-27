@@ -1,7 +1,6 @@
-//ESTA EN HOME_SCREEN
 import 'package:flutter/material.dart';
-import 'package:spelling_bee_practice/domain/entities/word.dart'; // Correct package
-import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart'; // Correct package
+import 'package:spelling_bee_practice/domain/entities/word.dart';
+import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_session.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
@@ -16,6 +15,7 @@ class WordCardPractice extends StatefulWidget {
   final PracticeSession? selectedSession;
   final int resetCounter;
   final bool showRemoveButton;
+  final int? errorCount; // Usado en la pestaña "Todas"
 
   const WordCardPractice({
     super.key,
@@ -25,7 +25,7 @@ class WordCardPractice extends StatefulWidget {
     required this.practicedWords,
     this.selectedSession,
     required this.resetCounter,
-    this.showRemoveButton = true,
+    this.showRemoveButton = true, this.errorCount,
   });
 
   @override
@@ -120,11 +120,23 @@ class WordCardPracticeState extends State<WordCardPractice> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                    child: Row(
+                      children: [
+                        Text(
                     widget.word.word,
                     style: Theme.of(context).textTheme.headlineSmall,
                     textAlign: TextAlign.start,
                   ),
+                        if (widget.word.totalIncorrectCount > 0) ...[
+                            const SizedBox(width: 8),
+                            Icon(Icons.cancel_outlined, color: Colors.grey), // Icono de error
+                            Text(
+                              '${widget.word.totalIncorrectCount}', // Mostrar el contador
+                              style: TextStyle(color: Colors.grey, fontSize: 20.0),
+                            ),
+                        ],
+                      ],
+                    )
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,

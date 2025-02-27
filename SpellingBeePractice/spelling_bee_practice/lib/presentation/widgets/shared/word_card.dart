@@ -1,7 +1,6 @@
-//ESTA EN HOME_SCREEN
 import 'package:flutter/material.dart';
-import 'package:spelling_bee_practice/domain/entities/word.dart'; // Correct package name
-import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart'; // Correct package name
+import 'package:spelling_bee_practice/domain/entities/word.dart';
+import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart';
 
 class WordCard extends StatelessWidget {
   final Word word;
@@ -21,9 +20,9 @@ class WordCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.all(8.0),
-      elevation: 1.0, // Add a subtle shadow
+      elevation: 1.0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4.0), // Rounded corners
+        borderRadius: BorderRadius.circular(4.0),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -33,15 +32,28 @@ class WordCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: Row(
+                    children: [
+                      Text(
                     word.word,
                     style: Theme.of(context).textTheme.headlineSmall,
                     textAlign: TextAlign.start,
                   ),
+                      // Mostrar el icono y el contador solo si hay errores.
+                      if (word.totalIncorrectCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Icon(Icons.cancel_outlined,
+                            color: Colors.grey),
+                        Text(
+                          '${word.totalIncorrectCount}', // Mostrar el contador
+                          style: TextStyle(color: Colors.grey, fontSize: 20.0),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                // Iconos de acción a la derecha
                 Row(
-                  mainAxisSize: MainAxisSize.min, // Important for correct spacing
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit),
