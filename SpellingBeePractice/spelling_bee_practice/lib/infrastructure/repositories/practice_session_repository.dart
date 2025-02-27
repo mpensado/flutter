@@ -97,28 +97,7 @@ class PracticeSessionRepository {
               'total_incorrect_count DESC', // Ordenar por errores (descendente)
         );
         return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
-      } else if (session.id == -2) {
-        // No Practicadas
-        // Obtener todas las palabras
-        final List<Map<String, dynamic>> allWordsMap =
-            await db.query(DBHelper().tableWords);
-        final List<Word> allWords =
-            allWordsMap.map((map) => Word.fromMap(map)).toList();
-
-        // Obtener todas las palabras practicadas (en cualquier tipo de sesión)
-        final List<Map<String, dynamic>> practicedWordsMap = await db.query(
-            'practice_history',
-            columns: ['word_id'],
-            distinct: true); //Usamos distinct
-        final List<int> practicedWordIds =
-            practicedWordsMap.map((map) => map['word_id'] as int).toList();
-
-        // Filtrar para obtener solo las palabras NO practicadas
-        final List<Word> neverPracticedWords = allWords
-            .where((word) => !practicedWordIds.contains(word.id))
-            .toList();
-        return neverPracticedWords;
-      } else if (session.id == -3) {
+      }  else if (session.id == -2) {
         // Todas  --  ¡¡¡CAMBIO AQUÍ!!!
         final List<Map<String, dynamic>> maps = await db.query(
           DBHelper().tableWords,
@@ -218,21 +197,10 @@ class PracticeSessionRepository {
         conflictAlgorithm:
             ConflictAlgorithm.ignore); //Evita errores si ya existe
 
-    await db.insert(
-        'practice_sessions',
-        {
-          'id': -2, // ID negativo para "No practicadas"
-          'name': 'No Practicadas',
-          'created_at': DateTime.now().toIso8601String(),
-          'word_ids': '',
-          'isFixed': 1, // CORREGIDO: Ahora es true (1 en SQLite)
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore);
-
         await db.insert(
         'practice_sessions',
         {
-          'id': -3, // ID negativo para "Todas"
+          'id': -2, // ID negativo para "Todas"
           'name': 'Todas',
           'created_at': DateTime.now().toIso8601String(),
           'word_ids': '',

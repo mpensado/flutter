@@ -45,12 +45,12 @@ class WordCard extends StatelessWidget {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit),
-                      color: Colors.blue, // Consistent color
+                      //color: Colors.black87,
                       onPressed: onEdit,
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete),
-                      color: Colors.red, // Consistent color
+                      //color: Colors.black, // Consistent color
                       onPressed: onDelete,
                     ),
                   ],
@@ -72,7 +72,7 @@ class WordCard extends StatelessWidget {
                   icon: const Icon(Icons.volume_up),
                   label: const Text(
                     'Escuchar',
-                    style: TextStyle(fontSize: 10.0), // Smaller font
+                    //style: TextStyle(fontSize: 15.0), // Smaller font
                   ),
                 ),
                 ElevatedButton.icon(
@@ -82,18 +82,18 @@ class WordCard extends StatelessWidget {
                   icon: const Icon(Icons.volume_up),
                   label: const Text(
                     'Deletrear',
-                    style: TextStyle(fontSize: 10.0), // Smaller font
+                    //style: TextStyle(fontSize: 15.0), // Smaller font
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed:
-                      onAddToSession, // Use the new onAddToSession callback
-                  icon: const Icon(Icons.add), // Changed icon
-                  label: const Text(
-                    'Sesión',
-                    style: TextStyle(fontSize: 10.0),
-                  ),
-                ),
+                // ElevatedButton.icon(
+                //   onPressed:
+                //       onAddToSession, // Use the new onAddToSession callback
+                //   icon: const Icon(Icons.add), // Changed icon
+                //   label: const Text(
+                //     'Sesión',
+                //     style: TextStyle(fontSize: 10.0),
+                //   ),
+                // ),
               ],
             ),
           ],

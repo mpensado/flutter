@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
-import 'package:spelling_bee_practice/presentation/screens/home/spelling_bee_view.dart';
+//import 'package:spelling_bee_practice/presentation/screens/home/spelling_bee_view.dart';
 import 'package:spelling_bee_practice/presentation/screens/home/words_tab.dart';
 import 'package:spelling_bee_practice/presentation/screens/home/practice_tab.dart';
 
@@ -20,7 +20,7 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -60,7 +60,7 @@ class _HomePageState extends State<HomePage>
           tabs: const [
             Tab(text: 'Vocabulario', icon: Icon(Icons.book)),
             Tab(text: 'Práctica', icon: Icon(Icons.edit)),
-            Tab(text: 'SpellingBee', icon: Icon(Icons.bug_report_rounded)),
+            //Tab(text: 'SpellingBee', icon: Icon(Icons.bug_report_rounded)),
           ],
         ),
       ),
@@ -75,7 +75,7 @@ class _HomePageState extends State<HomePage>
             }
           }),
           const PracticeTab(),
-          const SpellingBeeView(),
+          //const SpellingBeeView(),
         ],
       ),
     );
