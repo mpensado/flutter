@@ -1,3 +1,4 @@
+import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_session.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
@@ -7,8 +8,10 @@ class PracticeSessionRepository {
   static Future<List<PracticeSession>> getAllSessions() async {
     final db = await DBHelper().database;
     try {
-      final List<Map<String, dynamic>> maps = await db.query('practice_sessions', where: 'id > 0' // Excluir sesiones fijas
-              );
+      final List<Map<String, dynamic>> maps = await db.query('practice_sessions',
+          where:
+              'id > 0' // Excluir sesiones fijas
+          );
       return List.generate(
           maps.length, (i) => PracticeSession.fromMap(maps[i]));
     } catch (e) {
@@ -31,22 +34,19 @@ class PracticeSessionRepository {
     final db = await DBHelper().database;
     try {
       final List<Map<String, dynamic>> maps = await db.query(
-          'practice_sessions',
-          where: 'id < 0' // Obtener solo sesiones fijas.
+        'practice_sessions',
+        where: 'id < 0', // Obtener solo sesiones fijas.
       );
 
-        // Usamos map, en lugar de List.generate
-      return maps.map((map) {
-        PracticeSession session = PracticeSession.fromMap(map); // Crea la sesión
-        session.isFixed = true; // Establece isFixed a true *aquí*.
-        return session;
-      }).toList();
+      // Simplificado ahora que isFixed se guarda correctamente.
+      return List.generate(maps.length, (i) => PracticeSession.fromMap(maps[i]));
 
     } catch (e) {
       print("Error getting fixed sessions: $e");
       rethrow;
     }
   }
+
 
   static Future<void> addWordToSession(
       Word word, PracticeSession session) async {
@@ -119,11 +119,11 @@ class PracticeSessionRepository {
             .toList();
         return neverPracticedWords;
       } else if (session.id == -3) {
-        // Todas
+        // Todas  --  ¡¡¡CAMBIO AQUÍ!!!
         final List<Map<String, dynamic>> maps = await db.query(
           DBHelper().tableWords,
           orderBy:
-              'correct_count + incorrect_count ASC', // Menos practicadas primero
+              'total_incorrect_count DESC', // Ordenar por total_incorrect_count (descendente)
         );
         return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
       } else {
@@ -140,6 +140,16 @@ class PracticeSessionRepository {
       }
     } catch (e) {
       print("Error loading session words: $e");
+      rethrow;
+    }
+  }
+
+    static Future<void> insertHistory(PracticeHistory history) async {
+    final db = await DBHelper().database;
+    try {
+      await db.insert('practice_history', history.toMap());
+    } catch (e) {
+      print("Error inserting practice history: $e");
       rethrow;
     }
   }
@@ -202,8 +212,8 @@ class PracticeSessionRepository {
           'id': -1, // ID negativo para "Errores"
           'name': 'Errores',
           'created_at': DateTime.now().toIso8601String(),
-          'word_ids': '', 
-          'isFixed': false,
+          'word_ids': '',
+          'isFixed': 1, //  CORREGIDO: Ahora es true (1 en SQLite)
         },
         conflictAlgorithm:
             ConflictAlgorithm.ignore); //Evita errores si ya existe
@@ -211,19 +221,31 @@ class PracticeSessionRepository {
     await db.insert(
         'practice_sessions',
         {
-          'id': -2, // ID negativo para "Todas"
+          'id': -2, // ID negativo para "No practicadas"
+          'name': 'No Practicadas',
+          'created_at': DateTime.now().toIso8601String(),
+          'word_ids': '',
+          'isFixed': 1, // CORREGIDO: Ahora es true (1 en SQLite)
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore);
+
+        await db.insert(
+        'practice_sessions',
+        {
+          'id': -3, // ID negativo para "Todas"
           'name': 'Todas',
           'created_at': DateTime.now().toIso8601String(),
           'word_ids': '',
-          'isFixed': false,
+          'isFixed': 1, // CORREGIDO: Ahora es true (1 en SQLite)
         },
         conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   static Future<int> getLastIdFixedSessions() async {
     final db = await DBHelper().database;
-    final List<Map<String, dynamic>> result = await db.rawQuery('SELECT last_insert_rowid()');
+    final List<Map<String, dynamic>> result =
+        await db.rawQuery('SELECT last_insert_rowid()');
     int newId = result[0]['last_insert_rowid()'] as int;
-      return newId;
+    return newId;
   }
 }
