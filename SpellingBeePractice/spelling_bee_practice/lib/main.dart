@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:spelling_bee_practice/presentation/screens/home/home_screen.dart'; // Importa HomePage
 
 void main() {
+  //DBHelper.copyTempDbToLaptop();
   runApp(const MyApp());
 }
 

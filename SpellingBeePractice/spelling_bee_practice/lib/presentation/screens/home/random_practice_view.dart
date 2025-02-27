@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/word_repository.dart';
-import 'package:spelling_bee_practice/presentation/screens/home/home_screen.dart';
 import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart';
 import 'package:path/path.dart';
 import 'dart:async'; // Importante para Timer (debounce)
-import 'package:collection/collection.dart'; 
+import 'package:collection/collection.dart';
+import 'package:spelling_bee_practice/presentation/widgets/shared/word_card_practice.dart'; 
 
 class RandomPracticeView extends StatefulWidget {
   const RandomPracticeView({super.key});

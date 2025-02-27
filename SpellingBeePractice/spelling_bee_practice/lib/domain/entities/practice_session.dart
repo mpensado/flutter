@@ -1,56 +1,61 @@
-// practice_session.dart (domain/entities/practice_session.dart)
-
 class PracticeSession {
-  final int? id;
+  final int id;
   final String name;
   final DateTime createdAt;
   final List<int> wordIds;
+  bool isFixed; // Ahora isFixed es una propiedad normal, NO final.
 
   PracticeSession({
-    this.id,
+    required this.id,
     required this.name,
     required this.createdAt,
     required this.wordIds,
+    this.isFixed = false, // Valor predeterminado: false
   });
 
+    factory PracticeSession.fromMap(Map<String, dynamic> map) {
+        return PracticeSession(
+        id: map['id'] as int,
+        name: map['name'] as String,
+        createdAt: DateTime.parse(map['created_at'] as String),
+        wordIds: (map['word_ids'] as String?) //Manejo de null
+            ?.split(',')
+            .where((id) => id.isNotEmpty)
+            .map((id) => int.parse(id))
+            .toList() ?? [],//Si es nulo, devuelve lista vacia
+        );
+    }
+
+  @override
+  String toString() {
+    return 'PracticeSession{id: $id, name: $name, createdAt: $createdAt, wordIds: $wordIds, isFixed: $isFixed}';
+  }
+
+  // Método para convertir la instancia a un mapa (para la base de datos)
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
-      'created_at': createdAt.toIso8601String(),
-      'word_ids':
-          wordIds.join(','), // Guardamos los IDs como string separado por comas
+      'createdAt': createdAt.toIso8601String(),
+      'wordIds': wordIds.join(','),
+      'isFixed': isFixed ? 1 : 0, // Importante: Convertir de booleano a entero
     };
   }
 
-  factory PracticeSession.fromMap(Map<String, dynamic> map) {
-    List<int> parseWordIds(dynamic wordIdsData) {
-      if (wordIdsData is String) {
-        return wordIdsData
-            .split(',')
-            .where((str) => str.isNotEmpty)
-            .map((str) {
-              String trimmedStr = str.trim();
-              try {
-                return int.parse(trimmedStr);
-              } catch (e) {
-                print("Error al parsear: '$trimmedStr'. Error: $e");
-                return 0; // or handle as needed
-              }
-            })
-            .whereType<int>()
-            .toList();
-      } else if (wordIdsData is List) {
-        return wordIdsData.map((e) => int.parse(e.toString())).toList();
-      }
-      return [];
-    }
-
+  // Método copyWith para crear una copia con valores modificados
+  PracticeSession copyWith({
+    int? id,
+    String? name,
+    DateTime? createdAt,
+    List<int>? wordIds,
+    bool? isFixed,
+  }) {
     return PracticeSession(
-      id: map['id'],
-      name: map['name'],
-      createdAt: DateTime.parse(map['created_at']),
-      wordIds: parseWordIds(map['word_ids']),
+      id: id ?? this.id,
+      name: name ?? this.name,
+      createdAt: createdAt ?? this.createdAt,
+      wordIds: wordIds ?? this.wordIds,
+      isFixed: isFixed ?? this.isFixed,
     );
   }
 }
