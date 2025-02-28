@@ -1,4 +1,3 @@
-//ESTA EN HOME_SCREEN
 import 'package:flutter/material.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_session.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
@@ -105,7 +104,7 @@ class PracticeTabState extends State<PracticeTab>
     if (selectedSession != null) {
       final practice = PracticeHistory(
           wordId: word.id!,
-          sessionId: selectedSession!.id!,
+          sessionId: selectedSession!.id,
           isCorrect: isCorrect,
           practicedAt: DateTime.now(),
           sessionType: 'session');
@@ -168,7 +167,7 @@ class PracticeTabState extends State<PracticeTab>
                         TextButton(
                             onPressed: () async {
                                 try {
-                                    await PracticeSessionRepository.deleteSession(sessionToDelete.id!);
+                                    await PracticeSessionRepository.deleteSession(sessionToDelete.id);
                                     if (context.mounted) {
                                         Navigator.pop(context); // Cerrar diálogo
                                         loadPracticeSessions();

@@ -51,7 +51,7 @@ class PracticeSessionRepository {
   static Future<void> addWordToSession(
       Word word, PracticeSession session) async {
     //No permitir añadir a sesiones fijas
-    if (session.id! < 0) return;
+    if (session.id < 0) return;
 
     final db = await DBHelper().database;
     try {
@@ -152,7 +152,7 @@ class PracticeSessionRepository {
   static Future<void> removeWordFromSession(
       Word word, PracticeSession session) async {
     //No permitir quitar palabras de sesiones fijas
-    if (session.id! < 0) return;
+    if (session.id < 0) return;
 
     final db = await DBHelper().database;
     try {

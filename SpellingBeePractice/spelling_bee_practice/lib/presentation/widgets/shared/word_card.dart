@@ -23,6 +23,14 @@ class WordCard extends StatelessWidget {
       elevation: 1.0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4.0),
+        side: BorderSide(
+          width: 2.0,
+          color: word.totalIncorrectCount == 0
+              ? Colors.transparent
+              : word.totalIncorrectCount > 0
+                  ? Colors.red
+                  : Colors.transparent,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),

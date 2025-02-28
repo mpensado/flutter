@@ -105,9 +105,9 @@ class WordCardPracticeState extends State<WordCardPractice> {
         borderRadius: BorderRadius.circular(4.0),
         side: BorderSide(
           width: 2.0,
-          color: practiceResult == true
-              ? Colors.green
-              : practiceResult == false
+          color: widget.word.totalIncorrectCount == 0
+              ? Colors.transparent
+              : widget.word.totalIncorrectCount > 0
                   ? Colors.red
                   : Colors.transparent,
         ),
@@ -141,8 +141,7 @@ class WordCardPracticeState extends State<WordCardPractice> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (!isPracticed) ...[
-                      IconButton(
+                    IconButton(
                         icon: const Icon(Icons.check_circle),
                         color: Colors.green,
                         onPressed: () {
@@ -158,7 +157,6 @@ class WordCardPracticeState extends State<WordCardPractice> {
                               widget.word, false, this);
                         },
                       ),
-                    ],
                   ],
                 ),
               ],
@@ -178,7 +176,7 @@ class WordCardPracticeState extends State<WordCardPractice> {
                   icon: const Icon(Icons.volume_up),
                   label: const Text(
                     'Escuchar',
-                    style: TextStyle(fontSize: 10.0),
+                    //style: TextStyle(fontSize: 10.0),
                   ),
                 ),
                 ElevatedButton.icon(
@@ -188,7 +186,7 @@ class WordCardPracticeState extends State<WordCardPractice> {
                   icon: const Icon(Icons.volume_up),
                   label: const Text(
                     'Deletrear',
-                    style: TextStyle(fontSize: 10.0),
+                    //style: TextStyle(fontSize: 10.0),
                   ),
                 ),
                 if (widget
@@ -198,7 +196,7 @@ class WordCardPracticeState extends State<WordCardPractice> {
                     icon: const Icon(Icons.remove),
                     label: const Text(
                       'Quitar',
-                      style: TextStyle(fontSize: 10.0),
+                      //style: TextStyle(fontSize: 10.0),
                     ),
                   ),
               ],

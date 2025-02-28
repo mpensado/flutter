@@ -1,4 +1,3 @@
-//ESTA EN HOME_SCREEN
 import 'package:flutter/material.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/word_repository.dart';
@@ -7,7 +6,6 @@ import 'package:spelling_bee_practice/domain/entities/practice_session.dart';
 import 'package:spelling_bee_practice/presentation/widgets/shared/word_card.dart';
 import 'package:spelling_bee_practice/presentation/utils/translation_service.dart';
 import 'dart:async';
-
 
 class WordsTab extends StatefulWidget {
   final VoidCallback onWordAdded;
@@ -30,20 +28,21 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
-    _loadWords();
+    _loadWords(); // Inicializa _wordsFuture en initState
   }
 
   Future<void> _loadWords() async {
+    // Ahora _loadWords realmente espera a que todo se complete.
     await WordRepository.loadInitialData();
     await PracticeSessionRepository.createFixedSessions();
-    //DBHelper.copyTempDbToLaptop();
-    setState(() {
-      if (searchQuery.isEmpty) {
-        _wordsFuture = WordRepository.getAllWords();
-      } else {
-        _wordsFuture = WordRepository.searchWords(searchQuery);
-      }
-    });
+
+    // Importante: No uses setState aquí.  FutureBuilder se encarga.
+    if (searchQuery.isEmpty) {
+      _wordsFuture = WordRepository.getAllWords();
+    } else {
+      _wordsFuture = WordRepository.searchWords(searchQuery);
+    }
+    // No hay setState aquí. El FutureBuilder redibuja cuando el Future se completa.
   }
 
   void showAddWordDialog(BuildContext context, VoidCallback onWordAdded,
@@ -169,9 +168,9 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
 
                     if (context.mounted) {
                       Navigator.pop(context);
-                      widget.onWordAdded(); // Usar el callback del widget
-
-                      // Actualizar PracticeTab (si existe) ya no se hace aca
+                      // widget.onWordAdded(); // Usar el callback del widget. Ya no es necesaria
+                      _loadWords(); // Recarga la lista *después* de añadir/editar
+                      setState(() {});
                     }
                   } catch (e) {
                     //Manejo de errores de guardado
@@ -281,7 +280,6 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
 
                   if (sessionToUse == null &&
                       newSessionNameController.text.isNotEmpty) {
-                    
                     newSession = true;
                     sessionToUse = PracticeSession(
                       id: await PracticeSessionRepository.getLastIdFixedSessions(),
@@ -307,9 +305,9 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
                   if (sessionToUse != null) {
                     try {
                       //Si se añadio exitosamente entonces actualiza la vista de la tab de practice
-                      if (newSession) {
-                        widget.onWordAdded();
-                      }
+                      // if (newSession) {   // Ya no se actualiza la vista desde aqui
+                      //   widget.onWordAdded();
+                      // }
                       if (!newSession) {
                         await PracticeSessionRepository.addWordToSession(
                             wordToAdd, sessionToUse);
@@ -323,6 +321,8 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
                                 'Palabra "${wordToAdd.word}" añadida a la sesión "${sessionToUse.name}"'),
                           ),
                         );
+                        _loadWords(); // Recarga la lista.  ¡Importante!
+                        setState(() {}); //Refresca la tab
                       }
                     } catch (e) {
                       if (context.mounted) {
@@ -357,12 +357,8 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          showAddWordDialog(context, () {
-            // Usar la función local.  Más limpio.
-            setState(() {
-              _loadWords(); //Actualizar palabras
-            });
-          });
+          //Simplificado.  _loadWords() ahora se llama *después* de añadir/editar.
+          showAddWordDialog(context, () {});
         },
         child: const Icon(Icons.add),
       ),
@@ -378,9 +374,13 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
                 suffixIcon: Icon(Icons.search),
               ),
               onChanged: (value) {
-                setState(() {
-                  searchQuery = value;
-                  _loadWords(); //  Actualizar palabras
+                // Usar un debounce para evitar búsquedas excesivas.
+                if (_debounce?.isActive ?? false) _debounce!.cancel();
+                _debounce = Timer(const Duration(milliseconds: 500), () {
+                  setState(() {
+                    searchQuery = value;
+                    _loadWords(); // Recarga al buscar
+                  });
                 });
               },
             ),
@@ -388,7 +388,7 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
           Expanded(
             // Usa Expanded para que la lista ocupe el espacio restante
             child: FutureBuilder<List<Word>>(
-              future: _wordsFuture,
+              future: _wordsFuture, // Usa directamente _wordsFuture
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -406,17 +406,15 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
                         onDelete: () async {
                           try {
                             await WordRepository.deleteWord(word.id!);
-                            //Actualizar ambas tabs despues de borrar
-                            widget.onWordAdded();
-                            setState(() {
-                              _loadWords();
-                            });
+                            //Simplificado: Solo recargamos. No necesitamos widget.onWordAdded
+                            _loadWords(); // Recargar la lista despues de borrar.
+                            setState(() {});
 
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content:
-                                      Text('Palabra "${word.word}" eliminada.'),
+                                  content: Text(
+                                      'Palabra "${word.word}" eliminada.'),
                                 ),
                               );
                             }
@@ -431,14 +429,11 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
                           }
                         },
                         onEdit: () {
-                          showAddWordDialog(context, () {
-                            setState(() {
-                              _loadWords(); //Actualizar palabras
-                            });
-                          }, wordToEdit: word);
+                          //Simplificado:  _loadWords se llama *dentro* del dialogo
+                          showAddWordDialog(context, () {}, wordToEdit: word);
                         },
                         onAddToSession: () {
-                          _showAddToSessionDialog(context, word);
+                           _showAddToSessionDialog(context, word);
                         },
                       );
                     },
