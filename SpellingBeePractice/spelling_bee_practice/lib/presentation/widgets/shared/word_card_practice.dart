@@ -1,31 +1,23 @@
+// word_card_practice.dart
 import 'package:flutter/material.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart';
-import 'package:spelling_bee_practice/domain/entities/practice_session.dart';
-import 'package:spelling_bee_practice/helpers/db_helper.dart';
-import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
+import 'package:spelling_bee_practice/domain/entities/practice_session.dart'; // Import PracticeSession
 
 class WordCardPractice extends StatefulWidget {
   final Word word;
   final VoidCallback onDelete;
-  final void Function(
-      Word word, bool isCorrect, WordCardPracticeState cardState)
-      onRecordPracticeCallback;
-  final Set<int> practicedWords;
-  final PracticeSession? selectedSession;
-  final int resetCounter;
+  final void Function(Word word, bool isCorrect) onRecordPracticeCallback;
+  final PracticeSession? selectedSession; // Make nullable
   final bool showRemoveButton;
-  final int? errorCount; // Usado en la pestaña "Todas"
 
   const WordCardPractice({
     super.key,
     required this.word,
     required this.onDelete,
     required this.onRecordPracticeCallback,
-    required this.practicedWords,
     this.selectedSession,
-    required this.resetCounter,
-    this.showRemoveButton = true, this.errorCount,
+    this.showRemoveButton = true,
   });
 
   @override
@@ -33,68 +25,6 @@ class WordCardPractice extends StatefulWidget {
 }
 
 class WordCardPracticeState extends State<WordCardPractice> {
-  bool isPracticed = false;
-  bool? practiceResult;
-
-  @override
-  void initState() {
-    super.initState();
-    isPracticed = widget.practicedWords.contains(widget.word.id);
-
-    if (isPracticed) {
-      _loadLastPracticeResult();
-    } else {
-      practiceResult = null;
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant WordCardPractice oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.resetCounter != oldWidget.resetCounter) {
-      setState(() {
-        isPracticed = false;
-        practiceResult = null;
-      });
-    }
-      if (widget.word.id != oldWidget.word.id) { //  Si la palabra cambió
-          isPracticed = widget.practicedWords.contains(widget.word.id);
-           if (isPracticed) {
-             _loadLastPracticeResult();
-           } else {
-               practiceResult = null;
-            }
-      }
-  }
-
-  Future<void> _loadLastPracticeResult() async {
-    final dbHelper = DBHelper();
-    try {
-      final db = await dbHelper.database;
-      final List<Map<String, dynamic>> history = await db.query(
-        'practice_history',
-        orderBy: 'practiced_at DESC',
-        where: 'word_id = ? AND session_id = ?',
-        whereArgs: [widget.word.id, widget.selectedSession?.id],
-        limit: 1,
-      );
-
-      if (history.isNotEmpty) {
-        final lastPractice = PracticeHistory.fromMap(history.first);
-        setState(() {
-          practiceResult = lastPractice.isCorrect;
-        });
-      } else {
-        practiceResult = null;
-      }
-    } catch (e) {
-      //Manejo de errores
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Error cargando historial: $e")));
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,9 +37,7 @@ class WordCardPracticeState extends State<WordCardPractice> {
           width: 2.0,
           color: widget.word.totalIncorrectCount == 0
               ? Colors.transparent
-              : widget.word.totalIncorrectCount > 0
-                  ? Colors.red
-                  : Colors.transparent,
+              : Colors.red,
         ),
       ),
       child: Padding(
@@ -120,43 +48,40 @@ class WordCardPracticeState extends State<WordCardPractice> {
             Row(
               children: [
                 Expanded(
-                    child: Row(
-                      children: [
+                  child: Row(
+                    children: [
+                      Text(
+                        widget.word.word,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                        textAlign: TextAlign.start,
+                      ),
+                      if (widget.word.totalIncorrectCount > 0) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.cancel_outlined, color: Colors.grey),
                         Text(
-                    widget.word.word,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.start,
-                  ),
-                        if (widget.word.totalIncorrectCount > 0) ...[
-                            const SizedBox(width: 8),
-                            Icon(Icons.cancel_outlined, color: Colors.grey), // Icono de error
-                            Text(
-                              '${widget.word.totalIncorrectCount}', // Mostrar el contador
-                              style: TextStyle(color: Colors.grey, fontSize: 20.0),
-                            ),
-                        ],
+                          '${widget.word.totalIncorrectCount}',
+                          style:
+                              const TextStyle(color: Colors.grey, fontSize: 20.0),
+                        ),
                       ],
-                    )
+                    ],
+                  ),
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                        icon: const Icon(Icons.check_circle),
-                        color: Colors.green,
-                        onPressed: () {
-                          widget.onRecordPracticeCallback(
-                              widget.word, true, this);
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.cancel),
-                        color: Colors.red,
-                        onPressed: () {
-                          widget.onRecordPracticeCallback(
-                              widget.word, false, this);
-                        },
-                      ),
+                      icon: const Icon(Icons.check_circle),
+                      color: Colors.green,
+                      onPressed: () =>
+                          widget.onRecordPracticeCallback(widget.word, true),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.cancel),
+                      color: Colors.red,
+                      onPressed: () =>
+                          widget.onRecordPracticeCallback(widget.word, false),
+                    ),
                   ],
                 ),
               ],
@@ -176,7 +101,6 @@ class WordCardPracticeState extends State<WordCardPractice> {
                   icon: const Icon(Icons.volume_up),
                   label: const Text(
                     'Escuchar',
-                    //style: TextStyle(fontSize: 10.0),
                   ),
                 ),
                 ElevatedButton.icon(
@@ -186,17 +110,14 @@ class WordCardPracticeState extends State<WordCardPractice> {
                   icon: const Icon(Icons.volume_up),
                   label: const Text(
                     'Deletrear',
-                    //style: TextStyle(fontSize: 10.0),
                   ),
                 ),
-                if (widget
-                    .showRemoveButton) //  Mostrar solo si showRemoveButton es true
+                if (widget.showRemoveButton)
                   ElevatedButton.icon(
                     onPressed: widget.onDelete,
                     icon: const Icon(Icons.remove),
                     label: const Text(
                       'Quitar',
-                      //style: TextStyle(fontSize: 10.0),
                     ),
                   ),
               ],

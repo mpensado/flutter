@@ -100,7 +100,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     }
   }
 
-  Future<void> _recordPracticeResult(bool isCorrect) async {
+  Future<void> _recordPracticeResult(bool isCorrect, Word word) async { // Add Word parameter
     if (currentWord == null) return;
 
     try {
@@ -108,7 +108,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
       final db = await dbHelper.database;
       // Usar la nueva columna session_type.  NO usamos sessionID en la práctica aleatoria.
       await db.insert('practice_history', {
-        'word_id': currentWord!.id,
+        'word_id': word.id, // Use the passed word
         'session_id':
             -1, // Usar un valor centinela (-1) o NULL para indicar que no hay sesión.
         'is_correct': isCorrect ? 1 : 0,
@@ -216,11 +216,9 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
         title: const Text('Práctica Aleatoria'),
       ),
       body: SingleChildScrollView(
-        // <-- Añade SingleChildScrollView
         child: Center(
-          // <-- Centra la columna
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center, // Centra verticalmente
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (isLoading) ...[
                 const CircularProgressIndicator(),
@@ -234,12 +232,12 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                     key: ValueKey(currentWord!.id),
                     word: currentWord!,
                     onDelete: () {},
-                    onRecordPracticeCallback: (word, isCorrect, cardState) {
-                      _recordPracticeResult(isCorrect);
+                    onRecordPracticeCallback: (word, isCorrect) {
+                      _recordPracticeResult(isCorrect, word);
                     },
-                    practicedWords: {},
+                    //practicedWords: {},
                     selectedSession: null,
-                    resetCounter: 0,
+                    //resetCounter: 0,
                     showRemoveButton: false,
                   ),
                 ),

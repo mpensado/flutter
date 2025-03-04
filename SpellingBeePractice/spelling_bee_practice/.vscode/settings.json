@@ -1,3 +1,4 @@
 {
-    "sqltools.useNodeRuntime": true
+    "sqltools.useNodeRuntime": true,
+    "cmake.sourceDirectory": "C:/Users/Deintec/Downloads/Ejemplos Flutter/Personales/flutter/SpellingBeePractice/spelling_bee_practice/linux"
 }

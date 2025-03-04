@@ -1,3 +1,4 @@
+// practice_tab.dart
 import 'package:flutter/material.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_session.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
@@ -6,7 +7,6 @@ import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/presentation/widgets/shared/word_card_practice.dart';
 import 'package:spelling_bee_practice/presentation/screens/home/random_practice_view.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
-// Importa PracticeHistory
 
 class PracticeTab extends StatefulWidget {
   const PracticeTab({super.key});
@@ -20,10 +20,8 @@ class PracticeTabState extends State<PracticeTab>
   Future<List<Word>>? _wordsFuture;
   List<PracticeSession> sessions = [];
   PracticeSession? selectedSession;
-  Set<int> practicedWords = {};
   int correctCount = 0;
   int incorrectCount = 0;
-  int resetCounter = 0; // Para reiniciar WordCardPractice
 
   late TabController _tabController;
 
@@ -34,44 +32,29 @@ class PracticeTabState extends State<PracticeTab>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+        _tabController.addListener(_handleTabSelection); // Add listener
     _loadInitialData();
   }
 
-  Future<void> _loadInitialData() async {
-    // final dbHelper = DBHelper();
-    // try {
-    //   final db = await dbHelper.database;
-    //   final wordCount = Sqflite.firstIntValue(
-    //       await db.rawQuery('SELECT COUNT(*) FROM ${dbHelper.tableWords}'));
+    void _handleTabSelection() {
+    if (_tabController.indexIsChanging) { //  Check if index is changing
+      _resetPractice();
+    }
+  }
 
-    //   if (wordCount == 0) {
-    //     await dbHelper
-    //         .loadSampleData(); // Usar dbHelper, no DBHelper directamente.
-    //   }
-    // } catch (e) {
-    //   if (mounted) {
-    //     // context check
-    //     ScaffoldMessenger.of(context)
-    //         .showSnackBar(SnackBar(content: Text("Error al cargar datos iniciales: $e")));
-    //   }
-    //   return; // Early return on error
-    // }
+  Future<void> _loadInitialData() async {
     await loadPracticeSessions();
   }
 
-  // Método público para recargar sesiones.  Llamado desde HomePage.
   Future<void> loadPracticeSessions() async {
     try {
       List<PracticeSession> fixedSessions =
           await PracticeSessionRepository.getFixedSessions();
-
       List<PracticeSession> loadedSessions =
           await PracticeSessionRepository.getAllSessions();
-      
 
       setState(() {
         sessions = [...fixedSessions, ...loadedSessions];
-
         if (selectedSession == null ||
             !sessions.any((s) => s.id == selectedSession!.id)) {
           selectedSession = sessions.isNotEmpty ? sessions.first : null;
@@ -93,108 +76,134 @@ class PracticeTabState extends State<PracticeTab>
       });
       return;
     }
-
     setState(() {
       _wordsFuture =
           PracticeSessionRepository.loadSessionWords(selectedSession!);
     });
   }
 
+
   Future<void> _recordPractice(Word word, bool isCorrect) async {
-    if (selectedSession != null) {
-      final practice = PracticeHistory(
-          wordId: word.id!,
-          sessionId: selectedSession!.id,
-          isCorrect: isCorrect,
-          practicedAt: DateTime.now(),
-          sessionType: 'session');
+    if (selectedSession == null) return;
 
-      final dbHelper = DBHelper();
-      try {
-        final db = await dbHelper.database;
-        await db.insert('practice_history', practice.toMap());
+    final practice = PracticeHistory(
+      wordId: word.id!,
+      sessionId: selectedSession!.id,
+      isCorrect: isCorrect,
+      practicedAt: DateTime.now(),
+      sessionType: 'session',
+    );
 
+    final dbHelper = DBHelper();
+    try {
+      final db = await dbHelper.database;
+      await db.insert('practice_history', practice.toMap());
+
+        // Update the UI *before* fetching the new word data.  Optimistic update.
         setState(() {
-          practicedWords.add(word.id!);
           if (isCorrect) {
             correctCount++;
           } else {
             incorrectCount++;
           }
         });
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Error al registrar la práctica: $e")));
-        }
+
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al registrar la práctica: $e")),
+        );
       }
     }
   }
 
-  // Wrapper para pasar el estado a WordCardPractice
-  void _recordPracticeWrapper(
-      Word word, bool isCorrect, WordCardPracticeState cardState) {
-    _recordPractice(word, isCorrect);
-    cardState.setState(() {
-      cardState.practiceResult = isCorrect;
-      cardState.isPracticed = true;
-    });
-  }
+
+    Future<Word> _getWordData(Word word) async {
+        final dbHelper = DBHelper();
+        try {
+            final db = await dbHelper.database;
+            final List<Map<String, dynamic>> result = await db.query(
+                dbHelper.tableWords,
+                where: 'id = ?',
+                whereArgs: [word.id],
+                limit: 1,
+            );
+
+            if (result.isNotEmpty) {
+                // Create a *new* Word object with the updated data.  Don't modify the original.
+                return Word.fromMap(result.first);
+            } else {
+                return word; // Return original word if not found (shouldn't happen)
+            }
+        } catch (e) {
+            if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Error al obtener datos de la palabra: $e")),
+                );
+            }
+            return word; // Return the original word in case of error.
+        }
+    }
 
   void _resetPractice() {
     setState(() {
-      practicedWords.clear();
       correctCount = 0;
       incorrectCount = 0;
       _loadSessionWords();
-      resetCounter++; // Incrementa el contador para forzar la reconstrucción
     });
   }
 
-    void _showDeleteSessionDialog(BuildContext context, PracticeSession sessionToDelete) {
-        showDialog(
-            context: context,
-            builder: (context) {
-                return AlertDialog(
-                    title: const Text('Eliminar Sesión'),
-                    content: Text(
-                        '¿Está seguro de que desea eliminar la sesión "${sessionToDelete.name}"? Esta acción no se puede deshacer.'),
-                    actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancelar'),
-                        ),
-                        TextButton(
-                            onPressed: () async {
-                                try {
-                                    await PracticeSessionRepository.deleteSession(sessionToDelete.id);
-                                    if (context.mounted) {
-                                        Navigator.pop(context); // Cerrar diálogo
-                                        loadPracticeSessions();
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Sesión "${sessionToDelete.name}" eliminada.')),
-                                        );
-                                    }
-                                } catch (e) {
-                                    if (context.mounted) {
-                                        Navigator.pop(context);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Error al eliminar la sesión: $e')),
-                                        );
-                                    }
-                                }
-                            },
-                            child: const Text('Eliminar'),
-                        ),
-                    ],
-                );
-            },
+
+  void _showDeleteSessionDialog(
+      BuildContext context, PracticeSession sessionToDelete) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Eliminar Sesión'),
+          content: Text(
+              '¿Está seguro de que desea eliminar la sesión "${sessionToDelete.name}"? Esta acción no se puede deshacer.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await PracticeSessionRepository.deleteSession(
+                      sessionToDelete.id);
+                  if (context.mounted) {
+                    Navigator.pop(context); // Cerrar diálogo
+                    loadPracticeSessions();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text(
+                              'Sesión "${sessionToDelete.name}" eliminada.')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('Error al eliminar la sesión: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Eliminar'),
+            ),
+          ],
         );
-    }
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); //  super.build
+    super.build(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -209,8 +218,8 @@ class PracticeTabState extends State<PracticeTab>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildSessionPractice(context), // Contenido de la pestaña "Por sesión"
-          RandomPracticeView(), // Contenido de la pestaña "Aleatorio"
+          _buildSessionPractice(context),
+          RandomPracticeView(),
         ],
       ),
     );
@@ -231,18 +240,17 @@ class PracticeTabState extends State<PracticeTab>
                   items: sessions.map((session) {
                     return DropdownMenuItem(
                       value: session,
-                      child: Row( // Usar Row para mostrar texto e icono
+                      child: Row(
                         children: [
-                          Expanded(child: Text(session.name)), // Para que el texto ocupe el espacio disponible
-                          if(!session.isFixed) // Mostrar solo si no es fijo
+                          Expanded(child: Text(session.name)),
+                          if (!session.isFixed)
                             IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () {
-                              _showDeleteSessionDialog(context, session);
-                            },
-                            tooltip: 'Borrar sesión', //  tooltip
-                          ),
-
+                              icon: const Icon(Icons.delete),
+                              onPressed: () {
+                                _showDeleteSessionDialog(context, session);
+                              },
+                              tooltip: 'Borrar sesión',
+                            ),
                         ],
                       ),
                     );
@@ -250,13 +258,13 @@ class PracticeTabState extends State<PracticeTab>
                   onChanged: (PracticeSession? newValue) {
                     setState(() {
                       selectedSession = newValue;
-                      _resetPractice();
+                      _resetPractice(); // Reset practice when session changes
                       _loadSessionWords();
                     });
                   },
                 ),
               ),
-              IconButton( // Botón de refrescar
+              IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: _resetPractice,
                 tooltip: 'Reiniciar práctica',
@@ -268,7 +276,9 @@ class PracticeTabState extends State<PracticeTab>
           padding: const EdgeInsets.all(8.0),
           child: Text(
             'Aciertos: $correctCount | Errores: $incorrectCount',
-            style: Theme.of(context).textTheme.titleMedium, // Use a suitable text style
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium, // Use a suitable text style
           ),
         ),
         Expanded(
@@ -284,27 +294,47 @@ class PracticeTabState extends State<PracticeTab>
                     child: Text("No hay palabras en esta sesión."));
               } else {
                 return RefreshIndicator(
-                    onRefresh:
-                        loadPracticeSessions,
-                    child: ListView.builder(
-                        itemCount: snapshot.data!.length,
-                        itemBuilder: (context, index) {
-                          final word = snapshot.data![index];
+                  onRefresh:
+                      loadPracticeSessions, // Consider using _refreshCurrentSessionWords
+                  child: ListView.builder(
+                    itemCount: snapshot.data!.length,
+                    itemBuilder: (context, index) {
+                      final word = snapshot.data![index];
+                      // Wrap EACH WordCardPractice with its OWN FutureBuilder
+                      return FutureBuilder<Word>(
+                        future: _getWordData(word), // Fetch updated word data
+                        builder: (context, wordSnapshot) {
+                          if (wordSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const LinearProgressIndicator(); // Or some other placeholder
+                          } else if (wordSnapshot.hasError) {
+                            return Text('Error: ${wordSnapshot.error}');
+                          } else if (!wordSnapshot.hasData) {
+                            return const Text("No data"); // Shouldn't happen
+                          }
+
+                          final updatedWord =
+                              wordSnapshot.data!; // This is the updated Word
+
                           return WordCardPractice(
-                            key: ValueKey(
-                                '${word.id}-$resetCounter'), // Usa resetCounter
-                            word: word,
+                            key: Key(
+                                updatedWord.id!.toString()), // Use a simple Key.  No need for resetCounter.
+                            word: updatedWord, // Pass the UPDATED word
                             onDelete: () async {
-                              //Ya no se usa en esta vista
+                              // Not used in this view
                             },
-                            onRecordPracticeCallback: _recordPracticeWrapper,
-                            practicedWords: practicedWords,
+                            onRecordPracticeCallback:(word, isCorrect) {
+                                _recordPractice(word, isCorrect);
+                            },
+
                             selectedSession: selectedSession,
-                            resetCounter: resetCounter,
-                            showRemoveButton:
-                                false, //  No mostrar el botón de eliminar
+                            showRemoveButton: false,
                           );
-                        }));
+                        },
+                      );
+                    },
+                  ),
+                );
               }
             },
           ),
@@ -313,8 +343,10 @@ class PracticeTabState extends State<PracticeTab>
     );
   }
 
+
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabSelection);
     _tabController.dispose();
     super.dispose();
   }
