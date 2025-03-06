@@ -110,7 +110,7 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
 
     final random = Random();
     try {
-      final allWords = await WordRepository.getWords();
+      final allWords = await WordRepository.getAllWords();
       if (allWords.isNotEmpty) {
         allWords.shuffle(random);
         setState(() {

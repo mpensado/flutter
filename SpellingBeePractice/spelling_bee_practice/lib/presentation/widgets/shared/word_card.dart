@@ -23,14 +23,6 @@ class WordCard extends StatelessWidget {
       elevation: 1.0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(4.0),
-        side: BorderSide(
-          width: 2.0,
-          color: word.totalIncorrectCount == 0
-              ? Colors.transparent
-              : word.totalIncorrectCount > 0
-                  ? Colors.red
-                  : Colors.transparent,
-        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -40,24 +32,10 @@ class WordCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Row(
-                    children: [
-                      Text(
+                  child: Text(
                     word.word,
                     style: Theme.of(context).textTheme.headlineSmall,
                     textAlign: TextAlign.start,
-                  ),
-                      // Mostrar el icono y el contador solo si hay errores.
-                      if (word.totalIncorrectCount > 0) ...[
-                        const SizedBox(width: 8),
-                        Icon(Icons.cancel_outlined,
-                            color: Colors.grey),
-                        Text(
-                          '${word.totalIncorrectCount}', // Mostrar el contador
-                          style: TextStyle(color: Colors.grey, fontSize: 20.0),
-                        ),
-                      ],
-                    ],
                   ),
                 ),
                 Row(
