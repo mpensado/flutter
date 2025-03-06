@@ -2,7 +2,6 @@ import 'package:collection/collection.dart'; // Para firstWhereOrNull
 import 'dart:math';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 
 class WordRepository {
