@@ -21,7 +21,7 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
   String searchQuery = '';
   Timer? _debounce;
   String? selectedList; // Lista seleccionada (null = Todas)
-  String? sortOrder = 'dateDesc'; // Orden por defecto
+  String? sortOrder = 'dateAsc'; // Orden por defecto
 
   @override
   bool get wantKeepAlive => true; // Add this
@@ -485,9 +485,8 @@ class WordsTabState extends State<WordsTab> with AutomaticKeepAliveClientMixin {
                 labelText: 'Ordenar por',
               ),
               items: const [
-                DropdownMenuItem(
-                    value: 'dateDesc', child: Text('Más recientes')),
                 DropdownMenuItem(value: 'dateAsc', child: Text('Más antiguas')),
+                DropdownMenuItem(value: 'dateDesc', child: Text('Más recientes')),
                 DropdownMenuItem(value: 'az', child: Text('A-Z')),
                 DropdownMenuItem(value: 'za', child: Text('Z-A')),
               ],

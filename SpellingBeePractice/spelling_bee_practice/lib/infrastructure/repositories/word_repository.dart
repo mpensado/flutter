@@ -3,8 +3,12 @@ import 'dart:math';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 
 class WordRepository {
+
+  static const _selectedListsKey = 'selected_lists'; // Clave para SharedPreferences
+
   // Obtener una palabra por su texto (para verificar duplicados).
   static Future<Word?> getWordByText(String wordText) async {
     final db = await DBHelper().database;
@@ -93,7 +97,19 @@ class WordRepository {
     );
   }
 
-// Obtener TODAS las palabras, incluyendo sus listas.
+  // Guardar las listas seleccionadas (NUEVA FUNCIÓN)
+  static Future<void> saveSelectedLists(List<String> lists) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_selectedListsKey, lists);
+  }
+
+  // Obtener las listas seleccionadas (NUEVA FUNCIÓN)
+  static Future<List<String>?> getSelectedLists() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_selectedListsKey);
+  }
+
+  // Obtener TODAS las palabras, incluyendo sus listas.
   static Future<List<Word>> getAllWords({String? sortOrder}) async {
     final db = await DBHelper().database;
     final orderByClause = _getOrderByClause(sortOrder);
@@ -119,6 +135,25 @@ class WordRepository {
     return await _mapToWords(maps);
   }
 
+  //Obtener palabras por varias listas
+  static Future<List<Word>> getWordsByLists(List<String> lists, {String? sortOrder}) async {
+      final db = await DBHelper().database;
+      final orderByClause = _getOrderByClause(sortOrder);
+
+      final placeholders = List.filled(lists.length, '?').join(',');
+      final whereClause = 'wl.list_name IN ($placeholders)';
+
+      final List<Map<String, dynamic>> maps = await db.rawQuery('''
+          SELECT DISTINCT w.*
+          FROM ${DBHelper().tableWords} w
+          INNER JOIN ${DBHelper().tableWordLists} wl ON w.id = wl.word_id
+          WHERE $whereClause
+          ORDER BY $orderByClause
+      ''', lists);
+
+      return await _mapToWords(maps);
+  }
+
   // Buscar palabras (incluyendo búsqueda en listas).
  static Future<List<Word>> searchWords(String query, {String? sortOrder}) async {
     final db = await DBHelper().database;
@@ -136,23 +171,23 @@ class WordRepository {
 }
   // Función auxiliar para obtener la cláusula ORDER BY (privada).
     static String _getOrderByClause(String? sortOrder) {
-        switch (sortOrder) {
+      switch (sortOrder) {
         case 'az':
-            return 'word ASC';
+          return 'word ASC';
         case 'za':
-            return 'word DESC';
+          return 'word DESC';
         case 'dateAsc':
-            return 'created_at ASC';
+          return 'created_at ASC';
         case 'dateDesc':
-            return 'created_at DESC';
+          return 'created_at DESC';
         default:
-            return 'created_at DESC'; // Orden por defecto
-        }
+          return 'created_at DESC'; // Orden por defecto
+      }
     }
   // Helper function to convert query results to a list of Word objects.
     static Future<List<Word>> _mapToWords(List<Map<String, dynamic>> maps) async{
-        final List<Word> words = [];
-            for (final map in maps) {
+      final List<Word> words = [];
+          for (final map in maps) {
             final List<String> lists = await _getListsForWord(map['id']); // Obtener las listas
             words.add(Word.fromMap(map, lists: lists)); // Crear la palabra
         }
@@ -164,13 +199,15 @@ class WordRepository {
     final db = await DBHelper().database;
     final List<Map<String, dynamic>> listMaps = await db.query(
       DBHelper().tableWordLists,
+      where: "list_name <> 'Todas'",
       distinct: true, // Obtener solo nombres de lista únicos
       columns: ['list_name'], // Solo necesitamos la columna list_name
+      orderBy: 'list_name'
     );
 
     final lists =
         listMaps.map<String>((map) => map['list_name'] as String).toList();
-        //lists.insert(0, "Todas"); //Lo agregamos a la primera posición de la lista.
+        lists.insert(0, "Todas"); //Lo agregamos a la primera posición de la lista.
 
     return lists;
   }
@@ -304,28 +341,26 @@ class WordRepository {
               UPDATE ${DBHelper().tableWords}
               SET correct_count = correct_count + 1
               WHERE id = ?
-            ''', [wordId]);
+              ''', [wordId]);
         } else { //Si no, se decrementa el contador de incorrectos.
             await db.rawUpdate('''
               UPDATE ${DBHelper().tableWords}
               SET incorrect_count = incorrect_count - 1
               WHERE id = ?
-            ''', [wordId]);
+              ''', [wordId]);
         }
 
       } else {
         //Si es incorrecto, aumentar incorrect_count y total_incorrect_count
         await db.rawUpdate('''
-          UPDATE ${DBHelper().tableWords}
-          SET incorrect_count = incorrect_count + 1,
-              total_incorrect_count = total_incorrect_count + 1
-          WHERE id = ?
-          ''', [wordId]);
+            UPDATE ${DBHelper().tableWords}
+            SET incorrect_count = incorrect_count + 1,
+                total_incorrect_count = total_incorrect_count + 1
+            WHERE id = ?
+            ''', [wordId]);
       }
     } catch (e) {
       rethrow;
     }
   }
-
-  // Carga inicial de datos (AHORA ES PRIVADA Y ESTÁTICA).
-  }
+}
