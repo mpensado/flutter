@@ -188,8 +188,10 @@ class WordRepository {
     static Future<List<Word>> _mapToWords(List<Map<String, dynamic>> maps) async{
       final List<Word> words = [];
           for (final map in maps) {
-            final List<String> lists = await _getListsForWord(map['id']); // Obtener las listas
-            words.add(Word.fromMap(map, lists: lists)); // Crear la palabra
+            final List<String> lists = await _getListsForWord(map['id']); 
+            if (lists.isNotEmpty) {// Obtener las listas
+              words.add(Word.fromMap(map, lists: lists)); // Crear la palabra
+            }
         }
         return words;
     }

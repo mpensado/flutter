@@ -6,14 +6,14 @@ class WordCard extends StatelessWidget {
   final Word word;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
-  final VoidCallback onAddToSession;
+  // final VoidCallback onAddToSession; // Ya no se usa aquí
 
   const WordCard({
     super.key,
     required this.word,
     required this.onDelete,
     required this.onEdit,
-    required this.onAddToSession,
+    // required this.onAddToSession, // Ya no se usa
   });
 
   @override
@@ -32,10 +32,23 @@ class WordCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    word.word,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.start,
+                  child: Row( // Envuelve Text y error en un Row
+                    children: [
+                      Text(
+                        word.word,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                        textAlign: TextAlign.start,
+                      ),
+                        // Muestra el icono y el contador *solo* si hay errores.
+                        if (word.totalIncorrectCount > 0) ...[
+                          const SizedBox(width: 8), // Espacio entre palabra e icono
+                          Icon(Icons.error_outline, color: Colors.grey), // Icono
+                          Text(
+                            '${word.totalIncorrectCount}', // Contador
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ]
+                    ]
                   ),
                 ),
                 Row(
@@ -43,12 +56,10 @@ class WordCard extends StatelessWidget {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit),
-                      //color: Colors.black87,
                       onPressed: onEdit,
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete),
-                      //color: Colors.black, // Consistent color
                       onPressed: onDelete,
                     ),
                   ],
@@ -68,30 +79,15 @@ class WordCard extends StatelessWidget {
                     TextToSpeechService.speak(word.word);
                   },
                   icon: const Icon(Icons.volume_up),
-                  label: const Text(
-                    'Escuchar',
-                    //style: TextStyle(fontSize: 15.0), // Smaller font
-                  ),
+                  label: const Text('Pronunciar'),
                 ),
                 ElevatedButton.icon(
                   onPressed: () {
                     TextToSpeechService.speak(word.spelling);
                   },
                   icon: const Icon(Icons.volume_up),
-                  label: const Text(
-                    'Deletrear',
-                    //style: TextStyle(fontSize: 15.0), // Smaller font
-                  ),
+                  label: const Text('Deletrear'),
                 ),
-                // ElevatedButton.icon(
-                //   onPressed:
-                //       onAddToSession, // Use the new onAddToSession callback
-                //   icon: const Icon(Icons.add), // Changed icon
-                //   label: const Text(
-                //     'Sesión',
-                //     style: TextStyle(fontSize: 10.0),
-                //   ),
-                // ),
               ],
             ),
           ],

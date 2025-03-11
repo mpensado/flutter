@@ -8,8 +8,8 @@ class Word {
   final String? notes;
   final DateTime createdAt;
   final DateTime? lastPractice;
-  final int correctCount;    // Contador de aciertos
-  final int incorrectCount;  // Contador de errores (para espaciado)
+  final int correctCount;     // Contador de aciertos
+  final int incorrectCount;   // Contador de errores (para espaciado)
   final int totalIncorrectCount; // Contador total de errores
   final List<String> lists; //  Lista para clasificacion
 
@@ -26,7 +26,7 @@ class Word {
     this.correctCount = 0,    // Valor inicial 0
     this.incorrectCount = 0,  // Valor inicial 0
     this.totalIncorrectCount = 0,
-    this.lists = const [], // Lista vacia
+    this.lists = const [], // Lista vacía por defecto
   });
 
   Map<String, dynamic> toMap() {
@@ -43,31 +43,29 @@ class Word {
       'correct_count': correctCount,
       'incorrect_count': incorrectCount,
       'total_incorrect_count': totalIncorrectCount,
-      // 'lists' NO se incluye. Se maneja en word_lists.
+      // 'lists' NO se incluye aquí. Se maneja en la tabla word_lists.
     };
   }
-
     factory Word.fromMap(Map<String, dynamic> map, {List<String>? lists}) {
-        return Word(
-            id: map['id'],
-            word: map['word'],
-            translation: map['translation'],
-            pronunciation: map['pronunciation'],
-            spelling: map['spelling'],
-            categoryId: map['category_id'],
-            notes: map['notes'],
-            createdAt: DateTime.now(),
-            lastPractice: map['last_practice'] != null
-            ? DateTime.parse(map['last_practice'])
-                : null,
-            correctCount: map['correct_count'] ?? 0,
-            incorrectCount: map['incorrect_count'] ?? 0,
-            totalIncorrectCount: map['total_incorrect_count'] ?? 0,
-            lists: lists ?? [],
-        );
-    }
+    return Word(
+      id: map['id'],
+      word: map['word'],
+      translation: map['translation'],
+      pronunciation: map['pronunciation'],
+      spelling: map['spelling'],
+      categoryId: map['category_id'],
+      notes: map['notes'],
+      createdAt: map['created_at'],
+      lastPractice: map['last_practice'] != null
+          ? DateTime.parse(map['last_practice'])
+          : null,
+      correctCount: map['correct_count'] ?? 0,
+      incorrectCount: map['incorrect_count'] ?? 0,
+      totalIncorrectCount: map['total_incorrect_count'] ?? 0,
+      lists: lists ?? [], // Usa el valor proporcionado, o una lista vacía
+    );
+  }
 
-  //Metodo copyWith
     Word copyWith({
     int? id,
     String? word,
@@ -80,7 +78,7 @@ class Word {
     DateTime? lastPractice,
     int? correctCount,
     int? incorrectCount,
-    int? totalIncorrectCount,
+      int? totalIncorrectCount,
     List<String>? lists,
   }) {
     return Word(
@@ -100,8 +98,8 @@ class Word {
     );
   }
 
-  @override
+    @override
     String toString() {
-        return 'Word{id: $id, word: $word, translation: $translation, spelling: $spelling, createdAt: $createdAt, lists: $lists}';
+    return 'Word{id: $id, word: $word, translation: $translation, spelling: $spelling, createdAt: $createdAt, lists: $lists}';
     }
 }

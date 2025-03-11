@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 
-class WordListItem extends StatelessWidget {
+class WordListItem2 extends StatelessWidget {
   final Word word;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const WordListItem({
+  const WordListItem2({
     super.key,
     required this.word,
     required this.onEdit,

@@ -1,81 +1,67 @@
 import 'package:flutter/material.dart';
-//import 'package:spelling_bee_practice/presentation/screens/home/spelling_bee_view.dart';  // Comentado temporalmente
-import 'package:spelling_bee_practice/domain/entities/word.dart';
-import 'package:spelling_bee_practice/presentation/screens/home/words_tab.dart';
 import 'package:spelling_bee_practice/presentation/screens/home/practice_tab.dart';
+import 'package:spelling_bee_practice/presentation/screens/home/words_tab.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({Key? key}) : super(key: key);
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _HomePageState extends State<HomePage> {
+  int _currentIndex = 0; // Índice de la pestaña actual
+
+  // Lista de pestañas (ahora solo 2).
+  late final List<Widget> _tabs;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+      _tabs = [
+
+      WordsTab(onSessionCreated: _refreshPracticeTab), //Pasa el callback
+      const PracticeTab(),
+    ];
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  //  Función para actualizar PracticeTab (usada como callback).
+  void _refreshPracticeTab() {
+    if (_currentIndex == 1) {
+      // Solo actualiza si PracticeTab está activa.
+      // Podrías necesitar un GlobalKey si necesitas forzar la actualización
+      // incluso si la pestaña no está visible.  Pero, por ahora, esto es suficiente.
+
+        setState(() {
+        //Forzar una reconstruccion de PracticeTab
+        _tabs[1] = const PracticeTab(); //Reconstruye el widget
+        });
+    }
   }
-
-
-  // Se movió el diálogo a un widget separado para mayor claridad y evitar referencias a _HomePageState
-  void showAddWordDialog(BuildContext context, VoidCallback onWordAdded,
-      {Word? wordToEdit}) {
-          //Llamada a la funcion en wordTab
-      final wordsTabState = context.findAncestorStateOfType<WordsTabState>();
-      if(wordsTabState != null){
-        wordsTabState.showAddWordDialog(context, onWordAdded, wordToEdit: wordToEdit);
-      }
-  }
-
-
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: ListTile(
-          leading: Image.asset('assets/icon/icon.png', width: 24, height: 24),
-          title: const Text('Spelling Bee'), //  Título
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              // TODO: Implementar configuración
-            },
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Vocabulario', icon: Icon(Icons.book)),
-            Tab(text: 'Práctica', icon: Icon(Icons.edit)),
-            //Tab(text: 'SpellingBee', icon: Icon(Icons.bug_report_rounded)), // Pestaña comentada
-          ],
-        ),
+        title: const Text('Spelling Bee Practice'),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          WordsTab(onWordAdded: (){
-            //Se actualiza la vista de la tab de practica
-            final practiceTabState = context.findAncestorStateOfType<PracticeTabState>();
-            if(practiceTabState != null){
-              practiceTabState.loadPracticeSessions();
-            }
-          }),
-          const PracticeTab(),
-          //const SpellingBeeView(), // Vista comentada temporalmente
+      body: _tabs[_currentIndex], // Muestra la pestaña actual.
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list),
+            label: 'Vocabulario',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.school),
+            label: 'Práctica',
+          ),
         ],
       ),
     );

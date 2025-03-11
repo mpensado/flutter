@@ -15,7 +15,11 @@ class InitDB {
 
     if (maps.isNotEmpty) {
       final List<String> lists = await _getListsForWord(db, maps.first['id']);
-      return Word.fromMap(maps.first, lists: lists); // Usa el helper
+      if (lists.isNotEmpty) {
+        return Word.fromMap(maps.first, lists: lists); // Usa el helper
+      } else {
+        return null;
+      }
     } else {
       return null;
     }
@@ -450,8 +454,14 @@ class InitDB {
     ];
 
     try {
+      List<Map<String, dynamic>> updatedList = sampleWords.map((wordMap) {
+        return {
+          ...wordMap,
+          'created_at': DateTime.now()
+        };
+      }).toList(); 
       // Insertar cada palabra de ejemplo y obtener su ID.
-      for (var wordData in sampleWords) {
+      for (var wordData in updatedList) {
         final word = Word.fromMap(wordData); // Crear objeto Word
         await db.insert('words', word.toMap()); // Usar db directamente
       }
