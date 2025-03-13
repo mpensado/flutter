@@ -55,7 +55,9 @@ class Word {
       spelling: map['spelling'],
       categoryId: map['category_id'],
       notes: map['notes'],
-      createdAt: map['created_at'],
+      createdAt: map['created_at'] is String
+        ? DateTime.parse(map['created_at'])
+        : map['created_at'], //  <--  Comprueba el tipo
       lastPractice: map['last_practice'] != null
           ? DateTime.parse(map['last_practice'])
           : null,

@@ -3,7 +3,7 @@ import 'package:spelling_bee_practice/presentation/screens/home/practice_tab.dar
 import 'package:spelling_bee_practice/presentation/screens/home/words_tab.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();

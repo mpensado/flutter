@@ -7,7 +7,7 @@ import 'package:spelling_bee_practice/presentation/widgets/shared/word_card.dart
 class WordsTab extends StatefulWidget {
   final VoidCallback? onSessionCreated; // Callback
 
-  const WordsTab({Key? key, this.onSessionCreated}) : super(key: key);
+  const WordsTab({super.key, this.onSessionCreated});
 
   @override
   State<WordsTab> createState() => WordsTabState();
@@ -26,6 +26,7 @@ class WordsTabState extends State<WordsTab> {
   }
 
     Future<void> _loadWords() async {
+      debugPrint("Calling _loadWords with: _selectedList=$_selectedList, _sortOrder=$_sortOrder, searchText=${_searchController.text}"); // AÑADIDO
     if (_searchController.text.isNotEmpty) {
       _wordsFuture = WordRepository.searchWords(_searchController.text,
           sortOrder: _sortOrder);
@@ -214,7 +215,7 @@ class WordsTabState extends State<WordsTab> {
                     checked: _selectedList == listName,
                     child: Text(listName),
                   );
-                }).toList()
+                })
             ];
           },
            child: Chip(

@@ -3,25 +3,39 @@ import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:sqflite/sqflite.dart';
 
 class InitDB {
+  // static Future<Word?> getWordByText(Database db,String wordText) async {
+  //   //final db = await DBHelper().database;
+  //   final List<Map<String, dynamic>> maps = await db.query(
+  //     DBHelper().tableWords,
+  //     where: 'word = ?',
+  //     whereArgs: [wordText],
+  //     limit: 1,
+  //   );
 
-  static Future<Word?> getWordByText(Database db,String wordText) async {
-    //final db = await DBHelper().database;
+  //   if (maps.isNotEmpty) {
+  //     final List<String> lists = await _getListsForWord(db, maps.first['id']);
+  //     if (lists.isNotEmpty) {
+  //       return Word.fromMap(maps.first, lists: lists); // Usa el helper
+  //     } else {
+  //       return null;
+  //     }
+  //   } else {
+  //     return null;
+  //   }
+  // }
+
+  static Future<Word?> getWordByText(Database db, String wordText) async {
     final List<Map<String, dynamic>> maps = await db.query(
-      DBHelper().tableWords,
+      'words',
       where: 'word = ?',
       whereArgs: [wordText],
       limit: 1,
     );
 
     if (maps.isNotEmpty) {
-      final List<String> lists = await _getListsForWord(db, maps.first['id']);
-      if (lists.isNotEmpty) {
-        return Word.fromMap(maps.first, lists: lists); // Usa el helper
-      } else {
-        return null;
-      }
+      return Word.fromMap(maps.first); // Usa el constructor fromMap
     } else {
-      return null;
+      return null; // Devuelve null si no se encuentra la palabra
     }
   }
 
@@ -41,8 +55,17 @@ class InitDB {
           await db.rawQuery('SELECT COUNT(*) FROM words'));
 
       if (wordCount == 0) {
-        await _loadSampleData(db); // Pasa 'db'
-        await _loadSampleWordLists(db); // Pasa 'db'
+        try {
+          await _loadSampleData(db); // Pasa 'db'
+        } catch (e) {
+          rethrow;
+        }
+
+        try {
+          await _loadSampleWordLists(db); // Pasa 'db'
+        } catch (e) {
+          rethrow;
+        }        
       } else {}
     } catch (e) {
       rethrow; // Importante
@@ -455,11 +478,8 @@ class InitDB {
 
     try {
       List<Map<String, dynamic>> updatedList = sampleWords.map((wordMap) {
-        return {
-          ...wordMap,
-          'created_at': DateTime.now()
-        };
-      }).toList(); 
+        return {...wordMap, 'created_at': DateTime.now()};
+      }).toList();
       // Insertar cada palabra de ejemplo y obtener su ID.
       for (var wordData in updatedList) {
         final word = Word.fromMap(wordData); // Crear objeto Word

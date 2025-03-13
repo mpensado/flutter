@@ -59,12 +59,10 @@ class _AddEditWordDialogState extends State<AddEditWordDialog> {
             try {
               final translation =
                   await TranslationService.translate(text: _wordController.text, from: "en", to: "es");  //Usar el servicio
-              if (translation != null) {
-                setState(() {
-                  _translationController.text = translation;
-                });
-              }
-            } catch (e) {
+              setState(() {
+                _translationController.text = translation;
+              });
+                        } catch (e) {
               // Manejar errores (mostrar un snackbar, log, etc.).
               print("Error al obtener la traducción: $e");
               if (context.mounted) {
