@@ -3,7 +3,7 @@ class Word {
   final String word;
   final String translation;
   final String? pronunciation;
-  final String spelling;
+  late final String spelling;
   final int? categoryId;
   final String? notes;
   final DateTime createdAt;

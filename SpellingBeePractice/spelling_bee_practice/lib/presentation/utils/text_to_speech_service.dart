@@ -11,12 +11,12 @@ class TextToSpeechService {
 
       try {
         // Intentar configurar opciones básicas
-        await _flutterTts!.setEngine('com.google.android.tts'); // Puedes probar otros motores si quieres
-        await _flutterTts!.setLanguage('en-US');  // Configura el idioma
-        await _flutterTts!.setPitch(1.0);       // Tono (1.0 es normal)
-        await _flutterTts!.setSpeechRate(0.5);  // Velocidad (0.5 es normal)
-        await _flutterTts!.setVolume(1.0);      // Volumen (1.0 es el máximo)
-
+        await _flutterTts!.setEngine(
+            'com.google.android.tts'); // Puedes probar otros motores si quieres
+        await _flutterTts!.setLanguage('en-US'); // Configura el idioma
+        await _flutterTts!.setPitch(1.0); // Tono (1.0 es normal)
+        await _flutterTts!.setSpeechRate(0.5); // Velocidad (0.5 es normal)
+        await _flutterTts!.setVolume(1.0); // Volumen (1.0 es el máximo)
       } catch (e) {
         debugPrint('Error inicializando TTS: $e');
         // Considera mostrar un SnackBar al usuario si la inicialización falla.
@@ -45,5 +45,33 @@ class TextToSpeechService {
       debugPrint('Error al detener TTS: $e');
       // Considera mostrar un SnackBar.
     }
+  }
+
+  static String spelling(String word) {
+    String result = '';
+    String letterSeparated = '';
+    List<String> words =
+        word.split(' '); // Separar por espacios para palabras compuestas
+    for (int i = 0; i < words.length; i++) {
+      String currentWord = words[i];
+      for (int j = 0; j < currentWord.length; j++) {
+        String letter = currentWord[j];
+        if (letter == letter.toUpperCase() && letter != letter.toLowerCase()) {
+          letterSeparated += 'capital---';
+        }
+
+        letterSeparated += currentWord[j];
+        if (j < currentWord.length - 1) {
+          letterSeparated += '---'; // Coma entre letras
+        }
+      }
+      if (i < words.length - 1) {
+        letterSeparated +=
+            '---space---'; // Doble coma entre palabras compuestas
+      }
+    }
+
+    result = '$word---$letterSeparated---$word';
+    return result;
   }
 }

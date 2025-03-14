@@ -5,28 +5,27 @@ import 'package:spelling_bee_practice/presentation/widgets/add_edit_word_dialog.
 import 'package:spelling_bee_practice/presentation/widgets/shared/word_card.dart';
 
 class WordsTab extends StatefulWidget {
-  final VoidCallback? onSessionCreated; // Callback
-
-  const WordsTab({super.key, this.onSessionCreated});
+  const WordsTab({Key? key}) : super(key: key);
 
   @override
-  State<WordsTab> createState() => WordsTabState();
+  WordsTabState createState() => WordsTabState();
 }
 
-class WordsTabState extends State<WordsTab> {
-  String? _selectedList = "Todas"; // Filtro de lista
-  String? _sortOrder = 'dateDesc'; // Criterio de ordenamiento
+class WordsTabState extends State<WordsTab>
+    with AutomaticKeepAliveClientMixin {
+  Future<List<Word>>? _wordsFuture;
+  String? _selectedList;
+  String _sortOrder = 'dateDesc';
   final TextEditingController _searchController = TextEditingController();
-  late Future<List<Word>> _wordsFuture;
 
   @override
   void initState() {
     super.initState();
-    _loadWords(); // Carga inicial de palabras
+    _loadWords();
+    _searchController.addListener(_refreshWordsAfterSearch);
   }
 
-    Future<void> _loadWords() async {
-      debugPrint("Calling _loadWords with: _selectedList=$_selectedList, _sortOrder=$_sortOrder, searchText=${_searchController.text}"); // AÑADIDO
+  Future<void> _loadWords() async {
     if (_searchController.text.isNotEmpty) {
       _wordsFuture = WordRepository.searchWords(_searchController.text,
           sortOrder: _sortOrder);
@@ -36,10 +35,31 @@ class WordsTabState extends State<WordsTab> {
       _wordsFuture =
           WordRepository.getWordsByLists([_selectedList!], sortOrder: _sortOrder);
     }
-    setState(() {}); // Actualiza la UI después de cargar las palabras.
+    setState(() {});
   }
 
-  Future<void> _showDeleteConfirmationDialog(Word word) async {
+    Future<void> _refreshWordsAfterSearch() async {
+      if (_searchController.text.isEmpty) {
+        _loadWords();
+      } else {
+        _wordsFuture = WordRepository.searchWords(_searchController.text,
+            sortOrder: _sortOrder);
+      }
+      setState(() {});
+    }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_refreshWordsAfterSearch);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+
+  @override
+  bool get wantKeepAlive => true;
+
+ Future<void> _showDeleteConfirmationDialog(Word word) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -52,11 +72,7 @@ class WordsTabState extends State<WordsTab> {
               child: const Text('Cancelar'),
             ),
             TextButton(
-              onPressed: () {
-                           WordRepository.deleteWord(word.id!);
-                           _loadWords();
-                           Navigator.of(context).pop(true);
-                        },
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text('Eliminar'),
             ),
           ],
@@ -66,57 +82,42 @@ class WordsTabState extends State<WordsTab> {
 
     if (confirm == true) {
       await WordRepository.deleteWord(word.id!);
-      _loadWords(); // Recarga la lista después de eliminar
+      _loadWords();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Palabra "${word.word}" eliminada')),
+           SnackBar(content: Text('Palabra "${word.word}" eliminada')),
         );
       }
     }
   }
-
-
-  // Método para mostrar el diálogo de agregar/editar.
-  Future<void> _showAddOrEditWordDialog({Word? word}) async {
-    await showDialog<void>(
+    Future<void> _showEditDialog(Word word) async {
+     await showDialog<void>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         return AddEditWordDialog(
-            wordToEdit: word,
-            onWordSaved: (Word newWord) async {  //  Cambia el nombre y tipo
-              if (word == null) {
-                await WordRepository.insertWord(newWord);
-              } else {
-                await WordRepository.updateWord(newWord);
-              }
-              _loadWords(); // Recarga las palabras después de guardar.
-              widget.onSessionCreated
-                  ?.call(); // Notifica la creacion de palabra/lista
-            });
+          wordToEdit: word,
+          onWordSaved: (editedWord) async {
+            await WordRepository.updateWord(editedWord);
+            _loadWords();
+            if(context.mounted){
+                ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Palabra "${editedWord.word}" actualizada')),
+                );
+            }
+
+          },
+        );
       },
     );
   }
 
-    //Metodo para refrescar luego de una busqueda
-  Future<void> _refreshWordsAfterSearch() async {
-    if (_searchController.text.isEmpty) {
-      // Si el campo de búsqueda está vacío, recargar todas las palabras.
-      _loadWords(); // Recarga todas las palabras con el filtro y orden actuales
-    } else {
-      // Si hay texto en el campo de búsqueda, realiza la búsqueda.
-      _wordsFuture = WordRepository.searchWords(_searchController.text,
-          sortOrder: _sortOrder);
-      setState(
-          () {}); // Asegúrate de llamar a setState para reconstruir el widget.
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return Scaffold(
       body: Column(
         children: [
-          // Barra de búsqueda y botones de filtro/orden.
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -136,92 +137,65 @@ class WordsTabState extends State<WordsTab> {
                             )
                           : const Icon(Icons.search),
                     ),
-                    onChanged: (value) {
-                      // _loadWords(); // Carga con cada cambio (menos eficiente, pero más reactivo).
-                      // _refreshWordsAfterSearch(); // <- Llama a esto en onChanged
-                      // Mejor:  Llamar _refreshWordsAfterSearch CON debounce.
-                      _refreshWordsAfterSearch();
+                    onChanged: (value){
+                        _refreshWordsAfterSearch();
                     },
                   ),
                 ),
-                // Botón para el menú de ordenamiento.
-                PopupMenuButton<String>(
-                  onSelected: (String sortOrder) {
-                    setState(() {
-                      _sortOrder = sortOrder;
-                      _loadWords(); // Recargar con el nuevo orden.
-                    });
-                  },
-                  itemBuilder: (BuildContext context) =>
-                      <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(
-                      value: 'az',
-                      child: Text('A-Z'),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'za',
-                      child: Text('Z-A'),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'dateAsc',
-                      child: Text('Más antiguos'),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'dateDesc',
-                      child: Text('Más recientes'),
-                    ),
-                  ],
-                  icon: const Icon(Icons.sort), // Icono de ordenamiento.
-                ),
-                // Botón para el filtro por lista
-                _buildFilterButton(),
+                _buildSortButton(), // Ordenación en el medio
+                const SizedBox(width: 8),
+                _buildFilterButton(), // Filtro a la derecha
               ],
             ),
           ),
-          // Lista de palabras.
           Expanded(
             child: FutureBuilder<List<Word>>(
               future: _wordsFuture,
-              builder:
-                  (BuildContext context, AsyncSnapshot<List<Word>> snapshot) {
+              builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(
-                      child: Text(
-                          'Error al cargar las palabras: ${snapshot.error}'));
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('No hay palabras.'));
-                } else {
-                  final words = snapshot.data!;
-                  return ListView.builder(
-                    itemCount: words.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final word = words[index];
-                      return WordCard(
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text('No hay palabras'));
+                }
+                final words = snapshot.data!;
+                return ListView.builder(
+                  itemCount: words.length,
+                  itemBuilder: (context, index) {
+                    final word = words[index];
+                    return WordCard(
                         word: word,
                         onDelete: () => _showDeleteConfirmationDialog(word),
-                        onEdit: () => _showAddOrEditWordDialog(word: word),
-                        // onDelete: () async {
-                        //   await WordRepository.deleteWord(word.id!);
-                        //   _loadWords();
-                        //},
-                      );
-                    },
-                  );
-                }
+                        onEdit: () => _showEditDialog(word));
+                  },
+                );
               },
             ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddOrEditWordDialog(),
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AddEditWordDialog(
+                onWordSaved: (newWord) async {
+                  await WordRepository.insertWord(newWord);
+                  _loadWords();
+                },
+              );
+            },
+          );
+        },
         child: const Icon(Icons.add),
       ),
     );
   }
-    Widget _buildFilterButton() {
+  Widget _buildFilterButton() {
     return FutureBuilder<List<String>>(
       future: WordRepository.getAllLists(),
       builder: (context, snapshot) {
@@ -232,37 +206,67 @@ class WordsTabState extends State<WordsTab> {
           return const Icon(Icons.error); // Muestra un ícono de error
         }
 
-        final List<String> lists = snapshot.data ??
-            []; // Usa una lista vacía como valor predeterminado
+        final List<String> lists = snapshot.data ?? []; // Usa una lista vacía como valor predeterminado
+        lists.insert(0, "Todas");
 
         return PopupMenuButton<String>(
-            onSelected: (String listName) {
-                setState(() {
-                _selectedList = listName;
-                 _loadWords();
-                });
-            },
-          itemBuilder: (BuildContext context) {
-            return [
-                const PopupMenuItem<String>( //  "Todas"
-                  value: "Todas",
-                  child: Text("Todas"),
-                ),
-                ...lists.map((String listName) {
-                  return CheckedPopupMenuItem<String>(
-                    value: listName,
-                    checked: _selectedList == listName,
-                    child: Text(listName),
-                  );
-                })
-            ];
+          onSelected: (String newValue) {
+            setState(() {
+              //_selectedList = newValue; //  <--  ¡CORRECCIÓN!
+              if(newValue == "Todas"){
+                _selectedList = null;
+              } else{
+                _selectedList = newValue;
+              }
+              _loadWords(); // Recarga las palabras al cambiar el filtro.
+            });
           },
-           child: Chip(
-              label: Text(_selectedList ?? "Todas"),
-               avatar: const Icon(Icons.filter_list), // Icono de filtro.
-            ),
+          itemBuilder: (BuildContext context) {
+            return lists.map<PopupMenuEntry<String>>((String listName) {
+              return PopupMenuItem<String>(
+                value: listName,
+                // child: Text(listName),
+                // enabled: listName != "Todas",
+                child: Text(listName),
+              );
+            }).toList();
+          },
+          child: Chip(  // <-- Usamos Chip
+            label: Text(_selectedList ?? "Todas"),  // <-- Mostramos "Todas" si es null
+            avatar: const Icon(Icons.filter_list), // Icono de filtro.
+          ),
         );
       },
+    );
+  }
+  Widget _buildSortButton() {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.sort), // Icono de ordenación
+      initialValue: _sortOrder,
+      onSelected: (String newValue) {
+        setState(() {
+          _sortOrder = newValue;
+          _loadWords(); // Recargar con el nuevo orden
+        });
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(
+          value: 'nameAsc',
+          child: Text('Nombre (A-Z)'),
+        ),
+        const PopupMenuItem<String>(
+          value: 'nameDesc',
+          child: Text('Nombre (Z-A)'),
+        ),
+        const PopupMenuItem<String>(
+          value: 'dateAsc',
+          child: Text('Fecha (Antigua)'),
+        ),
+        const PopupMenuItem<String>(
+          value: 'dateDesc',
+          child: Text('Fecha (Reciente)'),
+        ),
+      ],
     );
   }
 }

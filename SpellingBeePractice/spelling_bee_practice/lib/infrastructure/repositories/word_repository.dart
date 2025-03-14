@@ -3,7 +3,8 @@ import 'dart:math';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart'; // Import SharedPreferences
 
 class WordRepository {
 
