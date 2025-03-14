@@ -38,6 +38,44 @@ class WordsTabState extends State<WordsTab> {
     }
     setState(() {}); // Actualiza la UI después de cargar las palabras.
   }
+
+  Future<void> _showDeleteConfirmationDialog(Word word) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirmar eliminación'),
+          content: Text('¿Estás seguro de que quieres eliminar "${word.word}"?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                           WordRepository.deleteWord(word.id!);
+                           _loadWords();
+                           Navigator.of(context).pop(true);
+                        },
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await WordRepository.deleteWord(word.id!);
+      _loadWords(); // Recarga la lista después de eliminar
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Palabra "${word.word}" eliminada')),
+        );
+      }
+    }
+  }
+
+
   // Método para mostrar el diálogo de agregar/editar.
   Future<void> _showAddOrEditWordDialog({Word? word}) async {
     await showDialog<void>(
@@ -162,11 +200,12 @@ class WordsTabState extends State<WordsTab> {
                       final word = words[index];
                       return WordCard(
                         word: word,
+                        onDelete: () => _showDeleteConfirmationDialog(word),
                         onEdit: () => _showAddOrEditWordDialog(word: word),
-                        onDelete: () async {
-                          await WordRepository.deleteWord(word.id!);
-                          _loadWords();
-                        },
+                        // onDelete: () async {
+                        //   await WordRepository.deleteWord(word.id!);
+                        //   _loadWords();
+                        //},
                       );
                     },
                   );

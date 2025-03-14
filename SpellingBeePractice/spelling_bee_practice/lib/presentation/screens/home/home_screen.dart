@@ -20,7 +20,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
       _tabs = [
 
-      WordsTab(onSessionCreated: _refreshPracticeTab), //Pasa el callback
+      WordsTab(), //Pasa el callback
       const PracticeTab(),
     ];
   }
@@ -43,11 +43,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: ListTile(
-          leading: Image.asset('assets/icon/icon.png', width: 24, height: 24),
-          title: Text('Spelling Bee'), // Titulo
-          // subtitle: Text('Subtítulo'), //  Subtítulo (opcional)
-        ),
+        title: const Text('Spelling Bee Practice'),
       ),
       body: _tabs[_currentIndex], // Muestra la pestaña actual.
       bottomNavigationBar: BottomNavigationBar(

@@ -162,7 +162,7 @@ class _AddEditWordDialogState extends State<AddEditWordDialog> {
 
   void _onWordFocusChange() {
     if (_translationController.text.isNotEmpty && _wordController.text.isNotEmpty) {
-      _getSuggestedTranslation();
+  _getSuggestedTranslation();
     }
   }
 
