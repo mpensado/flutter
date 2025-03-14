@@ -43,7 +43,11 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Spelling Bee Practice'),
+        title: ListTile(
+          leading: Image.asset('assets/icon/icon.png', width: 24, height: 24),
+          title: Text('Spelling Bee'), // Titulo
+          // subtitle: Text('Subtítulo'), //  Subtítulo (opcional)
+        ),
       ),
       body: _tabs[_currentIndex], // Muestra la pestaña actual.
       bottomNavigationBar: BottomNavigationBar(
