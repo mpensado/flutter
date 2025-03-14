@@ -41,9 +41,10 @@ class _AddEditWordDialogState extends State<AddEditWordDialog> {
 
     if (widget.wordToEdit != null) {
       _selectedLists.addAll(widget.wordToEdit!.lists);
+      //Importante, se remueve 'Todas'
+      _selectedLists.remove("Todas");
     }
 
-    // Añade un listener al FocusNode
     _wordFocusNode.addListener(_onWordFocusChange);
   }
 
@@ -53,8 +54,8 @@ class _AddEditWordDialogState extends State<AddEditWordDialog> {
     _translationController.dispose();
     _spellingController.dispose();
     _newListController.dispose();
-    _wordFocusNode.removeListener(_onWordFocusChange); // Limpia el listener
-    _wordFocusNode.dispose(); // Desecha el FocusNode
+    _wordFocusNode.removeListener(_onWordFocusChange);
+    _wordFocusNode.dispose();
     super.dispose();
   }
 
@@ -69,7 +70,6 @@ class _AddEditWordDialogState extends State<AddEditWordDialog> {
           });
         }
       } catch (e) {
-        print("Error al obtener la traducción: $e");
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error al obtener la traducción: $e')),
@@ -90,6 +90,20 @@ class _AddEditWordDialogState extends State<AddEditWordDialog> {
           return const Text('Error al cargar las listas');
         }
         final List<String> allLists = snapshot.data ?? [];
+		allLists.remove("Todas");
+		allLists.sort((a, b) {
+          final aSelected = _selectedLists.contains(a);
+          final bSelected = _selectedLists.contains(b);
+
+          if (aSelected && !bSelected) {
+            return -1; // a va antes que b
+          } else if (!aSelected && bSelected) {
+            return 1; // b va antes que a
+          } else {
+            return a.compareTo(
+                b); // Ambos seleccionados o no seleccionados, orden alfabético.
+          }
+        });
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
