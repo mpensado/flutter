@@ -12,6 +12,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter:
     sdk: flutter
+  flutter_bloc: ^9.1.0
   flutter_launcher_icons: ^0.14.3
   flutter_tts: ^4.2.2
   path: ^1.9.1

@@ -28,6 +28,23 @@ class WordRepository {
     }
   }
 
+  static Future<Word?> getWordById(int? wordId) async {
+    final db = await DBHelper().database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      DBHelper().tableWords,
+      where: 'id = ?',
+      whereArgs: [wordId],
+      limit: 1,
+    );
+
+    if (maps.isNotEmpty) {
+      final List<String> lists = await _getListsForWord(maps.first['id']);
+      return Word.fromMap(maps.first, lists: lists); // Usa el helper
+    } else {
+      return null;
+    }
+  }
+
   // Método auxiliar para obtener las listas de una palabra (privado).
   static Future<List<String>> _getListsForWord(int wordId) async {
     final db = await DBHelper().database;
@@ -183,6 +200,7 @@ class WordRepository {
           return 'created_at DESC';
         default:
           return 'created_at DESC'; // Orden por defecto
+          //return ''; // Orden por defecto
       }
     }
   // Helper function to convert query results to a list of Word objects.
