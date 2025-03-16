@@ -1,9 +1,11 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_session.dart';
+import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/practice_session_repository.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/word_repository.dart';
+
+enum PracticeFilter { all, errors, list }
 
 // Eventos
 abstract class PracticeEvent {}
@@ -29,6 +31,12 @@ class RemoveWordEvent extends PracticeEvent {
   RemoveWordEvent(this.word, this.session);
 }
 
+class ChangeFilterEvent extends PracticeEvent {
+  final String filter;
+
+  ChangeFilterEvent(this.filter);
+}
+
 // Estados
 abstract class PracticeState {}
 
@@ -38,8 +46,19 @@ class PracticeLoading extends PracticeState {}
 
 class PracticeLoaded extends PracticeState {
   final List<Word> words;
+  final String filter;
+  final List<String> lists;
 
-  PracticeLoaded(this.words);
+  PracticeLoaded(this.words, {this.filter = 'Todas', required this.lists});
+
+  PracticeLoaded copyWith(
+      {List<Word>? words, String? filter, List<String>? lists}) {
+    return PracticeLoaded(
+      words ?? this.words,
+      filter: filter ?? this.filter,
+      lists: lists ?? this.lists,
+    );
+  }
 }
 
 class PracticeError extends PracticeState {
@@ -50,15 +69,14 @@ class PracticeError extends PracticeState {
 
 // BLoC
 class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
-  // final PracticeSessionRepository _practiceSessionRepository =
-  //     PracticeSessionRepository();
-  // final WordRepository _wordRepository = WordRepository();
+  //final WordRepository _wordRepository = WordRepository();
   List<Word> currentWords = [];
 
   PracticeBloc() : super(PracticeInitial()) {
     on<LoadWordsEvent>(_onLoadWords);
     on<RecordPracticeEvent>(_onRecordPractice);
     on<RemoveWordEvent>(_onRemoveWord);
+    on<ChangeFilterEvent>(_onChangeFilter);
   }
 
   Future<void> _onLoadWords(
@@ -77,7 +95,17 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
           currentWords = await WordRepository.getAllWords();
         }
       }
-      emit(PracticeLoaded(currentWords));
+
+      final lists = await WordRepository.getAllLists();
+
+      if (state is PracticeLoaded) {
+        final loadedState = state as PracticeLoaded;
+        final filteredWords = _filterWords(currentWords, loadedState.filter);
+        emit(PracticeLoaded(filteredWords,
+            filter: loadedState.filter, lists: lists));
+      } else {
+        emit(PracticeLoaded(currentWords, lists: lists));
+      }
     } catch (e) {
       emit(PracticeError("Error al cargar palabras: $e"));
     }
@@ -86,34 +114,32 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
   Future<void> _onRecordPractice(
       RecordPracticeEvent event, Emitter<PracticeState> emit) async {
     try {
-      final history = PracticeHistory( // Construye el objeto PracticeHistory
+      final history = PracticeHistory(
         wordId: event.word.id!,
-        sessionId: event.session?.id ?? -1, // Usa -1 si no hay sesión
+        sessionId: event.session?.id ?? -1,
         isCorrect: event.isCorrect,
         practicedAt: DateTime.now(),
         sessionType: event.session != null ? "custom" : "list",
       );
-      if (event.session != null) {
-        await PracticeSessionRepository.insertHistory(history);
-      } else {
-        await PracticeSessionRepository.insertHistory(history);
-      }
+
+      await PracticeSessionRepository.insertHistory(history);
       await WordRepository.updateWordCounters(event.word.id!, event.isCorrect);
-      // Obtener la palabra actualizada de la base de datos
-    final updatedWord = await WordRepository.getWordById(event.word.id!);
 
-    // Emitir un nuevo estado PracticeLoaded si el estado actual es PracticeLoaded
-    if (state is PracticeLoaded) {
-      final loadedState = state as PracticeLoaded;
-      List<Word> updatedWords = loadedState.words.map((word) {
-        if (word.id == event.word.id) {
-          // Devuelve la palabra actualizada
-          return updatedWord!;
-        }
-        return word;
-      }).toList();
+      final updatedWord = await WordRepository.getWordById(event.word.id!);
 
-      emit(PracticeLoaded(updatedWords));
+      if (state is PracticeLoaded) {
+        final loadedState = state as PracticeLoaded;
+        List<Word> updatedWords = loadedState.words.map((word) {
+          if (word.id == event.word.id) {
+            return updatedWord!;
+          }
+          return word;
+        }).toList();
+
+        final filteredWords = _filterWords(updatedWords, loadedState.filter);
+
+        emit(PracticeLoaded(filteredWords,
+            filter: loadedState.filter, lists: loadedState.lists));
       }
     } catch (e) {
       emit(PracticeError("Error al registrar práctica: $e"));
@@ -123,13 +149,13 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
   Future<void> _onRemoveWord(
       RemoveWordEvent event, Emitter<PracticeState> emit) async {
     try {
-      final session = PracticeSession( // Crea el objeto PracticeSession
+      final session = PracticeSession(
         id: event.session.id,
         name: event.session.name,
         wordIds: event.session.wordIds,
         isFixed: event.session.isFixed, createdAt: DateTime.now(),
       );
-
+      
       final word = Word( // Crea el objeto PracticeSession
         id: event.word.id,
         categoryId: event.word.categoryId,
@@ -143,9 +169,38 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       );
       await PracticeSessionRepository.removeWordFromSession(word, session);
       currentWords.remove(event.word);
-      emit(PracticeLoaded(currentWords)); // Actualizar la UI
+
+      if (state is PracticeLoaded) {
+        final loadedState = state as PracticeLoaded;
+        final filteredWords = _filterWords(currentWords, loadedState.filter);
+
+        emit(PracticeLoaded(filteredWords,
+            filter: loadedState.filter, lists: loadedState.lists));
+      }
     } catch (e) {
       emit(PracticeError("Error al eliminar palabra: $e"));
     }
+  }
+
+  Future<void> _onChangeFilter(
+      ChangeFilterEvent event, Emitter<PracticeState> emit) async {
+    if (state is PracticeLoaded) {
+      final loadedState = state as PracticeLoaded;
+      final filteredWords = _filterWords(loadedState.words, event.filter);
+      emit(PracticeLoaded(filteredWords,
+          filter: event.filter, lists: loadedState.lists));
+    }
+  }
+
+  List<Word> _filterWords(List<Word> words, String filter) {
+    if (filter == 'Errores') {
+      return words
+          .where((word) => word.totalIncorrectCount > 0)
+          .toList()
+        ..sort((a, b) => b.totalIncorrectCount.compareTo(a.totalIncorrectCount));
+    } else if (filter != 'Todas') {
+      return words.where((word) => word.lists.contains(filter)).toList();
+    }
+    return words;
   }
 }
