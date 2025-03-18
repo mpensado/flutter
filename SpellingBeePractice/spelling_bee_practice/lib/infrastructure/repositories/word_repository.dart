@@ -220,7 +220,7 @@ class WordRepository {
     final db = await DBHelper().database;
     final List<Map<String, dynamic>> listMaps = await db.query(
       DBHelper().tableWordLists,
-      where: "list_name <> 'Todas'",
+      where: "list_name <> 'Todo'",
       distinct: true, // Obtener solo nombres de lista únicos
       columns: ['list_name'], // Solo necesitamos la columna list_name
       orderBy: 'list_name'
@@ -228,7 +228,8 @@ class WordRepository {
 
     final lists =
         listMaps.map<String>((map) => map['list_name'] as String).toList();
-        lists.insert(0, "Todas"); //Lo agregamos a la primera posición de la lista.
+        lists.insert(0, "Todo");
+        lists.insert(1, "Por practicar");
 
     return lists;
   }

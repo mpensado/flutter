@@ -40,14 +40,14 @@ class WordCard extends StatelessWidget {
                         textAlign: TextAlign.start,
                       ),
                         // Muestra el icono y el contador *solo* si hay errores.
-                        if (word.totalIncorrectCount > 0) ...[
-                          const SizedBox(width: 8), // Espacio entre palabra e icono
-                          Icon(Icons.error_outline, color: Colors.grey), // Icono
-                          Text(
-                            '${word.totalIncorrectCount}', // Contador
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                        ]
+                        // if (word.totalIncorrectCount > 0) ...[
+                        //   const SizedBox(width: 8), // Espacio entre palabra e icono
+                        //   Icon(Icons.error_outline, color: Colors.grey), // Icono
+                        //   Text(
+                        //     '${word.totalIncorrectCount}', // Contador
+                        //     style: const TextStyle(color: Colors.grey),
+                        //   ),
+                        // ]
                     ]
                   ),
                 ),

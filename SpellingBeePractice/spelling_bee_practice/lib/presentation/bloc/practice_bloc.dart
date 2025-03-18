@@ -48,15 +48,22 @@ class PracticeLoaded extends PracticeState {
   final List<Word> words;
   final String filter;
   final List<String> lists;
+  final List<Word> originalWords; // Nueva propiedad: Lista original
 
-  PracticeLoaded(this.words, {this.filter = 'Todas', required this.lists});
+  PracticeLoaded(this.words,
+      {this.filter = 'Todo', required this.lists, required this.originalWords});
 
-  PracticeLoaded copyWith(
-      {List<Word>? words, String? filter, List<String>? lists}) {
+  PracticeLoaded copyWith({
+    List<Word>? words,
+    String? filter,
+    List<String>? lists,
+    List<Word>? originalWords,
+  }) {
     return PracticeLoaded(
       words ?? this.words,
       filter: filter ?? this.filter,
       lists: lists ?? this.lists,
+      originalWords: originalWords ?? this.originalWords,
     );
   }
 }
@@ -69,7 +76,7 @@ class PracticeError extends PracticeState {
 
 // BLoC
 class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
-  //final WordRepository _wordRepository = WordRepository();
+  final WordRepository _wordRepository = WordRepository();
   List<Word> currentWords = [];
 
   PracticeBloc() : super(PracticeInitial()) {
@@ -102,9 +109,11 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
         final loadedState = state as PracticeLoaded;
         final filteredWords = _filterWords(currentWords, loadedState.filter);
         emit(PracticeLoaded(filteredWords,
-            filter: loadedState.filter, lists: lists));
+            filter: loadedState.filter,
+            lists: lists,
+            originalWords: currentWords));
       } else {
-        emit(PracticeLoaded(currentWords, lists: lists));
+        emit(PracticeLoaded(currentWords, lists: lists, originalWords: currentWords));
       }
     } catch (e) {
       emit(PracticeError("Error al cargar palabras: $e"));
@@ -139,7 +148,9 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
         final filteredWords = _filterWords(updatedWords, loadedState.filter);
 
         emit(PracticeLoaded(filteredWords,
-            filter: loadedState.filter, lists: loadedState.lists));
+            filter: loadedState.filter,
+            lists: loadedState.lists,
+            originalWords: loadedState.originalWords));
       }
     } catch (e) {
       emit(PracticeError("Error al registrar práctica: $e"));
@@ -167,7 +178,10 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
         translation: event.word.translation, 
         spelling: event.word.spelling,
       );
-      await PracticeSessionRepository.removeWordFromSession(word, session);
+
+      await PracticeSessionRepository.removeWordFromSession(
+          word, session);
+
       currentWords.remove(event.word);
 
       if (state is PracticeLoaded) {
@@ -175,7 +189,9 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
         final filteredWords = _filterWords(currentWords, loadedState.filter);
 
         emit(PracticeLoaded(filteredWords,
-            filter: loadedState.filter, lists: loadedState.lists));
+            filter: loadedState.filter,
+            lists: loadedState.lists,
+            originalWords: currentWords));
       }
     } catch (e) {
       emit(PracticeError("Error al eliminar palabra: $e"));
@@ -186,9 +202,11 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       ChangeFilterEvent event, Emitter<PracticeState> emit) async {
     if (state is PracticeLoaded) {
       final loadedState = state as PracticeLoaded;
-      final filteredWords = _filterWords(loadedState.words, event.filter);
+      final filteredWords = _filterWords(loadedState.originalWords, event.filter);
       emit(PracticeLoaded(filteredWords,
-          filter: event.filter, lists: loadedState.lists));
+          filter: event.filter,
+          lists: loadedState.lists,
+          originalWords: loadedState.originalWords));
     }
   }
 
@@ -198,7 +216,7 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
           .where((word) => word.totalIncorrectCount > 0)
           .toList()
         ..sort((a, b) => b.totalIncorrectCount.compareTo(a.totalIncorrectCount));
-    } else if (filter != 'Todas') {
+    } else if (filter != 'Todo' && filter != 'Errores') {
       return words.where((word) => word.lists.contains(filter)).toList();
     }
     return words;

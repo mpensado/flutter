@@ -22,25 +22,24 @@ class PracticeTab extends StatelessWidget {
           actions: <Widget>[
             BlocBuilder<PracticeBloc, PracticeState>(
               builder: (context, state) {
-                if (state is PracticeLoaded)
-                {
-                  return DropdownButton<String>(
-                    value: state.filter,
-                    icon: const Icon(Icons.filter_list),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        context
-                            .read<PracticeBloc>()
-                            .add(ChangeFilterEvent(newValue));
-                      }
+                if (state is PracticeLoaded) {
+                  return PopupMenuButton<String>(
+                    onSelected: (String newValue) {
+                      context.read<PracticeBloc>().add(ChangeFilterEvent(newValue));
                     },
-                    items: <String>['Todo', 'Errores', ...state.lists]
-                        .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
+                    itemBuilder: (BuildContext context) {
+                      return <String>[...state.lists]
+                          .map<PopupMenuEntry<String>>((String listName) {
+                        return PopupMenuItem<String>(
+                          value: listName,
+                          child: Text(listName),
+                        );
+                      }).toList();
+                    },
+                    child: Chip(
+                      label: Text(state.filter),
+                      avatar: const Icon(Icons.filter_list),
+                    ),
                   );
                 } else {
                   return const SizedBox.shrink(); // No mostrar el filtro si no esta cargado

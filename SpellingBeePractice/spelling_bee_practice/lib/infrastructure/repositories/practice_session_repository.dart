@@ -189,7 +189,7 @@ class PracticeSessionRepository {
         'practice_sessions',
         {
           'id': -1, // ID negativo para "Errores"
-          'name': 'Errores',
+          'name': 'Por practicar',
           'created_at': DateTime.now().toIso8601String(),
           'word_ids': '',
           'isFixed': 1, //  CORREGIDO: Ahora es true (1 en SQLite)
@@ -201,7 +201,7 @@ class PracticeSessionRepository {
         'practice_sessions',
         {
           'id': -2, // ID negativo para "Todas"
-          'name': 'Todas',
+          'name': 'Todo',
           'created_at': DateTime.now().toIso8601String(),
           'word_ids': '',
           'isFixed': 1, // CORREGIDO: Ahora es true (1 en SQLite)

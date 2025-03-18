@@ -41,7 +41,7 @@ class _AddEditWordDialogState extends State<AddEditWordDialog> {
     // Eliminar _spellingController
     if (widget.wordToEdit != null) {
       _selectedLists.addAll(widget.wordToEdit!.lists);
-      _selectedLists.remove("Todas");
+      _selectedLists.remove("Todo");
     }
 
     _wordFocusNode.addListener(_onWordFocusChange);
@@ -53,7 +53,7 @@ class _AddEditWordDialogState extends State<AddEditWordDialog> {
     // allLists.remove("Todas"); //"Todas" no se debe de mostrar.
     setState(() {
       _allLists = lists;
-       _allLists.remove("Todas");
+       _allLists.remove("Todo");
     });
   }
 

@@ -605,7 +605,7 @@ class InitDB {
           if (!uniqueWords.contains(wordText)) {
             await db.insert(
               DBHelper().tableWordLists,
-              {'word_id': word.id, 'list_name': 'Todas'}, // Agregar a "Todas"
+              {'word_id': word.id, 'list_name': 'Todo'}, // Agregar a "Todas"
             );
             uniqueWords.add(wordText); // Agrega la palabra a la lista
           }

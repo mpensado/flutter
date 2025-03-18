@@ -29,7 +29,7 @@ class WordsTabState extends State<WordsTab>
     if (_searchController.text.isNotEmpty) {
       _wordsFuture = WordRepository.searchWords(_searchController.text,
           sortOrder: _sortOrder);
-    } else if (_selectedList == null || _selectedList == "Todas") {
+    } else if (_selectedList == null || _selectedList == "Todo") {
       _wordsFuture = WordRepository.getAllWords(sortOrder: _sortOrder);
     } else {
       _wordsFuture =
@@ -207,13 +207,13 @@ class WordsTabState extends State<WordsTab>
         }
 
         final List<String> lists = snapshot.data ?? []; // Usa una lista vacía como valor predeterminado
-        lists.insert(0, "Todas");
+        lists.removeAt(1);
 
         return PopupMenuButton<String>(
           onSelected: (String newValue) {
             setState(() {
               //_selectedList = newValue; //  <--  ¡CORRECCIÓN!
-              if(newValue == "Todas"){
+              if(newValue == "Todo"){
                 _selectedList = null;
               } else{
                 _selectedList = newValue;
@@ -232,7 +232,7 @@ class WordsTabState extends State<WordsTab>
             }).toList();
           },
           child: Chip(  // <-- Usamos Chip
-            label: Text(_selectedList ?? "Todas"),  // <-- Mostramos "Todas" si es null
+            label: Text(_selectedList ?? "Todo"),  // <-- Mostramos "Todas" si es null
             avatar: const Icon(Icons.filter_list), // Icono de filtro.
           ),
         );

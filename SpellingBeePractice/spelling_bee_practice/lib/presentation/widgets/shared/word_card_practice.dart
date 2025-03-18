@@ -55,15 +55,15 @@ class WordCardPracticeState extends State<WordCardPractice> {
                         style: Theme.of(context).textTheme.headlineSmall,
                         textAlign: TextAlign.start,
                       ),
-                      if (widget.word.totalIncorrectCount > 0) ...[
-                        const SizedBox(width: 8),
-                        const Icon(Icons.cancel_outlined, color: Colors.grey),
-                        Text(
-                          '${widget.word.totalIncorrectCount}',
-                          style:
-                              const TextStyle(color: Colors.grey, fontSize: 20.0),
-                        ),
-                      ],
+                      // if (widget.word.totalIncorrectCount > 0) ...[
+                      //   const SizedBox(width: 8),
+                      //   const Icon(Icons.cancel_outlined, color: Colors.grey),
+                      //   Text(
+                      //     '${widget.word.totalIncorrectCount}',
+                      //     style:
+                      //         const TextStyle(color: Colors.grey, fontSize: 20.0),
+                      //   ),
+                      // ],
                     ],
                   ),
                 ),
