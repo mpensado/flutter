@@ -367,17 +367,18 @@ class WordRepository {
         if (wordData.first['incorrect_count'] == 0) {
             await db.rawUpdate('''
               UPDATE ${DBHelper().tableWords}
-              SET correct_count = correct_count + 1
+              SET correct_count = correct_count + 1,
+                  total_incorrect_count = 0
               WHERE id = ?
               ''', [wordId]);
         } else { //Si no, se decrementa el contador de incorrectos.
             await db.rawUpdate('''
               UPDATE ${DBHelper().tableWords}
-              SET incorrect_count = incorrect_count - 1
+              SET incorrect_count = incorrect_count - 1,
+              correct_count = correct_count + 1
               WHERE id = ?
               ''', [wordId]);
         }
-
       } else {
         //Si es incorrecto, aumentar incorrect_count y total_incorrect_count
         await db.rawUpdate('''

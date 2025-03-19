@@ -96,8 +96,7 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       } else {
         final selectedLists = await WordRepository.getSelectedLists() ?? [];
         if (selectedLists.isNotEmpty) {
-          currentWords =
-              await WordRepository.getWordsByLists(selectedLists);
+          currentWords = await WordRepository.getWordsByLists(selectedLists);
         } else {
           currentWords = await WordRepository.getAllWords();
         }
@@ -108,12 +107,13 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       if (state is PracticeLoaded) {
         final loadedState = state as PracticeLoaded;
         final filteredWords = _filterWords(currentWords, loadedState.filter);
-        emit(PracticeLoaded(filteredWords,
+        emit(PracticeLoaded(await filteredWords,
             filter: loadedState.filter,
             lists: lists,
             originalWords: currentWords));
       } else {
-        emit(PracticeLoaded(currentWords, lists: lists, originalWords: currentWords));
+        emit(PracticeLoaded(currentWords,
+            lists: lists, originalWords: currentWords));
       }
     } catch (e) {
       emit(PracticeError("Error al cargar palabras: $e"));
@@ -147,7 +147,7 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
 
         final filteredWords = _filterWords(updatedWords, loadedState.filter);
 
-        emit(PracticeLoaded(filteredWords,
+        emit(PracticeLoaded(await filteredWords,
             filter: loadedState.filter,
             lists: loadedState.lists,
             originalWords: loadedState.originalWords));
@@ -164,23 +164,24 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
         id: event.session.id,
         name: event.session.name,
         wordIds: event.session.wordIds,
-        isFixed: event.session.isFixed, createdAt: DateTime.now(),
+        isFixed: event.session.isFixed,
+        createdAt: DateTime.now(),
       );
-      
-      final word = Word( // Crea el objeto PracticeSession
+
+      final word = Word(
+        // Crea el objeto PracticeSession
         id: event.word.id,
         categoryId: event.word.categoryId,
         correctCount: event.word.correctCount,
-        createdAt: event.word.createdAt, 
+        createdAt: event.word.createdAt,
         incorrectCount: event.word.incorrectCount,
-        totalIncorrectCount: event.word.totalIncorrectCount, 
-        word: event.word.word, 
-        translation: event.word.translation, 
+        totalIncorrectCount: event.word.totalIncorrectCount,
+        word: event.word.word,
+        translation: event.word.translation,
         spelling: event.word.spelling,
       );
 
-      await PracticeSessionRepository.removeWordFromSession(
-          word, session);
+      await PracticeSessionRepository.removeWordFromSession(word, session);
 
       currentWords.remove(event.word);
 
@@ -188,7 +189,7 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
         final loadedState = state as PracticeLoaded;
         final filteredWords = _filterWords(currentWords, loadedState.filter);
 
-        emit(PracticeLoaded(filteredWords,
+        emit(PracticeLoaded(await filteredWords,
             filter: loadedState.filter,
             lists: loadedState.lists,
             originalWords: currentWords));
@@ -202,20 +203,21 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       ChangeFilterEvent event, Emitter<PracticeState> emit) async {
     if (state is PracticeLoaded) {
       final loadedState = state as PracticeLoaded;
-      final filteredWords = _filterWords(loadedState.originalWords, event.filter);
-      emit(PracticeLoaded(filteredWords,
+      final filteredWords =
+          _filterWords(loadedState.originalWords, event.filter);
+      emit(PracticeLoaded(await filteredWords,
           filter: event.filter,
           lists: loadedState.lists,
           originalWords: loadedState.originalWords));
     }
   }
 
-  List<Word> _filterWords(List<Word> words, String filter) {
+  Future<List<Word>> _filterWords(List<Word> words, String filter) async {
     if (filter == 'Por practicar') {
-      return words
-          .where((word) => word.totalIncorrectCount > 0)
-          .toList()
-        ..sort((a, b) => b.totalIncorrectCount.compareTo(a.totalIncorrectCount));
+      List<Word> allWords = await WordRepository.getAllWords();
+      return allWords.where((word) => word.totalIncorrectCount > 0).toList()
+        ..sort(
+            (a, b) => b.totalIncorrectCount.compareTo(a.totalIncorrectCount));
     } else if (filter != 'Todo' && filter != 'Por practicar') {
       return words.where((word) => word.lists.contains(filter)).toList();
     }

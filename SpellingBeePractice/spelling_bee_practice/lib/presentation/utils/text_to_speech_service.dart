@@ -57,7 +57,7 @@ class TextToSpeechService {
       for (int j = 0; j < currentWord.length; j++) {
         String letter = currentWord[j];
         if (letter == letter.toUpperCase() && letter != letter.toLowerCase()) {
-          letterSeparated += 'capital---';
+          letterSeparated += 'capital';
         }
 
         letterSeparated += currentWord[j];
