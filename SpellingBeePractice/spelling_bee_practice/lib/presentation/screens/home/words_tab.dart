@@ -5,7 +5,7 @@ import 'package:spelling_bee_practice/presentation/widgets/add_edit_word_dialog.
 import 'package:spelling_bee_practice/presentation/widgets/shared/word_card.dart';
 
 class WordsTab extends StatefulWidget {
-  const WordsTab({Key? key}) : super(key: key);
+  const WordsTab({super.key});
 
   @override
   WordsTabState createState() => WordsTabState();

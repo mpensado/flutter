@@ -79,10 +79,8 @@ class _AddEditWordDialogState extends State<AddEditWordDialog> {
       try {
         final translation = await TranslationService.translate(
             text: _wordController.text, from: "en", to: "es");
-        if (translation != null) {
-            _translationController.text = translation;
-        }
-      } catch (e) {
+          _translationController.text = translation;
+            } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error al obtener la traducción: $e')),

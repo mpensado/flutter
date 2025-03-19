@@ -211,12 +211,12 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
   }
 
   List<Word> _filterWords(List<Word> words, String filter) {
-    if (filter == 'Errores') {
+    if (filter == 'Por practicar') {
       return words
           .where((word) => word.totalIncorrectCount > 0)
           .toList()
         ..sort((a, b) => b.totalIncorrectCount.compareTo(a.totalIncorrectCount));
-    } else if (filter != 'Todo' && filter != 'Errores') {
+    } else if (filter != 'Todo' && filter != 'Por practicar') {
       return words.where((word) => word.lists.contains(filter)).toList();
     }
     return words;

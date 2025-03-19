@@ -4,7 +4,7 @@ import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart'; // Import SharedPreferences
+// Import SharedPreferences
 
 class WordRepository {
 
@@ -261,92 +261,98 @@ class WordRepository {
   //   }
   // }
 
-  static Future<Word?> getWordsForRandomPractice() async {
-    final db = await DBHelper().database;
+  static Future<Word?> getWordsForRandomPractice({List<Word>? words}) async {
+  final db = await DBHelper().database;
 
-    try {
-      // 1. Obtener TODAS las palabras.
-      final List<Map<String, dynamic>> allWordsMap =
-          await db.query(DBHelper().tableWords);
-      final List<Word> allWords =
-          allWordsMap.map((map) => Word.fromMap(map)).toList();
-
-      // 2. Obtener el historial de práctica aleatoria.
-      final List<Map<String, dynamic>> practiceHistoryMap = await db.query(
-        'practice_history',
-        where: "session_type = 'random'",
-        orderBy: 'practiced_at DESC',
+  try {
+    // 1. Obtener TODAS las palabras (o las filtradas).
+    List<Map<String, dynamic>> allWordsMap;
+    if (words != null && words.isNotEmpty) {
+      allWordsMap = await db.query(
+        DBHelper().tableWords,
+        where: 'id IN (${words.map((word) => word.id).join(',')})',
       );
-      final List<PracticeHistory> practiceHistory = practiceHistoryMap
-          .map((map) => PracticeHistory.fromMap(map))
-          .toList();
-
-      // 3. Dividir las palabras en grupos
-      final List<Word> neverPracticed = [];
-      final List<Word> incorrectWords = [];
-
-      for (final word in allWords) {
-        final lastPractice = practiceHistory.firstWhereOrNull(
-          (history) => history.wordId == word.id,
-        );
-
-        if (lastPractice == null) {
-          neverPracticed.add(word);
-        } else if (!lastPractice.isCorrect) {
-          incorrectWords.add(word);
-        }
-      }
-
-      // 4. Aplicar la lógica de prioridades y espaciado.
-      Word? selectedWord;
-
-      // Prioridad 1: Incorrectas con espaciado.
-      final List<Word> eligibleIncorrectWords = incorrectWords.where((word) {
-        List<int> lastPracticedDistinctWordIds = [];
-        for (final historyEntry in practiceHistory) {
-          if (!lastPracticedDistinctWordIds.contains(historyEntry.wordId)) {
-            lastPracticedDistinctWordIds.add(historyEntry.wordId);
-          }
-          if (lastPracticedDistinctWordIds.length == 3) {
-            break;
-          }
-        }
-
-        return word.correctCount <= 0 &&
-            !lastPracticedDistinctWordIds.contains(word.id);
-      }).toList();
-
-      eligibleIncorrectWords.sort(
-          (a, b) => b.totalIncorrectCount.compareTo(a.totalIncorrectCount));
-
-      if (eligibleIncorrectWords.isNotEmpty) {
-        selectedWord =
-            eligibleIncorrectWords[Random().nextInt(eligibleIncorrectWords.length)];
-      } else if (neverPracticed.isNotEmpty) {
-        selectedWord = neverPracticed[Random().nextInt(neverPracticed.length)];
-      } else {
-        // Prioridad 3: Todas las palabras, priorizando por incorrectCount y correctCount.
-        if (allWords.isNotEmpty) {
-          allWords.sort((a, b) {
-            int incorrectComparison =
-                b.totalIncorrectCount.compareTo(a.totalIncorrectCount);
-            if (incorrectComparison != 0) {
-              return incorrectComparison;
-            }
-            return a.correctCount.compareTo(b.correctCount);
-          });
-          selectedWord = allWords[Random().nextInt(allWords.length)];
-        } else {
-          selectedWord = null;
-        }
-      }
-
-      return selectedWord;
-    } catch (e) {
-      rethrow;
+    } else {
+      allWordsMap = await db.query(DBHelper().tableWords);
     }
-  }
+    final List<Word> allWords =
+        allWordsMap.map((map) => Word.fromMap(map)).toList();
 
+    // 2. Obtener el historial de práctica aleatoria.
+    final List<Map<String, dynamic>> practiceHistoryMap = await db.query(
+      'practice_history',
+      where: "session_type = 'random'",
+      orderBy: 'practiced_at DESC',
+    );
+    final List<PracticeHistory> practiceHistory = practiceHistoryMap
+        .map((map) => PracticeHistory.fromMap(map))
+        .toList();
+
+    // 3. Dividir las palabras en grupos
+    final List<Word> neverPracticed = [];
+    final List<Word> incorrectWords = [];
+
+    for (final word in allWords) {
+      final lastPractice = practiceHistory.firstWhereOrNull(
+        (history) => history.wordId == word.id,
+      );
+
+      if (lastPractice == null) {
+        neverPracticed.add(word);
+      } else if (!lastPractice.isCorrect) {
+        incorrectWords.add(word);
+      }
+    }
+
+    // 4. Aplicar la lógica de prioridades y espaciado.
+    Word? selectedWord;
+
+    // Prioridad 1: Incorrectas con espaciado.
+    final List<Word> eligibleIncorrectWords = incorrectWords.where((word) {
+      List<int> lastPracticedDistinctWordIds = [];
+      for (final historyEntry in practiceHistory) {
+        if (!lastPracticedDistinctWordIds.contains(historyEntry.wordId)) {
+          lastPracticedDistinctWordIds.add(historyEntry.wordId);
+        }
+        if (lastPracticedDistinctWordIds.length == 3) {
+          break;
+        }
+      }
+
+      return word.correctCount <= 0 &&
+          !lastPracticedDistinctWordIds.contains(word.id);
+    }).toList();
+
+    eligibleIncorrectWords.sort(
+        (a, b) => b.totalIncorrectCount.compareTo(a.totalIncorrectCount));
+
+    if (eligibleIncorrectWords.isNotEmpty) {
+      selectedWord =
+          eligibleIncorrectWords[Random().nextInt(eligibleIncorrectWords.length)];
+    } else if (neverPracticed.isNotEmpty) {
+      selectedWord = neverPracticed[Random().nextInt(neverPracticed.length)];
+    } else {
+      // Prioridad 3: Todas las palabras, priorizando por incorrectCount y correctCount.
+      if (allWords.isNotEmpty) {
+        allWords.sort((a, b) {
+          int incorrectComparison =
+              b.totalIncorrectCount.compareTo(a.totalIncorrectCount);
+          if (incorrectComparison != 0) {
+            return incorrectComparison;
+          }
+          return a.correctCount.compareTo(b.correctCount);
+        });
+        selectedWord = allWords[Random().nextInt(allWords.length)];
+      } else {
+        selectedWord = null;
+      }
+    }
+
+    return selectedWord;
+  } catch (e) {
+    rethrow;
+  }
+}
   static Future<void> updateWordCounters(int wordId, bool isCorrect) async {
     final db = await DBHelper().database;
     try {

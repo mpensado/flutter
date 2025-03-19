@@ -7,10 +7,13 @@ import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.
 import 'package:path/path.dart';
 import 'dart:async'; // Importante para Timer (debounce)
 import 'package:collection/collection.dart';
-import 'package:spelling_bee_practice/presentation/widgets/shared/word_card_practice.dart'; 
+import 'package:spelling_bee_practice/presentation/widgets/shared/word_card_practice.dart';
 
 class RandomPracticeView extends StatefulWidget {
-  const RandomPracticeView({super.key});
+  final List<Word> words;
+  final String filter;
+  const RandomPracticeView(
+      {super.key, required this.words, required this.filter});
 
   @override
   State<RandomPracticeView> createState() => _RandomPracticeViewState();
@@ -51,56 +54,59 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
   }
 
   Future<void> _loadNextWord() async {
-    setState(() {
-      isLoading = true;
-      hasRepeated = false;
-      // currentWordIncorrectCount = 0; // NO REINICIAR AQUÍ
-    });
+  setState(() {
+    isLoading = true;
+    hasRepeated = false;
+    // currentWordIncorrectCount = 0; // NO REINICIAR AQUÍ
+  });
 
-    try {
-      final nextWord = await WordRepository.getWordsForRandomPractice();
-      if (mounted) {
-        setState(() {
-          currentWord = nextWord;
-          isLoading = false;
-          if (currentWord != null) {
-            TextToSpeechService.speak(currentWord!.word);
-            currentWordIncorrectCount =
-                currentWord!.totalIncorrectCount; //  CARGAR ERRORES
-            if (practiceSummary.firstWhereOrNull(
-                    (element) => element['word'] == currentWord!.word) ==
-                null) {
-              practiceSummary.add({
-                'word': currentWord!.word,
-                'attempts': 0,
-                'errors': 0,
-              });
-            }
-            practiceSummary.firstWhereOrNull((element) =>
-                element['word'] == currentWord!.word)!['attempts']++;
+  try {
+    // Pasar la lista de palabras desde el widget
+    final nextWord = await WordRepository.getWordsForRandomPractice(words: widget.words);
 
-            if (!lastPracticedWords.contains(currentWord!.id)) {
-              lastPracticedWords.insert(0, currentWord!.id!);
-              if (lastPracticedWords.length > 3) {
-                lastPracticedWords.removeLast();
-              }
+    if (mounted) {
+      setState(() {
+        currentWord = nextWord;
+        isLoading = false;
+        if (currentWord != null) {
+          TextToSpeechService.speak(currentWord!.word);
+          currentWordIncorrectCount =
+              currentWord!.totalIncorrectCount; //  CARGAR ERRORES
+          if (practiceSummary.firstWhereOrNull(
+                  (element) => element['word'] == currentWord!.word) ==
+              null) {
+            practiceSummary.add({
+              'word': currentWord!.word,
+              'attempts': 0,
+              'errors': 0,
+            });
+          }
+          practiceSummary.firstWhereOrNull((element) =>
+              element['word'] == currentWord!.word)!['attempts']++;
+
+          if (!lastPracticedWords.contains(currentWord!.id)) {
+            lastPracticedWords.insert(0, currentWord!.id!);
+            if (lastPracticedWords.length > 3) {
+              lastPracticedWords.removeLast();
             }
           }
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-          SnackBar(content: Text("Error al cargar la palabra: $e")),
-        );
-        setState(() {
-          isLoading = false;
-        });
-      }
+        }
+      });
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+        SnackBar(content: Text("Error al cargar la palabra: $e")),
+      );
+      setState(() {
+        isLoading = false;
+      });
     }
   }
+}
 
-  Future<void> _recordPracticeResult(bool isCorrect, Word word) async { // Add Word parameter
+  Future<void> _recordPracticeResult(bool isCorrect, Word word) async {
+    // Add Word parameter
     if (currentWord == null) return;
 
     try {
@@ -118,8 +124,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
 
       await WordRepository.updateWordCounters(currentWord!.id!, isCorrect);
 
-      setState(() {
-        if (isCorrect) {
+      if (isCorrect) {
           totalCorrectCount++;
         } else {
           totalIncorrectCount++;
@@ -131,7 +136,8 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
             wordSummary['errors']++;
           }
         }
-      });
+
+      setState(() {});
 
       _loadNextWord(); // Cargar la siguiente palabra
     } catch (e) {
@@ -153,7 +159,15 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
   Widget build(BuildContext context) {
     if (!gameStarted) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Práctica Aleatoria")),
+        appBar: AppBar(
+          title: const Text("Práctica Aleatoria"),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              Navigator.pop(context);
+            },
+          ),
+        ),
         body: Center(
           child: ElevatedButton(
             child: const Text("Comenzar Práctica"),
@@ -224,7 +238,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                 const CircularProgressIndicator(),
               ] else if (currentWord != null) ...[
                 Text(
-                    "Aciertos: $totalCorrectCount | Errores: $totalIncorrectCount | Errores en palabra: $currentWordIncorrectCount"),
+                    "Aciertos: $totalCorrectCount | Errores: $totalIncorrectCount"), // | Errores en palabra: $currentWordIncorrectCount"),
                 const SizedBox(height: 8),
                 Center(
                   //Centra el Card
