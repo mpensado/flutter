@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_session.dart';
 import 'package:spelling_bee_practice/presentation/bloc/practice_bloc.dart';
+import 'package:spelling_bee_practice/presentation/bloc/practice_event.dart';
+import 'package:spelling_bee_practice/presentation/bloc/practice_state.dart';
 import 'package:spelling_bee_practice/presentation/widgets/shared/word_card_practice.dart';
 import 'package:spelling_bee_practice/presentation/screens/home/random_practice_view.dart'; // Importa la vista
 
@@ -93,8 +95,8 @@ class _PracticeTabState extends State<PracticeTab> {
                   },
                 ),
                 Positioned(
-                    bottom: 20,
-                    right: 20,
+                    bottom: 40,
+                    right: 40,
                     child: FloatingActionButton(
                       onPressed: () {
                         Navigator.push(
@@ -111,13 +113,16 @@ class _PracticeTabState extends State<PracticeTab> {
                           }
                         });
                       },
-                      backgroundColor: Colors.transparent,
+                      shape: CircleBorder( // Forma redonda
+                        side: BorderSide(color: Colors.yellowAccent, width: 6.0), // Contorno amarillo
+                      ),
+                      backgroundColor: Colors.white,
                       elevation: 0,
                       focusElevation: 0,
                       hoverElevation:0,
                       highlightElevation:0,
                       disabledElevation: 0,
-                      child: Image.asset('assets/icon/icon.png', width: 54, height: 54),
+                      child: Image.asset('assets/icon/icon.png', width: 40, height: 40),
                     )),
               ]);
             } else if (state is PracticeError) {

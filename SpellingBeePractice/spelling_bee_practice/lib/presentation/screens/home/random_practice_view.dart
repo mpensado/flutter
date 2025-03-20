@@ -128,17 +128,6 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
 
       await WordRepository.updateWordCounters(currentWord!.id!, isCorrect);
 
-      // // Actualizar la base de datos
-      // await db.update(
-      //   DBHelper().tableWords,
-      //   {
-      //     'correct_count': currentWord!.correctCount,
-      //     'total_incorrect_count': currentWord!.totalIncorrectCount,
-      //   },
-      //   where: 'id = ?',
-      //   whereArgs: [currentWord!.id],
-      // );
-
       setState(() {
         if (isCorrect) {
           totalCorrectCount++;

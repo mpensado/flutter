@@ -10,6 +10,22 @@ class WordRepository {
 
   static const _selectedListsKey = 'selected_lists'; // Clave para SharedPreferences
 
+  static Future<List<Word>> getFilteredWords(String filter) async {
+  final db = await DBHelper().database;
+  final List<Map<String, dynamic>> wordsMap = await db.query(DBHelper().tableWords);
+  List<Word> words = wordsMap.map((map) => Word.fromMap(map)).toList();
+
+  if (filter == 'Por practicar') {
+    return words
+        .where((word) => word.totalIncorrectCount > 0)
+        .toList()
+      ..sort((a, b) => b.totalIncorrectCount.compareTo(a.totalIncorrectCount));
+  } else if (filter != 'Todo') {
+    return words.where((word) => word.lists.contains(filter)).toList();
+  }
+  return words; // Retorna todas las palabras si el filtro es 'Todo'
+}
+
   // Obtener una palabra por su texto (para verificar duplicados).
   static Future<Word?> getWordByText(String wordText) async {
     final db = await DBHelper().database;
