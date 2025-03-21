@@ -5,15 +5,14 @@ import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/word_repository.dart';
 import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart';
 import 'package:path/path.dart';
-import 'dart:async'; // Importante para Timer (debounce)
+import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:spelling_bee_practice/presentation/widgets/shared/word_card_practice.dart';
 
 class RandomPracticeView extends StatefulWidget {
   final List<Word> words;
   final String filter;
-  const RandomPracticeView(
-      {super.key, required this.words, required this.filter});
+  const RandomPracticeView({super.key, required this.words, required this.filter});
 
   @override
   State<RandomPracticeView> createState() => _RandomPracticeViewState();
@@ -22,17 +21,16 @@ class RandomPracticeView extends StatefulWidget {
 class _RandomPracticeViewState extends State<RandomPracticeView> {
   Word? currentWord;
   bool hasRepeated = false;
-  bool isLoading = false; // Para mostrar un indicador de carga
-  List<int> lastPracticedWords = []; //Para controlar el espaciado.
+  bool isLoading = false;
+  List<int> lastPracticedWords = [];
   final AudioPlayer _audioPlayer = AudioPlayer();
-  int totalCorrectCount = 0; // Aciertos totales en la sesión
-  int totalIncorrectCount = 0; // Errores totales en la sesión
-  int currentWordIncorrectCount = 0; //Errores para la palabra actual.
-  bool gameStarted = false; // Para el botón de inicio
-  bool practiceEnded = false; // Para mostrar el resumen final
-  List<Map<String, dynamic>> practiceSummary = []; // Lista para el resumen
+  int totalCorrectCount = 0;
+  int totalIncorrectCount = 0;
+  int currentWordIncorrectCount = 0;
+  bool gameStarted = false;
+  bool practiceEnded = false;
+  List<Map<String, dynamic>> practiceSummary = [];
 
-  // Se agregan estas nuevas variables para manejar la data del mensaje final.
   String practiceMessage = "";
   List<String> practiceIncorrectWords = [];
   List<String> practiceCorrectWords = [];
@@ -51,9 +49,9 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
       totalCorrectCount = 0;
       totalIncorrectCount = 0;
       currentWordIncorrectCount = 0;
-      gameStarted = false; // Resetear
-      practiceEnded = false; // Resetear
-      practiceSummary.clear(); // Limpiar el resumen
+      gameStarted = false;
+      practiceEnded = false;
+      practiceSummary.clear();
       lastPracticedWords = [];
     });
   }
@@ -62,31 +60,25 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     setState(() {
       isLoading = true;
       hasRepeated = false;
-      // currentWordIncorrectCount = 0; // NO REINICIAR AQUÍ
     });
 
     try {
-      final nextWord =
-          await WordRepository.getWordsForRandomPractice(words: widget.words);
+      final nextWord = await WordRepository.getWordsForRandomPractice(words: widget.words);
       if (mounted) {
         setState(() {
           currentWord = nextWord;
           isLoading = false;
           if (currentWord != null) {
             TextToSpeechService.speak(currentWord!.word);
-            currentWordIncorrectCount =
-                currentWord!.totalIncorrectCount; //  CARGAR ERRORES
-            if (practiceSummary.firstWhereOrNull(
-                    (element) => element['word'] == currentWord!.word) ==
-                null) {
+            currentWordIncorrectCount = currentWord!.totalIncorrectCount;
+            if (practiceSummary.firstWhereOrNull((element) => element['word'] == currentWord!.word) == null) {
               practiceSummary.add({
                 'word': currentWord!.word,
                 'attempts': 0,
                 'errors': 0,
               });
             }
-            practiceSummary.firstWhereOrNull((element) =>
-                element['word'] == currentWord!.word)!['attempts']++;
+            practiceSummary.firstWhereOrNull((element) => element['word'] == currentWord!.word)!['attempts']++;
 
             if (!lastPracticedWords.contains(currentWord!.id)) {
               lastPracticedWords.insert(0, currentWord!.id!);
@@ -110,20 +102,17 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
   }
 
   Future<void> _recordPracticeResult(bool isCorrect, Word word) async {
-    // Add Word parameter
     if (currentWord == null) return;
 
     try {
       final dbHelper = DBHelper();
       final db = await dbHelper.database;
-      // Usar la nueva columna session_type.  NO usamos sessionID en la práctica aleatoria.
       await db.insert('practice_history', {
-        'word_id': word.id, // Use the passed word
-        'session_id':
-            -1, // Usar un valor centinela (-1) o NULL para indicar que no hay sesión.
+        'word_id': word.id,
+        'session_id': -1,
         'is_correct': isCorrect ? 1 : 0,
         'practiced_at': DateTime.now().toIso8601String(),
-        'session_type': 'random', //  Valor para la práctica aleatoria.
+        'session_type': 'random',
       });
 
       await WordRepository.updateWordCounters(currentWord!.id!, isCorrect);
@@ -134,52 +123,51 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
         } else {
           totalIncorrectCount++;
           currentWordIncorrectCount++;
-          // Actualizar errores en el resumen
-          final wordSummary = practiceSummary.firstWhereOrNull(
-              (element) => element['word'] == currentWord!.word);
+          final wordSummary = practiceSummary.firstWhereOrNull((element) => element['word'] == currentWord!.word);
           if (wordSummary != null) {
             wordSummary['errors']++;
           }
         }
       });
 
-      _loadNextWord(); // Cargar la siguiente palabra
+      _loadNextWord();
     } catch (e) {
       if (mounted) {
-        //Siempre comprobar.
-        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-            SnackBar(content: Text("Error al guardar el resultado: $e")));
+        ScaffoldMessenger.of(context as BuildContext).showSnackBar(SnackBar(content: Text("Error al guardar el resultado: $e")));
       }
     }
   }
 
   void _endPractice() {
     double average;
-    String message;
+    String messageL1="";
+    String messageL2="";
     List<String> incorrectWords = [];
     List<String> correctWords = [];
 
-    // Calcular promedio
     if (practiceSummary.isNotEmpty) {
       average = (totalCorrectCount / practiceSummary.length) * 100;
     } else {
       average = 0;
     }
 
-    // Determinar mensaje
     if (average == 100) {
-      message = "¡Excelente! Todas tus palabras fueron correctas.";
+      messageL1 = "¡Excelente!";
+      messageL2 = "Todas tus palabras fueron correctas.";
     } else if (average >= 80) {
-      message = "¡Felicidades! Casi todas tus palabras fueron correctas.";
+      messageL1 = "¡Felicidades!";
+      messageL2 = "Casi todas tus palabras fueron correctas.";
     } else if (average >= 51) {
-      message = "¡Bien! Algunas palabras necesitan un repaso.";
+      messageL1 = "¡Bien!";
+      messageL2 = "Algunas palabras necesitan un repaso.";
     } else if (average >= 31) {
-      message = "¡A practicar! Hay varias palabras por mejorar.";
+      messageL1 = "¡A practicar!";
+      messageL2 = "Hay varias palabras por mejorar.";
     } else {
-      message = "¡Necesitas más práctica! No te desanimes.";
+      messageL1 = "¡Necesitas más práctica!";
+      messageL1 = "No te desanimes.";
     }
 
-    // Separar palabras correctas e incorrectas
     for (var summary in practiceSummary) {
       if (summary['errors'] > 0) {
         incorrectWords.add(summary['word']);
@@ -190,11 +178,17 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
 
     setState(() {
       practiceEnded = true; // Mostrar resumen
-      practiceMessage = message;
+      practiceMessage = "$messageL1 $messageL2"; // Mantener mensaje completo para otros usos
       practiceIncorrectWords = incorrectWords;
       practiceCorrectWords = correctWords;
+      // Asignar mensajes a variables separadas
+      this.messageL1 = messageL1;
+      this.messageL2 = messageL2;
     });
   }
+
+  String messageL1 = "";
+  String messageL2 = "";
 
   @override
   Widget build(BuildContext context) {
@@ -208,14 +202,14 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
               setState(() {
                 gameStarted = true;
               });
-              _loadNextWord(); // Iniciar carga de palabras
+              _loadNextWord();
             },
           ),
         ),
       );
     }
-
     if (practiceEnded) {
+      final screenWidth = MediaQuery.of(context).size.width; // Obtener ancho de la pantalla
       return Scaffold(
         appBar: AppBar(
           title: const Text("Práctica Aleatoria - Resumen"),
@@ -224,54 +218,121 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: SingleChildScrollView(
-              //Agregado para permitir scroll en caso de mucho texto.
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    practiceMessage,
+                    messageL1,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    messageL2,
+                    textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Aciertos", style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text("$totalCorrectCount"),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Errores", style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text("$totalIncorrectCount"),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("Practicadas", style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text("${practiceSummary.length}"),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   if (practiceIncorrectWords.isNotEmpty) ...[
                     const Text(
                       "Palabras por practicar:",
-                      textAlign:TextAlign.center,
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: practiceIncorrectWords
-                          .map((word) => Text("- $word"))
-                          .toList(),
+                    SizedBox( // Usar SizedBox para establecer el ancho fijo
+                      width: screenWidth,
+                      child: Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Wrap(
+                            spacing: 8.0,
+                            runSpacing: 8.0,
+                            children: practiceIncorrectWords.map((word) {
+                              return Chip(
+                                label: Text(word),
+                                backgroundColor: Colors.red[100],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 10),
                   ],
                   if (practiceCorrectWords.isNotEmpty) ...[
                     const Text(
                       "Palabras correctas:",
-                      textAlign:TextAlign.center,
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: practiceCorrectWords
-                          .map((word) => Text("- $word"))
-                          .toList(),
+                    SizedBox( // Usar SizedBox para establecer el ancho fijo
+                      width: screenWidth,
+                      child: Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Wrap(
+                            spacing: 8.0,
+                            runSpacing: 8.0,
+                            children: practiceCorrectWords.map((word) {
+                              return Chip(
+                                label: Text(word),
+                                backgroundColor: Colors.green[100],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20),
                   ],
-                  Text(
-                    "Aciertos: $totalCorrectCount | Errores: $totalIncorrectCount | Practicadas: ${practiceSummary.length}",
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _startNewPractice,
-                    child: const Text("Nueva Práctica"),
+                  Center(
+                    child: ElevatedButton(
+                      onPressed: _startNewPractice,
+                      child: const Text("Nueva Práctica"),
+                    ),
                   )
                 ],
               ),
@@ -303,8 +364,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                     children: [
                       Text(
                         'Filtro Aplicado: ${widget.filter}',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         'Palabras en la lista: ${widget.words.length}',
@@ -317,11 +377,9 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
               if (isLoading) ...[
                 const CircularProgressIndicator(),
               ] else if (currentWord != null) ...[
-                Text(
-                    "Aciertos: $totalCorrectCount | Errores: $totalIncorrectCount"),
+                Text("Aciertos: $totalCorrectCount | Errores: $totalIncorrectCount"),
                 const SizedBox(height: 8),
                 Center(
-                  //Centra el Card
                   child: WordCardPractice(
                     key: ValueKey(currentWord!.id),
                     word: currentWord!,
@@ -329,9 +387,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                     onRecordPracticeCallback: (word, isCorrect) {
                       _recordPracticeResult(isCorrect, word);
                     },
-                    //practicedWords: {},
                     selectedSession: null,
-                    //resetCounter: 0,
                     showRemoveButton: false,
                   ),
                 ),
@@ -343,7 +399,6 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
         ),
       ),
       floatingActionButton: Column(
-        //Dos botones flotantes
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
@@ -364,7 +419,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
 
   @override
   void dispose() {
-    _audioPlayer.dispose(); // Liberar recursos
+    _audioPlayer.dispose();
     super.dispose();
   }
 }
