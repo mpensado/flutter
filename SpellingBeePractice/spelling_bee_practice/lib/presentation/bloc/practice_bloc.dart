@@ -20,7 +20,7 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
         if (event.selectedSession != null) {
           filter = event.selectedSession!.name;
         }
-        List<Word> filteredWords = await WordRepository.getFilteredWords(filter);
+        List<Word> filteredWords = await WordRepository.getWordsByLists([filter]);
         List<String> lists =
             await WordRepository.getAllLists(); // Obtener la lista de listas
         emit(PracticeLoaded(
@@ -33,10 +33,8 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
     Future<void> _onChangeFilterEvent(
         ChangeFilterEvent event, Emitter<PracticeState> emit) async {
       try {
-        List<Word> filteredWords =
-            await WordRepository.getFilteredWords(event.filter);
-        List<String> lists =
-            await WordRepository.getAllLists(); // Obtener la lista de listas
+        List<Word> filteredWords = await WordRepository.getWordsByLists([event.filter]);
+        List<String> lists = await WordRepository.getAllLists(); // Obtener la lista de listas
         emit(PracticeLoaded(
             words: filteredWords, lists: lists, filter: event.filter));
       } catch (e) {
@@ -50,7 +48,7 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       final currentState = state as PracticeLoaded;
       try {
         List<Word> filteredWords =
-            await WordRepository.getFilteredWords(currentState.filter);
+            await WordRepository.getWordsByLists([currentState.filter]);
         List<String> lists =
             await WordRepository.getAllLists(); // Obtener la lista de listas
         emit(PracticeLoaded(
@@ -65,12 +63,9 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       // ... (tu código existente para eliminar la palabra)
       final currentState = state as PracticeLoaded;
       try {
-        List<Word> filteredWords =
-            await WordRepository.getFilteredWords(currentState.filter);
-        List<String> lists =
-            await WordRepository.getAllLists(); // Obtener la lista de listas
-        emit(PracticeLoaded(
-            words: filteredWords, lists: lists, filter: currentState.filter));
+        List<Word> filteredWords = await WordRepository.getWordsByLists([currentState.filter]);
+        List<String> lists = await WordRepository.getAllLists(); // Obtener la lista de listas
+        emit(PracticeLoaded(words: filteredWords, lists: lists, filter: currentState.filter));
       } catch (e) {
         emit(PracticeError(message: e.toString()));
       }

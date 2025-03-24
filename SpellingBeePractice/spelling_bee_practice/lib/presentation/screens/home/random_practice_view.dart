@@ -12,7 +12,8 @@ import 'package:spelling_bee_practice/presentation/widgets/shared/word_card_prac
 class RandomPracticeView extends StatefulWidget {
   final List<Word> words;
   final String filter;
-  const RandomPracticeView({super.key, required this.words, required this.filter});
+  const RandomPracticeView(
+      {super.key, required this.words, required this.filter});
 
   @override
   State<RandomPracticeView> createState() => _RandomPracticeViewState();
@@ -30,6 +31,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
   bool gameStarted = false;
   bool practiceEnded = false;
   List<Map<String, dynamic>> practiceSummary = [];
+  List<Map<String, dynamic>> wordsAttempts = [];
 
   String practiceMessage = "";
   List<String> practiceIncorrectWords = [];
@@ -63,7 +65,8 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     });
 
     try {
-      final nextWord = await WordRepository.getWordsForRandomPractice(words: widget.words);
+      final nextWord =
+          await WordRepository.getWordsForRandomPractice(words: widget.words);
       if (mounted) {
         setState(() {
           currentWord = nextWord;
@@ -71,14 +74,16 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
           if (currentWord != null) {
             TextToSpeechService.speak(currentWord!.word);
             currentWordIncorrectCount = currentWord!.totalIncorrectCount;
-            if (practiceSummary.firstWhereOrNull((element) => element['word'] == currentWord!.word) == null) {
+            if (practiceSummary.firstWhereOrNull(
+                    (element) => element['word'] == currentWord!.word) ==
+                null) {
               practiceSummary.add({
                 'word': currentWord!.word,
                 'attempts': 0,
                 'errors': 0,
               });
             }
-            practiceSummary.firstWhereOrNull((element) => element['word'] == currentWord!.word)!['attempts']++;
+            // practiceSummary.firstWhereOrNull((element) => element['word'] == currentWord!.word)!['attempts']++;
 
             if (!lastPracticedWords.contains(currentWord!.id)) {
               lastPracticedWords.insert(0, currentWord!.id!);
@@ -114,6 +119,8 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
         'practiced_at': DateTime.now().toIso8601String(),
         'session_type': 'random',
       });
+      practiceSummary.firstWhereOrNull(
+          (element) => element['word'] == currentWord!.word)!['attempts']++;
 
       await WordRepository.updateWordCounters(currentWord!.id!, isCorrect);
 
@@ -123,7 +130,8 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
         } else {
           totalIncorrectCount++;
           currentWordIncorrectCount++;
-          final wordSummary = practiceSummary.firstWhereOrNull((element) => element['word'] == currentWord!.word);
+          final wordSummary = practiceSummary.firstWhereOrNull(
+              (element) => element['word'] == currentWord!.word);
           if (wordSummary != null) {
             wordSummary['errors']++;
           }
@@ -133,57 +141,73 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
       _loadNextWord();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context as BuildContext).showSnackBar(SnackBar(content: Text("Error al guardar el resultado: $e")));
+        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
+            SnackBar(content: Text("Error al guardar el resultado: $e")));
       }
     }
   }
 
   void _endPractice() {
     double average;
-    String messageL1="";
-    String messageL2="";
+    String messageL1 = "";
+    String messageL2 = "";
     List<String> incorrectWords = [];
     List<String> correctWords = [];
 
-    if (practiceSummary.isNotEmpty) {
-      average = (totalCorrectCount / practiceSummary.length) * 100;
-    } else {
-      average = 0;
-    }
+    wordsAttempts =
+        practiceSummary.where((summary) => summary['attempts'] > 0).toList();
 
-    if (average == 100) {
-      messageL1 = "¡Excelente!";
-      messageL2 = "Todas tus palabras fueron correctas.";
-    } else if (average >= 80) {
-      messageL1 = "¡Felicidades!";
-      messageL2 = "Casi todas tus palabras fueron correctas.";
-    } else if (average >= 51) {
-      messageL1 = "¡Bien!";
-      messageL2 = "Algunas palabras necesitan un repaso.";
-    } else if (average >= 31) {
-      messageL1 = "¡A practicar!";
-      messageL2 = "Hay varias palabras por mejorar.";
-    } else {
-      messageL1 = "¡Necesitas más práctica!";
-      messageL1 = "No te desanimes.";
-    }
-
-    for (var summary in practiceSummary) {
-      if (summary['errors'] > 0) {
-        incorrectWords.add(summary['word']);
+    if (wordsAttempts.isNotEmpty) {
+      if (practiceSummary.isNotEmpty) {
+        average = (totalCorrectCount / practiceSummary.length) * 100;
       } else {
-        correctWords.add(summary['word']);
+        average = 0;
       }
+
+      if (average == 100) {
+        messageL1 = "¡Excelente!";
+        messageL2 = "Todas tus palabras fueron correctas.";
+      } else if (average >= 80) {
+        messageL1 = "¡Felicidades!";
+        messageL2 = "Casi todas tus palabras fueron correctas.";
+      } else if (average >= 51) {
+        messageL1 = "¡Bien!";
+        messageL2 = "Algunas palabras necesitan un repaso.";
+      } else if (average >= 31) {
+        messageL1 = "¡A practicar!";
+        messageL2 = "Hay varias palabras por mejorar.";
+      } else {
+        messageL1 = "¡Necesitas más práctica!";
+        messageL1 = "No te desanimes.";
+      }
+
+      for (var summary in practiceSummary) {
+        if (summary['errors'] > 0) {
+          incorrectWords.add(summary['word']);
+        } else {
+          correctWords.add(summary['word']);
+        }
+      }
+    } else {
+      messageL1 = "";
+      messageL2 = "";
+      practiceSummary.clear();
     }
 
     setState(() {
       practiceEnded = true; // Mostrar resumen
-      practiceMessage = "$messageL1 $messageL2"; // Mantener mensaje completo para otros usos
+      practiceMessage =
+          "$messageL1 $messageL2"; // Mantener mensaje completo para otros usos
       practiceIncorrectWords = incorrectWords;
       practiceCorrectWords = correctWords;
       // Asignar mensajes a variables separadas
       this.messageL1 = messageL1;
       this.messageL2 = messageL2;
+
+      if (practiceCorrectWords.isNotEmpty) {
+        practiceCorrectWords.removeLast();
+      }
+
     });
   }
 
@@ -209,7 +233,8 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
       );
     }
     if (practiceEnded) {
-      final screenWidth = MediaQuery.of(context).size.width; // Obtener ancho de la pantalla
+      final screenWidth =
+          MediaQuery.of(context).size.width; // Obtener ancho de la pantalla
       return Scaffold(
         appBar: AppBar(
           title: const Text("Práctica Aleatoria - Resumen"),
@@ -222,16 +247,24 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    messageL1,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                  Center(
+                    // Envuelve los Text en un widget Center
+                    child: Text(
+                      messageL1,
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                    ),
                   ),
                   const SizedBox(height: 20),
-                  Text(
-                    messageL2,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Center(
+                    // Envuelve los Text en un widget Center
+                    child: Text(
+                      messageL2,
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -243,7 +276,9 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text("Aciertos", style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text("Aciertos",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text("$totalCorrectCount"),
                             ],
                           ),
@@ -255,7 +290,9 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text("Errores", style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text("Errores",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                               Text("$totalIncorrectCount"),
                             ],
                           ),
@@ -267,8 +304,10 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text("Practicadas", style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text("${practiceSummary.length}"),
+                              Text("Palabras",
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              Text("${wordsAttempts.length}"),
                             ],
                           ),
                         ),
@@ -280,9 +319,11 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                     const Text(
                       "Palabras por practicar:",
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    SizedBox( // Usar SizedBox para establecer el ancho fijo
+                    SizedBox(
+                      // Usar SizedBox para establecer el ancho fijo
                       width: screenWidth,
                       child: Card(
                         child: Padding(
@@ -306,9 +347,11 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                     const Text(
                       "Palabras correctas:",
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    SizedBox( // Usar SizedBox para establecer el ancho fijo
+                    SizedBox(
+                      // Usar SizedBox para establecer el ancho fijo
                       width: screenWidth,
                       child: Card(
                         child: Padding(
@@ -364,7 +407,8 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                     children: [
                       Text(
                         'Filtro Aplicado: ${widget.filter}',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         'Palabras en la lista: ${widget.words.length}',
@@ -377,7 +421,8 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
               if (isLoading) ...[
                 const CircularProgressIndicator(),
               ] else if (currentWord != null) ...[
-                Text("Aciertos: $totalCorrectCount | Errores: $totalIncorrectCount"),
+                Text(
+                    "Aciertos: $totalCorrectCount | Errores: $totalIncorrectCount"),
                 const SizedBox(height: 8),
                 Center(
                   child: WordCardPractice(

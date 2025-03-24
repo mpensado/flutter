@@ -114,7 +114,7 @@ class _PracticeTabState extends State<PracticeTab> {
                         });
                       },
                       shape: CircleBorder( // Forma redonda
-                        side: BorderSide(color: Colors.yellowAccent, width: 6.0), // Contorno amarillo
+                        side: BorderSide(color: Colors.yellowAccent, width: 3.0), // Contorno amarillo
                       ),
                       backgroundColor: Colors.white,
                       elevation: 0,
