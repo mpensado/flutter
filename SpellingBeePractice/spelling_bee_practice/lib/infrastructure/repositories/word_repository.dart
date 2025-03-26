@@ -400,10 +400,11 @@ class WordRepository {
           whereArgs: [wordId],
         );
         //Si el contador de incorrecto es igual a 0, entonces incrementamos el correcto
-        if (wordData.first['incorrect_count'] == 0) {
+        if (wordData.first['incorrect_count'] == 1) {
           await db.rawUpdate('''
               UPDATE ${DBHelper().tableWords}
               SET correct_count = correct_count + 1,
+                  incorrect_count = 0,
                   total_incorrect_count = 0
               WHERE id = ?
               ''', [wordId]);

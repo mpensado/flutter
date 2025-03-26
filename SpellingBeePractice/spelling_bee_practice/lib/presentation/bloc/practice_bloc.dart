@@ -1,5 +1,7 @@
 import 'package:bloc/bloc.dart';
+import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
+import 'package:spelling_bee_practice/infrastructure/repositories/practice_session_repository.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/word_repository.dart';
 import 'package:spelling_bee_practice/presentation/bloc/practice_event.dart';
 import 'package:spelling_bee_practice/presentation/bloc/practice_state.dart';
@@ -42,21 +44,42 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       }
     }
 
-    Future<void> _onRecordPracticeEvent(
-        RecordPracticeEvent event, Emitter<PracticeState> emit) async {
-      // ... (tu código existente para actualizar la base de datos)
+    Future<void> _onRecordPracticeEvent(RecordPracticeEvent event, Emitter<PracticeState> emit) async {
       final currentState = state as PracticeLoaded;
-      try {
-        List<Word> filteredWords =
-            await WordRepository.getWordsByLists([currentState.filter]);
-        List<String> lists =
-            await WordRepository.getAllLists(); // Obtener la lista de listas
-        emit(PracticeLoaded(
-            words: filteredWords, lists: lists, filter: currentState.filter));
-      } catch (e) {
-        emit(PracticeError(message: e.toString()));
+    try {
+      final history = PracticeHistory( // Construye el objeto PracticeHistory
+        wordId: event.word.id!,
+        sessionId: event.session?.id ?? -1, // Usa -1 si no hay sesión
+        isCorrect: event.isCorrect,
+        practicedAt: DateTime.now(),
+        sessionType: event.session != null ? "custom" : "list",
+      );
+      if (event.session != null) {
+        await PracticeSessionRepository.insertHistory(history);
+      } else {
+        await PracticeSessionRepository.insertHistory(history);
       }
+      await WordRepository.updateWordCounters(event.word.id!, event.isCorrect);
+      // Obtener la palabra actualizada de la base de datos
+      final updatedWord = await WordRepository.getWordById(event.word.id!);
+
+      // Emitir un nuevo estado PracticeLoaded si el estado actual es PracticeLoaded
+      if (state is PracticeLoaded) {
+        final loadedState = state as PracticeLoaded;
+        List<Word> updatedWords = loadedState.words.map((word) {
+          if (word.id == event.word.id) {
+            // Devuelve la palabra actualizada
+            return updatedWord!;
+          }
+          return word;
+        }).toList();
+
+        emit(PracticeLoaded(words: updatedWords, lists: loadedState.lists, filter: currentState.filter));
+      }
+    } catch (e) {
+      emit(PracticeError(message: e.toString()));
     }
+  }
 
     Future<void> _onRemoveWordEvent(
         RemoveWordEvent event, Emitter<PracticeState> emit) async {

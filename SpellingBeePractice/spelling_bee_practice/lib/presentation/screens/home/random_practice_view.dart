@@ -32,6 +32,8 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
   bool practiceEnded = false;
   List<Map<String, dynamic>> practiceSummary = [];
   List<Map<String, dynamic>> wordsAttempts = [];
+  List<Map<String, dynamic>> wordsCorrect = [];
+  List<Map<String, dynamic>> wordsIncorrect = [];
 
   String practiceMessage = "";
   List<String> practiceIncorrectWords = [];
@@ -65,8 +67,21 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     });
 
     try {
-      final nextWord =
-          await WordRepository.getWordsForRandomPractice(words: widget.words);
+      List<Word> availableWords = widget.words.where((word) {
+      return !practiceSummary.any((summary) => summary['word'] == word.word);
+    }).toList();
+
+    if (availableWords.isEmpty) {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+        availableWords = widget.words;
+      }
+    }
+
+
+      final nextWord = await WordRepository.getWordsForRandomPractice(words: availableWords);
       if (mounted) {
         setState(() {
           currentWord = nextWord;
@@ -154,12 +169,13 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     List<String> incorrectWords = [];
     List<String> correctWords = [];
 
-    wordsAttempts =
-        practiceSummary.where((summary) => summary['attempts'] > 0).toList();
+    wordsAttempts = practiceSummary.where((summary) => summary['attempts'] > 0).toList();
+    wordsIncorrect= practiceSummary.where((summary) => summary['errors'] > 0).toList();
+    //wordsCorrect= practiceSummary.where((summary) => summary['correct_count'] > 0).toList();
 
     if (wordsAttempts.isNotEmpty) {
       if (practiceSummary.isNotEmpty) {
-        average = (totalCorrectCount / practiceSummary.length) * 100;
+        average = ((wordsAttempts.length - wordsIncorrect.length) / wordsAttempts.length) * 100;
       } else {
         average = 0;
       }
@@ -204,9 +220,9 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
       this.messageL1 = messageL1;
       this.messageL2 = messageL2;
 
-      if (practiceCorrectWords.isNotEmpty) {
-        practiceCorrectWords.removeLast();
-      }
+      // if (practiceCorrectWords.isNotEmpty) {
+      //   practiceCorrectWords.removeLast();
+      // }
 
     });
   }
