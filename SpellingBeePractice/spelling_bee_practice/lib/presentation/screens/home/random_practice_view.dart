@@ -68,20 +68,20 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
 
     try {
       List<Word> availableWords = widget.words.where((word) {
-      return !practiceSummary.any((summary) => summary['word'] == word.word);
-    }).toList();
+        return !practiceSummary.any((summary) => summary['word'] == word.word);
+      }).toList();
 
-    if (availableWords.isEmpty) {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-        availableWords = widget.words;
+      if (availableWords.isEmpty) {
+        if (mounted) {
+          setState(() {
+            isLoading = false;
+          });
+          availableWords = widget.words;
+        }
       }
-    }
 
-
-      final nextWord = await WordRepository.getWordsForRandomPractice(words: availableWords);
+      final nextWord = await WordRepository.getWordsForRandomPractice(
+          words: availableWords, filter: widget.filter);
       if (mounted) {
         setState(() {
           currentWord = nextWord;
@@ -169,13 +169,17 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     List<String> incorrectWords = [];
     List<String> correctWords = [];
 
-    wordsAttempts = practiceSummary.where((summary) => summary['attempts'] > 0).toList();
-    wordsIncorrect= practiceSummary.where((summary) => summary['errors'] > 0).toList();
+    wordsAttempts =
+        practiceSummary.where((summary) => summary['attempts'] > 0).toList();
+    wordsIncorrect =
+        practiceSummary.where((summary) => summary['errors'] > 0).toList();
     //wordsCorrect= practiceSummary.where((summary) => summary['correct_count'] > 0).toList();
 
     if (wordsAttempts.isNotEmpty) {
       if (practiceSummary.isNotEmpty) {
-        average = ((wordsAttempts.length - wordsIncorrect.length) / wordsAttempts.length) * 100;
+        average = ((wordsAttempts.length - wordsIncorrect.length) /
+                wordsAttempts.length) *
+            100;
       } else {
         average = 0;
       }
@@ -223,7 +227,6 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
       // if (practiceCorrectWords.isNotEmpty) {
       //   practiceCorrectWords.removeLast();
       // }
-
     });
   }
 
