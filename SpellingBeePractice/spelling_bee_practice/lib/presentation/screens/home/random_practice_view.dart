@@ -162,73 +162,84 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     }
   }
 
-  void _endPractice() {
-    double average;
-    String messageL1 = "";
-    String messageL2 = "";
-    List<String> incorrectWords = [];
-    List<String> correctWords = [];
+  // En _RandomPracticeViewState:
 
-    wordsAttempts =
-        practiceSummary.where((summary) => summary['attempts'] > 0).toList();
-    wordsIncorrect =
-        practiceSummary.where((summary) => summary['errors'] > 0).toList();
-    //wordsCorrect= practiceSummary.where((summary) => summary['correct_count'] > 0).toList();
+Future<void> _endPractice() async {
+  final db = DBHelper();
+  final database = await db.database;
+  double average;
+  String messageL1 = "";
+  String messageL2 = "";
+  List<Map<String, dynamic>> incorrectWords = [];
+  List<Map<String, dynamic>> correctWords = [];
+  List<Map<String, dynamic>> attemptsWords = [];
 
-    if (wordsAttempts.isNotEmpty) {
-      if (practiceSummary.isNotEmpty) {
-        average = ((wordsAttempts.length - wordsIncorrect.length) /
-                wordsAttempts.length) *
-            100;
-      } else {
-        average = 0;
-      }
+  final List<Map<String, dynamic>> practiceHistory = await database.rawQuery('''
+    SELECT ph.word_id, w.word, ph.is_correct
+    FROM practice_history ph
+    INNER JOIN words w ON ph.word_id = w.id
+    WHERE ph.session_type = 'random'
+    AND ph.practiced_at IN (
+      SELECT MAX(practiced_at)
+      FROM practice_history
+      WHERE session_type = 'random'
+      GROUP BY word_id
+    )
+    AND ph.word_id IN (
+      SELECT id FROM words
+      WHERE id IN (${widget.words.map((word) => word.id).join(',')})
+    )
+  ''');
 
-      if (average == 100) {
-        messageL1 = "¡Excelente!";
-        messageL2 = "Todas tus palabras fueron correctas.";
-      } else if (average >= 80) {
-        messageL1 = "¡Felicidades!";
-        messageL2 = "Casi todas tus palabras fueron correctas.";
-      } else if (average >= 51) {
-        messageL1 = "¡Bien!";
-        messageL2 = "Algunas palabras necesitan un repaso.";
-      } else if (average >= 31) {
-        messageL1 = "¡A practicar!";
-        messageL2 = "Hay varias palabras por mejorar.";
-      } else {
-        messageL1 = "¡Necesitas más práctica!";
-        messageL1 = "No te desanimes.";
-      }
+  attemptsWords = practiceHistory.where((summary) => (summary['is_correct'] as int) == 1 || (summary['is_correct'] as int) == 0).toList();
 
-      for (var summary in practiceSummary) {
-        if (summary['errors'] > 0) {
-          incorrectWords.add(summary['word']);
-        } else {
-          correctWords.add(summary['word']);
-        }
-      }
+  if (attemptsWords.isNotEmpty) {
+    if (practiceHistory.isNotEmpty) {
+      average = (attemptsWords.where((summary) => (summary['is_correct'] as int) == 1).length /
+              attemptsWords.length) *
+          100;
     } else {
-      messageL1 = "";
-      messageL2 = "";
-      practiceSummary.clear();
+      average = 0;
     }
 
-    setState(() {
-      practiceEnded = true; // Mostrar resumen
-      practiceMessage =
-          "$messageL1 $messageL2"; // Mantener mensaje completo para otros usos
-      practiceIncorrectWords = incorrectWords;
-      practiceCorrectWords = correctWords;
-      // Asignar mensajes a variables separadas
-      this.messageL1 = messageL1;
-      this.messageL2 = messageL2;
+    if (average == 100) {
+      messageL1 = "¡Excelente!";
+      messageL2 = "Todas tus palabras fueron correctas.";
+    } else if (average >= 80) {
+      messageL1 = "¡Felicidades!";
+      messageL2 = "Casi todas tus palabras fueron correctas.";
+    } else if (average >= 51) {
+      messageL1 = "¡Bien!";
+      messageL2 = "Algunas palabras necesitan un repaso.";
+    } else if (average >= 31) {
+      messageL1 = "¡A practicar!";
+      messageL2 = "Hay varias palabras por mejorar.";
+    } else {
+      messageL1 = "¡Necesitas más práctica!";
+      messageL2 = "No te desanimes.";
+    }
 
-      // if (practiceCorrectWords.isNotEmpty) {
-      //   practiceCorrectWords.removeLast();
-      // }
-    });
+    for (var summary in practiceHistory) {
+      if ((summary['is_correct'] as int) == 0) {
+        incorrectWords.add(summary['word'] as Map<String, dynamic>);
+      } else {
+        correctWords.add(summary['word'] as Map<String, dynamic>);
+      }
+    }
+  } else {
+    messageL1 = "";
+    messageL2 = "";
   }
+
+  setState(() {
+    practiceEnded = true;
+    practiceMessage = "$messageL1 $messageL2";
+    practiceIncorrectWords = incorrectWords.cast<String>();
+    practiceCorrectWords = correctWords.cast<String>();
+    this.messageL1 = messageL1;
+    this.messageL2 = messageL2;
+  });
+}
 
   String messageL1 = "";
   String messageL2 = "";
