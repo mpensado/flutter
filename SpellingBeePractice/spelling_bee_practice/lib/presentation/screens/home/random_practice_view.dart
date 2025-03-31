@@ -1,6 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
+import 'package:spelling_bee_practice/domain/entities/word_practice.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/word_repository.dart';
 import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart';
@@ -10,7 +11,7 @@ import 'package:collection/collection.dart';
 import 'package:spelling_bee_practice/presentation/widgets/shared/word_card_practice.dart';
 
 class RandomPracticeView extends StatefulWidget {
-  final List<Word> words;
+  final List<WordPractice> words;
   final String filter;
   const RandomPracticeView(
       {super.key, required this.words, required this.filter});
@@ -20,7 +21,7 @@ class RandomPracticeView extends StatefulWidget {
 }
 
 class _RandomPracticeViewState extends State<RandomPracticeView> {
-  Word? currentWord;
+  WordPractice? currentWord;
   bool hasRepeated = false;
   bool isLoading = false;
   List<int> lastPracticedWords = [];
@@ -67,7 +68,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     });
 
     try {
-      List<Word> availableWords = widget.words.where((word) {
+      List<WordPractice> availableWords = widget.words.where((word) {
         return !practiceSummary.any((summary) => summary['word'] == word.word);
       }).toList();
 

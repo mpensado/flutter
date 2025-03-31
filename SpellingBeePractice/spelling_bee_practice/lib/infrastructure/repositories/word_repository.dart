@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart'; // Para firstWhereOrNull
 import 'dart:math';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
+import 'package:spelling_bee_practice/domain/entities/word_practice.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,25 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 class WordRepository {
   static const _selectedListsKey =
       'selected_lists'; // Clave para SharedPreferences
-
-  // static Future<List<Word>> getFilteredWords(String filter) async {
-  //   final db = await DBHelper().database;
-  //   final List<Map<String, dynamic>> wordsMap =
-  //       await db.query(DBHelper().tableWords);
-  //   List<Word> words = wordsMap.map((map) => Word.fromMap(map)).toList();
-  //   List<Word> wordsFiltered = [];
-
-  //   if (filter == 'Por practicar') {
-  //     wordsFiltered = words.where((word) => word.totalIncorrectCount > 0).toList()
-  //       ..sort(
-  //           (a, b) => b.totalIncorrectCount.compareTo(a.totalIncorrectCount));
-  //   } else if (filter != 'Todo') {
-  //     wordsFiltered = words.where((word) => word.lists.contains(filter)).toList();
-  //   } else{
-  //     wordsFiltered = words;
-  //   }
-  //   return wordsFiltered; // Retorna todas las palabras si el filtro es 'Todo'
-  // }
 
   // Obtener una palabra por su texto (para verificar duplicados).
   static Future<Word?> getWordByText(String wordText) async {
@@ -47,7 +29,7 @@ class WordRepository {
     }
   }
 
-  static Future<Word?> getWordById(int? wordId) async {
+  static Future<WordPractice?> getWordById(int? wordId) async {
     final db = await DBHelper().database;
     final List<Map<String, dynamic>> maps = await db.query(
       DBHelper().tableWords,
@@ -58,7 +40,7 @@ class WordRepository {
 
     if (maps.isNotEmpty) {
       final List<String> lists = await _getListsForWord(maps.first['id']);
-      return Word.fromMap(maps.first, lists: lists); // Usa el helper
+      return WordPractice.fromMap(maps.first, lists: lists); // Usa el helper
     } else {
       return null;
     }
@@ -184,7 +166,6 @@ class WordRepository {
       maps = await db.rawQuery('''
           SELECT DISTINCT w.*
           FROM ${DBHelper().tableWords} w
-          WHERE w.total_incorrect_count > 0
           ORDER BY $orderByClause
         ''');
     } else {
@@ -202,6 +183,37 @@ class WordRepository {
     }
 
     return await _mapToWords(maps);
+  }
+
+  static Future<List<WordPractice>> getWordsPracticeByLists(List<String> lists,
+      {String? sortOrder}) async {
+    final db = await DBHelper().database;
+    final orderByClause = _getOrderByClause(sortOrder);
+    List<Map<String, dynamic>> maps = [];
+
+    if (lists.contains("Por practicar")) {
+      // Modificar la consulta para obtener palabras de la lista "Por practicar"
+      maps = await db.rawQuery('''
+          SELECT DISTINCT w.*
+          FROM ${DBHelper().tableWords} w
+          WHERE w.total_incorrect_count > 0
+          ORDER BY $orderByClause
+        ''');
+    } else {
+      // Consulta original para otras listas
+      final placeholders = List.filled(lists.length, '?').join(',');
+      final whereClause = 'wl.list_name IN ($placeholders)';
+
+      maps = await db.rawQuery('''
+          SELECT DISTINCT w.*
+          FROM ${DBHelper().tableWords} w
+          INNER JOIN ${DBHelper().tableWordLists} wl ON w.id = wl.word_id
+          WHERE $whereClause
+          ORDER BY $orderByClause
+        ''', lists);
+    }
+
+    return await _mapToWordsPractice(maps);
   }
 
   // Buscar palabras (incluyendo búsqueda en listas).
@@ -239,6 +251,18 @@ class WordRepository {
   }
 
   // Helper function to convert query results to a list of Word objects.
+  static Future<List<WordPractice>> _mapToWordsPractice(List<Map<String, dynamic>> maps) async {
+    final List<WordPractice> words = [];
+    for (final map in maps) {
+      final List<String> lists = await _getListsForWord(map['id']);
+      if (lists.isNotEmpty) {
+        // Obtener las listas
+        words.add(WordPractice.fromMap(map, lists: lists)); // Crear la palabra
+      }
+    }
+    return words;
+  }
+
   static Future<List<Word>> _mapToWords(List<Map<String, dynamic>> maps) async {
     final List<Word> words = [];
     for (final map in maps) {
@@ -283,52 +307,72 @@ class WordRepository {
     }
   }
 
-  static Future<Word?> getWordsForRandomPractice(
-    {List<Word>? words, String? filter}) async {
+  static Future<WordPractice?> getWordsForRandomPractice(
+    {List<WordPractice>? words, String? filter}) async {
   final db = await DBHelper().database;
 
   try {
     // 1. Obtener TODAS las palabras (o las filtradas).
     List<Map<String, dynamic>> allWordsMap;
+    //TODO: Se tiene que agregar el left join  con history. Al paracer funciona el rawquery de abajo
+
+
     if (words != null && words.isNotEmpty) {
-      allWordsMap = await db.query(
-        DBHelper().tableWords,
-        where: 'id IN (${words.map((word) => word.id).join(',')})',
-      );
+      if (filter != null && filter != 'Todo') {
+        allWordsMap = await db.rawQuery('''
+        SELECT w.*,ph.correct_count, ph.incorrect_count, ph.total_incorrect_count
+        FROM practice_history ph
+        INNER JOIN words w ON ph.word_id = w.id
+        INNER JOIN word_lists wl ON w.id = wl.word_id
+        WHERE ph.session_type = 'random' 
+        AND wl.list_name = ?
+        ORDER BY ph.practiced_at DESC
+      ''', [filter]);
+      } else {
+        allWordsMap = await db.rawQuery('''
+        SELECT SELECT w.*,ph.correct_count, ph.incorrect_count, ph.total_incorrect_count
+        FROM practice_history ph
+        INNER JOIN words w ON ph.word_id = w.id
+        INNER JOIN word_lists wl ON w.id = wl.word_id
+        WHERE ph.session_type = 'random' 
+        ORDER BY ph.practiced_at DESC
+      ''');
+      }
     } else {
-      allWordsMap = await db.query(DBHelper().tableWords);
+      allWordsMap = [];
     }
-    final List<Word> allWords =
-        allWordsMap.map((map) => Word.fromMap(map)).toList();
+    
+    final List<WordPractice> allWords =
+        allWordsMap.map((map) => WordPractice.fromMap(map)).toList();
 
     // 2. Obtener el historial de práctica aleatoria.
     //filtrar por lista aquí
-    List<Map<String, dynamic>> practiceHistoryMap;
+    //List<Map<String, dynamic>> practiceHistoryMap;
 
-    if (filter != null && filter != 'Todo') {
-      practiceHistoryMap = await db.rawQuery('''
-      SELECT ph.* FROM practice_history ph
-      INNER JOIN words w ON ph.word_id = w.id
-      INNER JOIN word_lists wl ON w.id = wl.word_id
-      WHERE ph.session_type = 'random' 
-      AND wl.list_name = ?
-      ORDER BY ph.practiced_at DESC
-    ''', [filter]);
-    } else {
-      practiceHistoryMap = await db.query(
-        'practice_history',
-        where: "session_type = 'random'",
-        orderBy: 'practiced_at DESC',
-      );
-    }
+    // if (filter != null && filter != 'Todo') {
+    //   practiceHistoryMap = await db.rawQuery('''
+    //   SELECT ph.* FROM practice_history ph
+    //   INNER JOIN words w ON ph.word_id = w.id
+    //   INNER JOIN word_lists wl ON w.id = wl.word_id
+    //   WHERE ph.session_type = 'random' 
+    //   AND wl.list_name = ?
+    //   ORDER BY ph.practiced_at DESC
+    // ''', [filter]);
+    // } else {
+    //   practiceHistoryMap = await db.query(
+    //     'practice_history',
+    //     where: "session_type = 'random'",
+    //     orderBy: 'practiced_at DESC',
+    //   );
+    // }
 
-    final List<PracticeHistory> practiceHistory = practiceHistoryMap
+    final List<PracticeHistory> practiceHistory = allWordsMap
         .map((map) => PracticeHistory.fromMap(map))
         .toList();
 
     // 3. Dividir las palabras en grupos
-    final List<Word> neverPracticed = [];
-    final List<Word> incorrectWords = [];
+    final List<WordPractice> neverPracticed = [];
+    final List<WordPractice> incorrectWords = [];
 
     for (final word in allWords) {
       final lastPractice = practiceHistory.firstWhereOrNull(
@@ -343,10 +387,10 @@ class WordRepository {
     }
 
     // 4. Aplicar la lógica de prioridades y espaciado.
-    Word? selectedWord;
+    WordPractice? selectedWord;
 
     // Prioridad 1: Incorrectas con espaciado.
-    final List<Word> eligibleIncorrectWords = incorrectWords.where((word) {
+    final List<WordPractice> eligibleIncorrectWords = incorrectWords.where((word) {
       List<int> lastPracticedDistinctWordIds = [];
       for (final historyEntry in practiceHistory) {
         if (!lastPracticedDistinctWordIds.contains(historyEntry.wordId)) {

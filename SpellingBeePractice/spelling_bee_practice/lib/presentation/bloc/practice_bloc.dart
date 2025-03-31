@@ -1,6 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
-import 'package:spelling_bee_practice/domain/entities/word.dart';
+import 'package:spelling_bee_practice/domain/entities/word_practice.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/practice_session_repository.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/word_repository.dart';
 import 'package:spelling_bee_practice/presentation/bloc/practice_event.dart';
@@ -22,7 +22,7 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
         if (event.selectedSession != null) {
           filter = event.selectedSession!.name;
         }
-        List<Word> filteredWords = await WordRepository.getWordsByLists([filter]);
+        List<WordPractice> filteredWords = await WordRepository.getWordsPracticeByLists([filter]);
         List<String> lists =
             await WordRepository.getAllLists(); // Obtener la lista de listas
         emit(PracticeLoaded(
@@ -35,7 +35,7 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
     Future<void> _onChangeFilterEvent(
         ChangeFilterEvent event, Emitter<PracticeState> emit) async {
       try {
-        List<Word> filteredWords = await WordRepository.getWordsByLists([event.filter]);
+        List<WordPractice> filteredWords = await WordRepository.getWordsPracticeByLists([event.filter]);
         List<String> lists = await WordRepository.getAllLists(); // Obtener la lista de listas
         emit(PracticeLoaded(
             words: filteredWords, lists: lists, filter: event.filter));
@@ -52,7 +52,10 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
         sessionId: event.session?.id ?? -1, // Usa -1 si no hay sesión
         isCorrect: event.isCorrect,
         practicedAt: DateTime.now(),
-        sessionType: event.session != null ? "custom" : "list",
+        sessionType: event.session != null ? "custom" : "list", 
+        correctCount: 0, 
+        incorrectCount: 0,
+        totalIncorrectCount: 0,
       );
       if (event.session != null) {
         await PracticeSessionRepository.insertHistory(history);
@@ -66,7 +69,7 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       // Emitir un nuevo estado PracticeLoaded si el estado actual es PracticeLoaded
       if (state is PracticeLoaded) {
         final loadedState = state as PracticeLoaded;
-        List<Word> updatedWords = loadedState.words.map((word) {
+        List<WordPractice> updatedWords = loadedState.words.map((word) {
           if (word.id == event.word.id) {
             // Devuelve la palabra actualizada
             return updatedWord!;
@@ -86,7 +89,7 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       // ... (tu código existente para eliminar la palabra)
       final currentState = state as PracticeLoaded;
       try {
-        List<Word> filteredWords = await WordRepository.getWordsByLists([currentState.filter]);
+        List<WordPractice> filteredWords = await WordRepository.getWordsPracticeByLists([currentState.filter]);
         List<String> lists = await WordRepository.getAllLists(); // Obtener la lista de listas
         emit(PracticeLoaded(words: filteredWords, lists: lists, filter: currentState.filter));
       } catch (e) {

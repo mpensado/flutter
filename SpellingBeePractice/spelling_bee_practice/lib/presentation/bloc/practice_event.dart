@@ -1,5 +1,6 @@
 import 'package:spelling_bee_practice/domain/entities/practice_session.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
+import 'package:spelling_bee_practice/domain/entities/word_practice.dart';
 
 abstract class PracticeEvent {}
 
@@ -10,7 +11,7 @@ abstract class PracticeEvent {}
   }
 
   class RecordPracticeEvent extends PracticeEvent {
-    final Word word;
+    final WordPractice word;
     final bool isCorrect;
     final PracticeSession? session;
 

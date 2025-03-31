@@ -1,4 +1,4 @@
-import 'package:spelling_bee_practice/domain/entities/word.dart';
+import 'package:spelling_bee_practice/domain/entities/word_practice.dart';
 
 abstract class PracticeState {}
 
@@ -7,14 +7,14 @@ abstract class PracticeState {}
   class PracticeLoading extends PracticeState {}
 
   class PracticeLoaded extends PracticeState {
-    final List<Word> words;
+    final List<WordPractice> words;
     final String filter;
     final List<String> lists;
 
     PracticeLoaded({required this.words, required this.filter, required this.lists});
 
     PracticeLoaded copyWith({
-      List<Word>? words,
+      List<WordPractice>? words,
       String? filter,
       List<String>? lists,
     }) {

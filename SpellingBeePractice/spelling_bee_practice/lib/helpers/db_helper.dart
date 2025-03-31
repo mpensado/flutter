@@ -55,9 +55,6 @@ class DBHelper {
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_practice TIMESTAMP,
-            correct_count INTEGER DEFAULT 0,
-            incorrect_count INTEGER DEFAULT 0,
-            total_incorrect_count INTEGER DEFAULT 0,
             FOREIGN KEY (category_id) REFERENCES $tableCategories (id)
           )
         ''');
@@ -99,7 +96,9 @@ class DBHelper {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             word_id INTEGER NOT NULL,
             session_id INTEGER NOT NULL,
-            is_correct BOOLEAN NOT NULL,
+            correct_count INTEGER DEFAULT 0,
+            incorrect_count INTEGER DEFAULT 0,
+            total_incorrect_count INTEGER DEFAULT 0,
             practiced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             session_type TEXT NOT NULL,
             FOREIGN KEY (word_id) REFERENCES words(id),

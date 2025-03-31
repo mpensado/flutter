@@ -1,13 +1,13 @@
 // word_card_practice.dart
 import 'package:flutter/material.dart';
-import 'package:spelling_bee_practice/domain/entities/word.dart';
+import 'package:spelling_bee_practice/domain/entities/word_practice.dart';
 import 'package:spelling_bee_practice/presentation/utils/text_to_speech_service.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_session.dart'; // Import PracticeSession
 
 class WordCardPractice extends StatefulWidget {
-  final Word word;
+  final WordPractice word;
   final VoidCallback onDelete;
-  final void Function(Word word, bool isCorrect) onRecordPracticeCallback;
+  final void Function(WordPractice word, bool isCorrect) onRecordPracticeCallback;
   final PracticeSession? selectedSession; // Make nullable
   final bool showRemoveButton;
 
