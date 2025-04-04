@@ -3,11 +3,12 @@ class PracticeHistory {
   final int wordId;
   final int sessionId;
   final bool isCorrect;
-  final DateTime practicedAt;
+  final DateTime? practicedAt;
   final String sessionType; 
   final int correctCount;     // Contador de aciertos
   final int incorrectCount;   // Contador de errores (para espaciado)
   final int totalIncorrectCount; 
+  //final bool hasPracticeHistory;
 
   PracticeHistory({
     this.id,
@@ -19,6 +20,7 @@ class PracticeHistory {
     required this.correctCount,
     required this.incorrectCount, 
     required this.totalIncorrectCount,
+    //required this.hasPracticeHistory,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,8 +28,8 @@ class PracticeHistory {
       'id': id,
       'word_id': wordId,
       'session_id': sessionId,
-      'is_correct': isCorrect ? 1 : 0,
-      'practiced_at': practicedAt.toIso8601String(),
+      //'is_correct': isCorrect,
+      'practiced_at': practicedAt!.toIso8601String(),
       'session_type': sessionType,
       'correct_count': correctCount,
       'incorrect_count': incorrectCount,
@@ -46,6 +48,7 @@ class PracticeHistory {
       correctCount: map['correct_count'] ?? 0,
       incorrectCount: map['incorrect_count'] ?? 0,
       totalIncorrectCount: map['total_incorrect_count'] ?? 0,
+      //hasPracticeHistory: map['practiced_at'] != null,
     );
   }
 }

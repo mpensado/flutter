@@ -7,11 +7,16 @@ class WordPractice extends Word{
   final int totalIncorrectCount; 
 
   WordPractice({
+    super.id,
     required super.word,
     required super.translation,
+    super.pronunciation,
     required super.spelling,
+    super.categoryId,
+    super.notes,
     required super.createdAt,
-    super.lists,
+    super.lastPractice,
+    super.lists = const [], // Lista vacía por defecto
     required this.correctCount,
     required this.incorrectCount, 
     required this.totalIncorrectCount,
@@ -23,24 +28,35 @@ class WordPractice extends Word{
     PracticeHistory? practiceHistory,
   ) {
     return WordPractice(
+      id: word.id,
       word: word.word,
       translation: word.translation,
+      pronunciation: word.pronunciation,
       spelling: word.spelling,
+      categoryId: word.categoryId,
+      notes: word.notes,      
       createdAt: word.createdAt,
+      lastPractice: word.lastPractice,
+      lists: word.lists.isNotEmpty ? word.lists : [listName],
       correctCount: practiceHistory!.correctCount,
       incorrectCount: practiceHistory.incorrectCount,
-      totalIncorrectCount: practiceHistory.totalIncorrectCount,
-      lists: word.lists
-      
+      totalIncorrectCount: practiceHistory.totalIncorrectCount,      
     );
   }
 
   @override
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'word': word,
-      'lists': lists,
+      'translation': translation,
+      'pronunciation': pronunciation,
+      'spelling': spelling,
+      'category_id': categoryId,
+      'notes': notes,
       'createdAt': createdAt.toIso8601String(),
+      'last_practice': lastPractice?.toIso8601String(),
+      'lists': lists,
       'correct_count': correctCount,
       'incorrect_count': incorrectCount,
       'total_incorrect_count': totalIncorrectCount,
@@ -49,16 +65,28 @@ class WordPractice extends Word{
 
   factory WordPractice.fromMap(Map<String, dynamic> map, {List<String>? lists}) {
     return WordPractice(
+      id: map['id'] ?? 0,
       word: map['word'],
-      lists: lists ?? [],
+      translation: map['translation'], 
+      pronunciation: map['pronunciation'],
+      spelling: map['spelling'],
+      categoryId: map['category_id'],
+      notes: map['notes'],
       createdAt: map['created_at'] is String
         ? DateTime.parse(map['created_at'])
-        : map['created_at'], //  <--  Comprueba el tipo
+        : map['created_at'],
+      lastPractice: map['last_practice'] is String
+        ? DateTime.parse(map['last_practice'])
+        : map['last_practice'], //  <--  Comprueba el tipo
+      lists: lists ?? [],
       correctCount: map['correct_count'] ?? 0,
       incorrectCount: map['incorrect_count'] ?? 0,
       totalIncorrectCount: map['total_incorrect_count'] ?? 0, 
-      translation: map['translation'], 
-      spelling: map['spelling'],
     );
   }
+
+  @override
+    String toString() {
+    return 'Word{id: $id, word: $word, translation: $translation, spelling: $spelling, createdAt: $createdAt, lists: $lists}';
+    }
 }

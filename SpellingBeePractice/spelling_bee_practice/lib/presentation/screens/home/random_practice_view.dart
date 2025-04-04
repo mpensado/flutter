@@ -27,11 +27,13 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
   List<int> lastPracticedWords = [];
   final AudioPlayer _audioPlayer = AudioPlayer();
   int totalCorrectCount = 0;
+  int totalAttemptsCount = 0;
   int totalIncorrectCount = 0;
   int currentWordIncorrectCount = 0;
   bool gameStarted = false;
   bool practiceEnded = false;
   List<Map<String, dynamic>> practiceSummary = [];
+  List<Map<String, dynamic>> practicePartialSummary = [];
   List<Map<String, dynamic>> wordsAttempts = [];
   List<Map<String, dynamic>> wordsCorrect = [];
   List<Map<String, dynamic>> wordsIncorrect = [];
@@ -57,6 +59,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
       gameStarted = false;
       practiceEnded = false;
       practiceSummary.clear();
+      practicePartialSummary.clear();
       lastPracticedWords = [];
     });
   }
@@ -69,7 +72,8 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
 
     try {
       List<WordPractice> availableWords = widget.words.where((word) {
-        return !practiceSummary.any((summary) => summary['word'] == word.word);
+        return !practicePartialSummary
+            .any((summary) => summary['word'] == word.word);
       }).toList();
 
       if (availableWords.isEmpty) {
@@ -78,6 +82,8 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
             isLoading = false;
           });
           availableWords = widget.words;
+          totalAttemptsCount = availableWords.length;
+          practicePartialSummary.clear();
         }
       }
 
@@ -94,6 +100,11 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                     (element) => element['word'] == currentWord!.word) ==
                 null) {
               practiceSummary.add({
+                'word': currentWord!.word,
+                'attempts': 0,
+                'errors': 0,
+              });
+              practicePartialSummary.add({
                 'word': currentWord!.word,
                 'attempts': 0,
                 'errors': 0,
@@ -131,7 +142,6 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
       await db.insert('practice_history', {
         'word_id': word.id,
         'session_id': -1,
-        'is_correct': isCorrect ? 1 : 0,
         'practiced_at': DateTime.now().toIso8601String(),
         'session_type': 'random',
       });
@@ -165,82 +175,126 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
 
   // En _RandomPracticeViewState:
 
-Future<void> _endPractice() async {
-  final db = DBHelper();
-  final database = await db.database;
-  double average;
-  String messageL1 = "";
-  String messageL2 = "";
-  List<Map<String, dynamic>> incorrectWords = [];
-  List<Map<String, dynamic>> correctWords = [];
-  List<Map<String, dynamic>> attemptsWords = [];
+  Future<void> _endPractice() async {
+    final db = DBHelper();
+    final database = await db.database;
+    double average;
+    String messageL1 = "";
+    String messageL2 = "";
+    List<Map<String, dynamic>> incorrectWords = [];
+    List<Map<String, dynamic>> correctWords = [];
+    List<Map<String, dynamic>> attemptsWords = [];
+    List<Map<String, dynamic>> practiceHistory = [];
 
-  final List<Map<String, dynamic>> practiceHistory = await database.rawQuery('''
-    SELECT ph.word_id, w.word, ph.is_correct
-    FROM practice_history ph
-    INNER JOIN words w ON ph.word_id = w.id
-    WHERE ph.session_type = 'random'
-    AND ph.practiced_at IN (
-      SELECT MAX(practiced_at)
-      FROM practice_history
-      WHERE session_type = 'random'
-      GROUP BY word_id
-    )
-    AND ph.word_id IN (
-      SELECT id FROM words
-      WHERE id IN (${widget.words.map((word) => word.id).join(',')})
-    )
-  ''');
-
-  attemptsWords = practiceHistory.where((summary) => (summary['is_correct'] as int) == 1 || (summary['is_correct'] as int) == 0).toList();
-
-  if (attemptsWords.isNotEmpty) {
-    if (practiceHistory.isNotEmpty) {
-      average = (attemptsWords.where((summary) => (summary['is_correct'] as int) == 1).length /
-              attemptsWords.length) *
-          100;
-    } else {
-      average = 0;
-    }
-
-    if (average == 100) {
-      messageL1 = "¡Excelente!";
-      messageL2 = "Todas tus palabras fueron correctas.";
-    } else if (average >= 80) {
-      messageL1 = "¡Felicidades!";
-      messageL2 = "Casi todas tus palabras fueron correctas.";
-    } else if (average >= 51) {
-      messageL1 = "¡Bien!";
-      messageL2 = "Algunas palabras necesitan un repaso.";
-    } else if (average >= 31) {
-      messageL1 = "¡A practicar!";
-      messageL2 = "Hay varias palabras por mejorar.";
-    } else {
-      messageL1 = "¡Necesitas más práctica!";
-      messageL2 = "No te desanimes.";
-    }
-
-    for (var summary in practiceHistory) {
-      if ((summary['is_correct'] as int) == 0) {
-        incorrectWords.add(summary['word'] as Map<String, dynamic>);
+    //---------------------------------
+    if (widget.words.isNotEmpty) {
+      if (widget.filter != 'Todo') {
+        practiceHistory = await database.rawQuery('''
+        SELECT
+            w.*,
+            ph.practiced_at,
+            ph.correct_count,
+            ph.incorrect_count,
+            ph.total_incorrect_count
+        FROM
+            words w
+        LEFT JOIN
+            practice_history ph ON ph.word_id = w.id AND ph.session_type = 'random'
+        JOIN
+            word_lists wl ON w.id = wl.word_id
+        WHERE
+            wl.list_name = ?
+        GROUP BY
+            w.id
+        ORDER BY
+            ph.practiced_at DESC;
+      ''', [widget.filter]);
       } else {
-        correctWords.add(summary['word'] as Map<String, dynamic>);
+        practiceHistory = await database.rawQuery('''
+        SELECT
+            w.*,
+            ph.practiced_at,
+            ph.correct_count,
+            ph.incorrect_count,
+            ph.total_incorrect_count
+        FROM
+            words w
+        LEFT JOIN
+            practice_history ph ON ph.word_id = w.id AND ph.session_type = 'random'
+        JOIN
+            word_lists wl ON w.id = wl.word_id
+        GROUP BY
+            w.id
+        ORDER BY
+            ph.practiced_at DESC;
+      ''');
       }
+    } else {
+      practiceHistory = [];
     }
-  } else {
-    messageL1 = "";
-    messageL2 = "";
-  }
+    //-----------------------------------
 
-  setState(() {
-    practiceEnded = true;
-    practiceMessage = "$messageL1 $messageL2";
-    practiceIncorrectWords = incorrectWords.cast<String>();
-    practiceCorrectWords = correctWords.cast<String>();
-    this.messageL1 = messageL1;
-    this.messageL2 = messageL2;
-  });
-}
+    attemptsWords = practiceHistory
+        .where((summary) => (summary['practiced_at']) != null)
+        .toList();
+
+    if (attemptsWords.isNotEmpty) {
+      if (practiceHistory.isNotEmpty) {
+        average = (attemptsWords
+                    .where((summary) => (summary['correct_count'] as int) >= 0)
+                    .length /
+                attemptsWords.length) *
+            100;
+      } else {
+        average = 0;
+      }
+
+      if (average == 100) {
+        messageL1 = "¡Excelente!";
+        messageL2 = "Todas tus palabras fueron correctas.";
+      } else if (average >= 80) {
+        messageL1 = "¡Felicidades!";
+        messageL2 = "Casi todas tus palabras fueron correctas.";
+      } else if (average >= 51) {
+        messageL1 = "¡Bien!";
+        messageL2 = "Algunas palabras necesitan un repaso.";
+      } else if (average >= 31) {
+        messageL1 = "¡A practicar!";
+        messageL2 = "Hay varias palabras por mejorar.";
+      } else {
+        messageL1 = "¡Necesitas más práctica!";
+        messageL2 = "No te desanimes.";
+      }
+
+      incorrectWords = practiceHistory
+          .where((summary) =>
+              (summary['incorrect_count']) != null &&
+              (summary['incorrect_count']) > 0)
+          .toList();
+
+      correctWords = practiceHistory
+          .where((summary) =>
+              (summary['incorrect_count']) != null &&
+              (summary['incorrect_count']) == 0 &&
+              (summary['correct_count']) != null &&
+              (summary['correct_count']) > 0)
+          .toList();
+    } else {
+      messageL1 = "";
+      messageL2 = "";
+    }
+
+    setState(() {
+      practiceEnded = true;
+      practiceMessage = "$messageL1 $messageL2";
+      practiceIncorrectWords =
+          incorrectWords.map((map) => map['word'].toString()).toList();
+      practiceCorrectWords =
+          correctWords.map((map) => map['word'].toString()).toList();
+      this.messageL1 = messageL1;
+      this.messageL2 = messageL2;
+    });
+  }
 
   String messageL1 = "";
   String messageL2 = "";
@@ -338,7 +392,7 @@ Future<void> _endPractice() async {
                               Text("Palabras",
                                   style:
                                       TextStyle(fontWeight: FontWeight.bold)),
-                              Text("${wordsAttempts.length}"),
+                              Text("$totalAttemptsCount"),
                             ],
                           ),
                         ),

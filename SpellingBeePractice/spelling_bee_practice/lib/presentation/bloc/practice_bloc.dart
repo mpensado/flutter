@@ -56,12 +56,11 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
         correctCount: 0, 
         incorrectCount: 0,
         totalIncorrectCount: 0,
+        //hasPracticeHistory: true,
       );
-      if (event.session != null) {
-        await PracticeSessionRepository.insertHistory(history);
-      } else {
-        await PracticeSessionRepository.insertHistory(history);
-      }
+
+      await PracticeSessionRepository.insertHistory(history);
+
       await WordRepository.updateWordCounters(event.word.id!, event.isCorrect);
       // Obtener la palabra actualizada de la base de datos
       final updatedWord = await WordRepository.getWordById(event.word.id!);

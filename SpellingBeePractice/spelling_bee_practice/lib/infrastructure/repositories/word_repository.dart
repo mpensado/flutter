@@ -1,7 +1,8 @@
-import 'package:collection/collection.dart'; // Para firstWhereOrNull
+// Para firstWhereOrNull
 import 'dart:math';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/domain/entities/word_practice.dart';
+import 'package:spelling_bee_practice/domain/entities/word_practice_history.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,12 +32,31 @@ class WordRepository {
 
   static Future<WordPractice?> getWordById(int? wordId) async {
     final db = await DBHelper().database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      DBHelper().tableWords,
-      where: 'id = ?',
-      whereArgs: [wordId],
-      limit: 1,
-    );
+    // final List<Map<String, dynamic>> maps = await db.query(
+    //   DBHelper().tableWords,
+    //   where: 'id = ?',
+    //   whereArgs: [wordId],
+    //   limit: 1,
+    // );
+
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+        SELECT
+            w.*,
+            ph.correct_count,
+            ph.incorrect_count,
+            ph.total_incorrect_count
+        FROM
+            words w
+        LEFT JOIN
+            practice_history ph ON ph.word_id = w.id
+        JOIN
+            word_lists wl ON w.id = wl.word_id
+        WHERE w.id = ?
+        GROUP BY
+            w.id
+        ORDER BY
+            ph.practiced_at DESC;
+      ''', [wordId]);
 
     if (maps.isNotEmpty) {
       final List<String> lists = await _getListsForWord(maps.first['id']);
@@ -193,12 +213,31 @@ class WordRepository {
 
     if (lists.contains("Por practicar")) {
       // Modificar la consulta para obtener palabras de la lista "Por practicar"
-      maps = await db.rawQuery('''
-          SELECT DISTINCT w.*
-          FROM ${DBHelper().tableWords} w
-          WHERE w.total_incorrect_count > 0
-          ORDER BY $orderByClause
-        ''');
+      // maps = await db.rawQuery('''
+      //     SELECT DISTINCT w.*
+      //     FROM ${DBHelper().tableWords} w
+      //     WHERE w.total_incorrect_count > 0
+      //     ORDER BY $orderByClause
+      //   ''');
+
+        maps = await db.rawQuery('''
+        SELECT
+            w.*,
+            ph.correct_count,
+            ph.incorrect_count,
+            ph.total_incorrect_count
+        FROM
+            words w
+        LEFT JOIN
+            practice_history ph ON ph.word_id = w.id AND ph.session_type = 'random'
+        JOIN
+            word_lists wl ON w.id = wl.word_id
+        WHERE ph.total_incorrect_count > 0
+        GROUP BY
+            w.id
+        ORDER BY
+            ph.practiced_at DESC;
+      ''');
     } else {
       // Consulta original para otras listas
       final placeholders = List.filled(lists.length, '?').join(',');
@@ -314,28 +353,44 @@ class WordRepository {
   try {
     // 1. Obtener TODAS las palabras (o las filtradas).
     List<Map<String, dynamic>> allWordsMap;
-    //TODO: Se tiene que agregar el left join  con history. Al paracer funciona el rawquery de abajo
-
-
     if (words != null && words.isNotEmpty) {
       if (filter != null && filter != 'Todo') {
         allWordsMap = await db.rawQuery('''
-        SELECT w.*,ph.correct_count, ph.incorrect_count, ph.total_incorrect_count
-        FROM practice_history ph
-        INNER JOIN words w ON ph.word_id = w.id
-        INNER JOIN word_lists wl ON w.id = wl.word_id
-        WHERE ph.session_type = 'random' 
-        AND wl.list_name = ?
-        ORDER BY ph.practiced_at DESC
+        SELECT
+            w.*,
+            ph.correct_count,
+            ph.incorrect_count,
+            ph.total_incorrect_count
+        FROM
+            words w
+        LEFT JOIN
+            practice_history ph ON ph.word_id = w.id AND ph.session_type = 'random'
+        JOIN
+            word_lists wl ON w.id = wl.word_id
+        WHERE
+            wl.list_name = ?
+        GROUP BY
+            w.id
+        ORDER BY
+            ph.practiced_at DESC;
       ''', [filter]);
       } else {
         allWordsMap = await db.rawQuery('''
-        SELECT SELECT w.*,ph.correct_count, ph.incorrect_count, ph.total_incorrect_count
-        FROM practice_history ph
-        INNER JOIN words w ON ph.word_id = w.id
-        INNER JOIN word_lists wl ON w.id = wl.word_id
-        WHERE ph.session_type = 'random' 
-        ORDER BY ph.practiced_at DESC
+        SELECT
+            w.*,
+            ph.correct_count,
+            ph.incorrect_count,
+            ph.total_incorrect_count
+        FROM
+            words w
+        LEFT JOIN
+            practice_history ph ON ph.word_id = w.id AND ph.session_type = 'random'
+        JOIN
+            word_lists wl ON w.id = wl.word_id
+        GROUP BY
+            w.id
+        ORDER BY
+            ph.practiced_at DESC;
       ''');
       }
     } else {
@@ -343,45 +398,59 @@ class WordRepository {
     }
     
     final List<WordPractice> allWords =
-        allWordsMap.map((map) => WordPractice.fromMap(map)).toList();
+    allWordsMap.map((map) => WordPractice.fromMap(map)).toList();
 
-    // 2. Obtener el historial de práctica aleatoria.
-    //filtrar por lista aquí
-    //List<Map<String, dynamic>> practiceHistoryMap;
+    final List<WordPractice> filteredWords = allWords
+      .where((wordPractice) => words!.any((word) => word.word == wordPractice.word))
+      .toList();
 
-    // if (filter != null && filter != 'Todo') {
-    //   practiceHistoryMap = await db.rawQuery('''
-    //   SELECT ph.* FROM practice_history ph
-    //   INNER JOIN words w ON ph.word_id = w.id
-    //   INNER JOIN word_lists wl ON w.id = wl.word_id
-    //   WHERE ph.session_type = 'random' 
-    //   AND wl.list_name = ?
-    //   ORDER BY ph.practiced_at DESC
-    // ''', [filter]);
-    // } else {
-    //   practiceHistoryMap = await db.query(
-    //     'practice_history',
-    //     where: "session_type = 'random'",
-    //     orderBy: 'practiced_at DESC',
-    //   );
-    // }
-
-    final List<PracticeHistory> practiceHistory = allWordsMap
+    // Obtener la lista de PracticeHistory
+    final List<Map<String, dynamic>> practiceHistoryMap = await db.query('practice_history');
+    final List<PracticeHistory> practiceHistoryList = practiceHistoryMap
         .map((map) => PracticeHistory.fromMap(map))
         .toList();
+
+    final List<WordPracticeHistory> wordPracticeHistory = filteredWords.map((wordPractice) {
+      // Encuentra el PracticeHistory correspondiente a este WordPractice
+      final practiceHistory = practiceHistoryList.firstWhere(
+        (ph) => ph.wordId == wordPractice.id,
+        orElse: () => PracticeHistory(
+        id: 0, // Revisa si necesitas esto, o si debes dejarlo nulo
+        wordId: wordPractice.id ?? 0,
+        sessionId: 0,
+        isCorrect: false,
+        practicedAt: DateTime.fromMillisecondsSinceEpoch(0), // Añadido un valor por defecto para practicedAt
+        sessionType: '',
+        correctCount: 0,
+        incorrectCount: 0,
+        totalIncorrectCount: 0,
+      ),
+      );
+      return WordPracticeHistory.fromWordPractice(practiceHistory);
+    }).toList();
+
+
+
+    final List<PracticeHistory> practiceHistory = wordPracticeHistory.map((wph) => PracticeHistory(
+        id: 0, // Revisa si necesitas esto, o si debes dejarlo nulo
+        wordId: wph.wordId,
+        sessionId: wph.sessionId ?? 0,
+        isCorrect: wph.isCorrect ?? false,
+        practicedAt: wph.practicedAt, // Añadido un valor por defecto para practicedAt
+        sessionType: wph.sessionType ?? '',
+        correctCount: wph.correctCount ?? 0,
+        incorrectCount: wph.incorrectCount ?? 0,
+        totalIncorrectCount: wph.totalIncorrectCount ?? 0,
+      )).toList();
 
     // 3. Dividir las palabras en grupos
     final List<WordPractice> neverPracticed = [];
     final List<WordPractice> incorrectWords = [];
 
-    for (final word in allWords) {
-      final lastPractice = practiceHistory.firstWhereOrNull(
-        (history) => history.wordId == word.id,
-      );
-
-      if (lastPractice == null) {
+    for (final word in filteredWords) {
+      if (word.lastPractice == null) {
         neverPracticed.add(word);
-      } else if (!lastPractice.isCorrect) {
+      } else if (word.incorrectCount > 0) {
         incorrectWords.add(word);
       }
     }
@@ -415,8 +484,8 @@ class WordRepository {
       selectedWord = neverPracticed[Random().nextInt(neverPracticed.length)];
     } else {
       // Prioridad 3: Todas las palabras, priorizando por incorrectCount y correctCount.
-      if (allWords.isNotEmpty) {
-        allWords.sort((a, b) {
+      if (filteredWords.isNotEmpty) {
+        filteredWords.sort((a, b) {
           int incorrectComparison =
               b.totalIncorrectCount.compareTo(a.totalIncorrectCount);
           if (incorrectComparison != 0) {
@@ -424,7 +493,7 @@ class WordRepository {
           }
           return a.correctCount.compareTo(b.correctCount);
         });
-        selectedWord = allWords[Random().nextInt(allWords.length)];
+        selectedWord = filteredWords[Random().nextInt(filteredWords.length)];
       } else {
         selectedWord = null;
       }
@@ -535,35 +604,35 @@ class WordRepository {
       if (isCorrect) {
         // Obtener los valores actuales (NECESARIO).
         final List<Map<String, dynamic>> wordData = await db.query(
-          DBHelper().tableWords,
-          where: 'id = ?',
+          DBHelper().tablePracticeHistory,
+          where: 'word_id = ?',
           whereArgs: [wordId],
         );
         //Si el contador de incorrecto es igual a 0, entonces incrementamos el correcto
         if (wordData.first['incorrect_count'] <= 1) {
           await db.rawUpdate('''
-              UPDATE ${DBHelper().tableWords}
+              UPDATE ${DBHelper().tablePracticeHistory}
               SET correct_count = correct_count + 1,
                   incorrect_count = 0,
                   total_incorrect_count = 0
-              WHERE id = ?
+              WHERE word_id = ?
               ''', [wordId]);
         } else {
           //Si no, se decrementa el contador de incorrectos.
           await db.rawUpdate('''
-              UPDATE ${DBHelper().tableWords}
+              UPDATE ${DBHelper().tablePracticeHistory}
               SET incorrect_count = incorrect_count - 1,
               correct_count = correct_count + 1
-              WHERE id = ?
+              WHERE word_id = ?
               ''', [wordId]);
         }
       } else {
         //Si es incorrecto, aumentar incorrect_count y total_incorrect_count
         await db.rawUpdate('''
-            UPDATE ${DBHelper().tableWords}
+            UPDATE ${DBHelper().tablePracticeHistory}
             SET incorrect_count = incorrect_count + 1,
                 total_incorrect_count = total_incorrect_count + 1
-            WHERE id = ?
+            WHERE word_id = ?
             ''', [wordId]);
       }
     } catch (e) {

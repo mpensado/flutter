@@ -126,7 +126,15 @@ class PracticeSessionRepository {
     static Future<void> insertHistory(PracticeHistory history) async {
     final db = await DBHelper().database;
     try {
-      await db.insert('practice_history', history.toMap());
+      await db.insert('practice_history', {
+        'word_id': history.wordId,
+        'session_id': history.sessionId,
+        'practiced_at': DateTime.now().toIso8601String(),
+        'correct_count': history.correctCount,
+        'incorrect_count': history.incorrectCount,
+        'total_incorrect_count': history.totalIncorrectCount,
+        'session_type': history.sessionType
+      });
     } catch (e) {
       print("Error inserting practice history: $e");
       rethrow;
