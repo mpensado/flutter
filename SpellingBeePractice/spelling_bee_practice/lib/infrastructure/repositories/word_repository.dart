@@ -240,16 +240,35 @@ class WordRepository {
       ''');
     } else {
       // Consulta original para otras listas
-      final placeholders = List.filled(lists.length, '?').join(',');
-      final whereClause = 'wl.list_name IN ($placeholders)';
+        String whereClause = '';
+        List<String> whereArgs = [];
 
-      maps = await db.rawQuery('''
-          SELECT DISTINCT w.*
-          FROM ${DBHelper().tableWords} w
-          INNER JOIN ${DBHelper().tableWordLists} wl ON w.id = wl.word_id
-          WHERE $whereClause
-          ORDER BY $orderByClause
-        ''', lists);
+        if (lists.isNotEmpty) {
+          whereClause = 'wl.list_name IN (${lists.map((_) => '?').join(',')})';
+          whereArgs.addAll(lists);
+        } else {
+          // Si la lista está vacía, puedes devolver todos los resultados o manejarlo de otra manera
+          whereClause = '1 = 1'; // Esto siempre es verdadero y devolverá todos los registros
+        }
+        maps = await db.rawQuery('''
+          SELECT
+            w.*,
+            ph.correct_count,
+            ph.incorrect_count,
+            ph.total_incorrect_count
+          FROM
+            words w
+          LEFT JOIN
+            practice_history ph ON ph.word_id = w.id AND ph.session_type = 'random'
+          JOIN
+            word_lists wl ON w.id = wl.word_id
+          WHERE
+            $whereClause
+          GROUP BY
+            w.id
+          ORDER BY
+            ph.practiced_at DESC;
+        ''', whereArgs);
     }
 
     return await _mapToWordsPractice(maps);

@@ -138,7 +138,7 @@ class WordsTabState extends State<WordsTab>
                           : const Icon(Icons.search),
                     ),
                     onChanged: (value){
-                        _refreshWordsAfterSearch();
+                      _refreshWordsAfterSearch();
                     },
                   ),
                 ),
