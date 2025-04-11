@@ -8,7 +8,7 @@ class PracticeHistory {
   final int correctCount;     // Contador de aciertos
   final int incorrectCount;   // Contador de errores (para espaciado)
   final int totalIncorrectCount; 
-  //final bool hasPracticeHistory;
+  String listName = ""; // Nombre de la lista (si es necesario)
 
   PracticeHistory({
     this.id,
@@ -20,7 +20,7 @@ class PracticeHistory {
     required this.correctCount,
     required this.incorrectCount, 
     required this.totalIncorrectCount,
-    //required this.hasPracticeHistory,
+    required this.listName,
   });
 
   Map<String, dynamic> toMap() {
@@ -28,12 +28,12 @@ class PracticeHistory {
       'id': id,
       'word_id': wordId,
       'session_id': sessionId,
-      //'is_correct': isCorrect,
       'practiced_at': practicedAt!.toIso8601String(),
       'session_type': sessionType,
       'correct_count': correctCount,
       'incorrect_count': incorrectCount,
       'total_incorrect_count': totalIncorrectCount,
+      'list_name': listName,
     };
   }
 
@@ -48,7 +48,7 @@ class PracticeHistory {
       correctCount: map['correct_count'] ?? 0,
       incorrectCount: map['incorrect_count'] ?? 0,
       totalIncorrectCount: map['total_incorrect_count'] ?? 0,
-      //hasPracticeHistory: map['practiced_at'] != null,
+      listName: map['list_name'],
     );
   }
 }

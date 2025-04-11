@@ -26,18 +26,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   //  Función para actualizar PracticeTab (usada como callback).
-  void _refreshPracticeTab() {
-    if (_currentIndex == 1) {
-      // Solo actualiza si PracticeTab está activa.
-      // Podrías necesitar un GlobalKey si necesitas forzar la actualización
-      // incluso si la pestaña no está visible.  Pero, por ahora, esto es suficiente.
+  // void _refreshPracticeTab() {
+  //   if (_currentIndex == 1) {
+  //     // Solo actualiza si PracticeTab está activa.
+  //     // Podrías necesitar un GlobalKey si necesitas forzar la actualización
+  //     // incluso si la pestaña no está visible.  Pero, por ahora, esto es suficiente.
 
-        setState(() {
-        //Forzar una reconstruccion de PracticeTab
-        _tabs[1] = const PracticeTab(); //Reconstruye el widget
-        });
-    }
-  }
+  //       setState(() {
+  //       //Forzar una reconstruccion de PracticeTab
+  //       _tabs[1] = const PracticeTab(); //Reconstruye el widget
+  //       });
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {

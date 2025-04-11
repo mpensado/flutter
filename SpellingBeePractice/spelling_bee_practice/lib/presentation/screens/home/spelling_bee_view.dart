@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:spelling_bee_practice/domain/entities/round.dart';
 import 'dart:math';
 import 'package:spelling_bee_practice/infrastructure/repositories/word_repository.dart'; // Asegúrate de que los imports son correctos
@@ -25,7 +24,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
   int roundIncorrectCount = 0;
   bool gameStarted = false;
   bool roundCompleted = false;
-  final AudioPlayer _audioPlayer = AudioPlayer();
   bool isSuddenDeath = false; // Indica si estamos en muerte súbita
   bool playerTurn = true; // Controla el turno (true: speller, false: oponente)
   String? winner;
@@ -44,12 +42,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
   ];
 
   Map<int, Map<String, int>> roundResults = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _audioPlayer.setReleaseMode(ReleaseMode.stop);
-  }
 
   void startNewSpellingBeeSession() {
     setState(() {
@@ -186,8 +178,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
             };
             gameOver = true;
             errorMessage = "Error en la Ronda $currentRound";
-            _audioPlayer.setVolume(1.0);
-            _audioPlayer.play(AssetSource('sounds/failure.mp3'));
             return;
           }
         } else {
@@ -206,13 +196,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
             'incorrect': roundIncorrectCount,
           };
 
-          if (roundCorrectCount >= wordsForCurrentRound.length) {
-            _audioPlayer.setVolume(1.0);
-            _audioPlayer.play(AssetSource('sounds/success.mp3'));
-          } else {
-            _audioPlayer.setVolume(1.0);
-            _audioPlayer.play(AssetSource('sounds/failure.mp3'));
-          }
         }
       } else {
         //Logica de muerte súbita
@@ -223,9 +206,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
             playerTurn = false; // Turno del oponente
             roundCorrectCount++; //Aumentar aciertos en la ronda.
             roundCompleted = true; //Mostrar mensaje.
-            _audioPlayer.setVolume(1.0);
-            _audioPlayer
-                .play(AssetSource('sounds/success.mp3')); //Sonido de exito
           } else {
             // El speller falló, ahora a ver que pasa con el oponente
             roundIncorrectCount++; //Aumentar fallos de la ronda
@@ -234,16 +214,10 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
               //El oponente virtual acertó, speller pierde
               gameOver = true;
               errorMessage = "Has perdido en la muerte súbita.";
-              _audioPlayer.setVolume(1.0);
-              _audioPlayer
-                  .play(AssetSource('sounds/failure.mp3')); //Sonido de fallo
             } else {
               //Si el oponente falla, darle otra palabra al speller
               roundCompleted = true;
               playerTurn = true;
-              _audioPlayer.setVolume(1.0);
-              _audioPlayer.play(AssetSource(
-                  'sounds/failure.mp3')); //Sonido de fallo para el oponente
             }
           }
         } else {
@@ -256,8 +230,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
             // Oponente falló, el speller gana
             gameOver = true;
             winner = "¡Felicidades, has ganado!"; // Define winner
-            _audioPlayer.setVolume(1.0);
-            _audioPlayer.play(AssetSource('sounds/success.mp3'));
           }
         }
       }
@@ -419,9 +391,6 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
                           setState(() {
                             gameOver = true;
                             winner = "¡Felicidades, has ganado!";
-                            _audioPlayer.setVolume(1.0);
-                            _audioPlayer
-                                .play(AssetSource('sounds/success.mp3'));
                           });
                         }
                       }
@@ -484,11 +453,5 @@ class _SpellingBeeViewState extends State<SpellingBeeView> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _audioPlayer.dispose();
-    super.dispose();
   }
 }

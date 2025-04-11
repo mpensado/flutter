@@ -133,7 +133,8 @@ class PracticeSessionRepository {
         'correct_count': history.correctCount,
         'incorrect_count': history.incorrectCount,
         'total_incorrect_count': history.totalIncorrectCount,
-        'session_type': history.sessionType
+        'session_type': history.sessionType,
+        'list_name': history.listName
       });
     } catch (e) {
       print("Error inserting practice history: $e");

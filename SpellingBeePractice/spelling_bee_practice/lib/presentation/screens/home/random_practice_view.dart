@@ -1,4 +1,3 @@
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/domain/entities/word_practice.dart';
@@ -25,7 +24,6 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
   bool hasRepeated = false;
   bool isLoading = false;
   List<int> lastPracticedWords = [];
-  final AudioPlayer _audioPlayer = AudioPlayer();
   int totalCorrectCount = 0;
   int totalAttemptsCount = 0;
   int totalIncorrectCount = 0;
@@ -42,13 +40,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
   List<String> practiceIncorrectWords = [];
   List<String> practiceCorrectWords = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _audioPlayer.setReleaseMode(ReleaseMode.stop);
-  }
-
-  void _startNewPractice() {
+    void _startNewPractice() {
     setState(() {
       currentWord = null;
       hasRepeated = false;
@@ -133,7 +125,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     }
   }
 
-  Future<void> _recordPracticeResult(bool isCorrect, Word word) async {
+  Future<void> _recordPracticeResult(bool isCorrect, Word word, String listName) async {
     if (currentWord == null) return;
 
     try {
@@ -148,7 +140,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
       practiceSummary.firstWhereOrNull(
           (element) => element['word'] == currentWord!.word)!['attempts']++;
 
-      await WordRepository.updateWordCounters(currentWord!.id!, isCorrect);
+      await WordRepository.updateWordCounters(currentWord!.id!, isCorrect,widget.filter, 'random');
 
       setState(() {
         if (isCorrect) {
@@ -487,20 +479,18 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Container(
-                  child: Column(
-                    children: [
-                      Text(
-                        'Filtro Aplicado: ${widget.filter}',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Palabras en la lista: ${widget.words.length}',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ],
-                  ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Filtro Aplicado: ${widget.filter}',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Palabras en la lista: ${widget.words.length}',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ],
                 ),
               ),
               if (isLoading) ...[
@@ -515,7 +505,7 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
                     word: currentWord!,
                     onDelete: () {},
                     onRecordPracticeCallback: (word, isCorrect) {
-                      _recordPracticeResult(isCorrect, word);
+                      _recordPracticeResult(isCorrect, word, widget.filter);
                     },
                     selectedSession: null,
                     showRemoveButton: false,
@@ -547,9 +537,4 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     );
   }
 
-  @override
-  void dispose() {
-    _audioPlayer.dispose();
-    super.dispose();
-  }
 }

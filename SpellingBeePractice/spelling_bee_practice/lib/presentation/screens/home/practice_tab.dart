@@ -84,7 +84,7 @@ class _PracticeTabState extends State<PracticeTab> {
                           onRecordPracticeCallback: (word, isCorrect) {
                             context.read<PracticeBloc>().add(
                                 RecordPracticeEvent(
-                                    word, isCorrect, widget.selectedSession));
+                                    word, isCorrect, widget.selectedSession, state.filter));
                             setState(() {});
                           },
                           selectedSession: widget.selectedSession,

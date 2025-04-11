@@ -39,15 +39,15 @@ class InitDB {
     }
   }
 
-  static Future<List<String>> _getListsForWord(Database db, int wordId) async {
-    //final db = await DBHelper().database;
-    final List<Map<String, dynamic>> listMaps = await db.query(
-      DBHelper().tableWordLists, // Usa la tabla word_lists
-      where: 'word_id = ?',
-      whereArgs: [wordId],
-    );
-    return listMaps.map<String>((map) => map['list_name'] as String).toList();
-  }
+  // static Future<List<String>> _getListsForWord(Database db, int wordId) async {
+  //   //final db = await DBHelper().database;
+  //   final List<Map<String, dynamic>> listMaps = await db.query(
+  //     DBHelper().tableWordLists, // Usa la tabla word_lists
+  //     where: 'word_id = ?',
+  //     whereArgs: [wordId],
+  //   );
+  //   return listMaps.map<String>((map) => map['list_name'] as String).toList();
+  // }
 
   static Future<void> loadInitialData(Database db) async {
     try {

@@ -101,6 +101,7 @@ class DBHelper {
             total_incorrect_count INTEGER DEFAULT 0,
             practiced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             session_type TEXT NOT NULL,
+            list_name TEXT NOT NULL,
             FOREIGN KEY (word_id) REFERENCES words(id),
             FOREIGN KEY (session_id) REFERENCES practice_sessions (id)
           )
