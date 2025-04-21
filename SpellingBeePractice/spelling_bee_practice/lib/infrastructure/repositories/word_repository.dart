@@ -44,7 +44,8 @@ class WordRepository {
             w.*,
             ph.correct_count,
             ph.incorrect_count,
-            ph.total_incorrect_count
+            ph.total_incorrect_count,
+            ph.list_name
         FROM
             words w
         LEFT JOIN

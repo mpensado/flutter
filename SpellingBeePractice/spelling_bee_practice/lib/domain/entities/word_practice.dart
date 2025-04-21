@@ -5,6 +5,7 @@ class WordPractice extends Word{
   final int correctCount;     // Contador de aciertos
   final int incorrectCount;   // Contador de errores (para espaciado)
   final int totalIncorrectCount; 
+  final String listName;      // Nombre de la lista (si es necesario)
 
   WordPractice({
     super.id,
@@ -20,6 +21,7 @@ class WordPractice extends Word{
     required this.correctCount,
     required this.incorrectCount, 
     required this.totalIncorrectCount,
+    required this.listName, // Nombre de la lista por defecto
   });
 
   factory WordPractice.fromWordAndPracticeHistory(
@@ -40,7 +42,8 @@ class WordPractice extends Word{
       lists: word.lists.isNotEmpty ? word.lists : [listName],
       correctCount: practiceHistory!.correctCount,
       incorrectCount: practiceHistory.incorrectCount,
-      totalIncorrectCount: practiceHistory.totalIncorrectCount,      
+      totalIncorrectCount: practiceHistory.totalIncorrectCount,    
+      listName: listName, // Nombre de la lista por defecto  
     );
   }
 
@@ -60,6 +63,7 @@ class WordPractice extends Word{
       'correct_count': correctCount,
       'incorrect_count': incorrectCount,
       'total_incorrect_count': totalIncorrectCount,
+      'list_name': listName, // <--  Añade el nombre de la lista aquí
     };
   }
 
@@ -81,7 +85,8 @@ class WordPractice extends Word{
       lists: lists ?? [],
       correctCount: map['correct_count'] ?? 0,
       incorrectCount: map['incorrect_count'] ?? 0,
-      totalIncorrectCount: map['total_incorrect_count'] ?? 0, 
+      totalIncorrectCount: map['total_incorrect_count'] ?? 0,
+      listName: map['list_name'] ?? '', // <--  Añade el nombre de la lista aquí
     );
   }
 
