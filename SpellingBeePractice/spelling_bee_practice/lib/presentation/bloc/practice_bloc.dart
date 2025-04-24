@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:flutter/foundation.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 import 'package:spelling_bee_practice/domain/entities/word_practice.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
@@ -64,9 +65,92 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
 
       await WordRepository.updateWordCounters(event.word.id!, event.isCorrect,event.listName, history.sessionType);
 
-      DBHelper.printTable('practice_history'); // Imprimir la tabla de historial de práctica para depuración
+      //
+      String whereClause = '';
+      List<String> whereArgs = [];
+      List<String> lists = [event.listName]; 
+
+      if (lists.isNotEmpty) {
+        whereClause = '(${lists.map((_) => '?').join(',')})';
+        whereArgs.addAll(lists);
+      } else {
+        whereClause =
+            '1 = 1';
+      }
+      final db = await DBHelper().database;
+      try {
+          List<Map<String, dynamic>> tableMap = await db.rawQuery('''
+            SELECT
+              ph.*
+            FROM
+              practice_history ph
+            ORDER BY
+              ph.practiced_at DESC;
+          ''');
+          if (tableMap.isNotEmpty) {
+            debugPrint('[MI_LOG]Contenido practice_history: $tableMap.tostring()');
+          }
+        } catch (e) {
+          debugPrint('[MI_LOG]Error en practice_history: $e');
+        }
+
+        try {
+            List<Map<String, dynamic>> tableMap = await db.rawQuery('''
+            SELECT
+              w.*
+            FROM
+              words w
+            WHERE w.id = 3
+          ''');
+          if (tableMap.isNotEmpty) {
+            debugPrint('[MI_LOG]Contenido words: $tableMap.tostring()');
+          }
+        } catch (e) {
+          debugPrint('[MI_LOG]Error en words: $e');
+        }
+
+        try {
+            List<Map<String, dynamic>> tableMap = await db.rawQuery('''
+            SELECT
+              wl.*
+            FROM
+              word_lists wl
+            WHERE wl.word_id = 3
+          ''');
+          if (tableMap.isNotEmpty) {
+            debugPrint('[MI_LOG]Contenido word_lists: $tableMap.tostring()');
+          }
+        } catch (e) {
+          debugPrint('[MI_LOG]Error en word_lists: $e');
+        }
+
+        try {
+            List<Map<String, dynamic>>   tableMap = await db.rawQuery('''
+            SELECT
+              w.*,
+              wl.list_name,
+              ph.correct_count,
+              ph.incorrect_count,
+              ph.total_incorrect_count
+            FROM
+              words w 
+            JOIN 
+              word_lists wl ON w.id = wl.word_id AND wl.list_name IN $whereClause
+            LEFT JOIN
+              practice_history ph ON ph.word_id = wl.word_id AND ph.session_type = 'list' AND ph.list_name = wl.list_name;
+            ORDER BY
+                ph.practiced_at DESC;
+          ''');
+          if (tableMap.isNotEmpty) {
+            debugPrint('[MI_LOG]Contenido consulta: $tableMap.tostring()');
+          }
+        } catch (e) {
+          debugPrint('[MI_LOG]Error en consulta: $e');
+        }
+      //
+
       // Obtener la palabra actualizada de la base de datos
-      final updatedWord = await WordRepository.getWordById(event.word.id!);
+      final updatedWord = await WordRepository.getWordById(event.word.id!, [event.listName]);
 
       // Emitir un nuevo estado PracticeLoaded si el estado actual es PracticeLoaded
       if (state is PracticeLoaded) {

@@ -131,17 +131,22 @@ class _RandomPracticeViewState extends State<RandomPracticeView> {
     try {
       final dbHelper = DBHelper();
       final db = await dbHelper.database;
+
       await db.insert('practice_history', {
         'word_id': word.id,
         'session_id': -1,
         'practiced_at': DateTime.now().toIso8601String(),
         'session_type': 'random',
+        'correct_count': 0,
+        'incorrect_count': 0,
+        'total_incorrect_count': 0,
+        'list_name': listName,
       });
       practiceSummary.firstWhereOrNull(
           (element) => element['word'] == currentWord!.word)!['attempts']++;
 
       await WordRepository.updateWordCounters(currentWord!.id!, isCorrect,widget.filter, 'random');
-
+      
       setState(() {
         if (isCorrect) {
           totalCorrectCount++;

@@ -31,15 +31,152 @@ class WordRepository {
     }
   }
 
-  static Future<WordPractice?> getWordById(int? wordId) async {
+  static Future<WordPractice?> getWordById(
+      int? wordId, List<String> lists) async {
+    WordPractice? result;
+
+    final db = await DBHelper().database;
+    List<Map<String, dynamic>> maps = [];
+    try {
+      if (lists.contains("Por practicar")) {
+        maps = await db.rawQuery('''
+        SELECT
+            w.*,
+            ph.correct_count,
+            ph.incorrect_count,
+            ph.total_incorrect_count
+        FROM
+            words w
+        JOIN
+            word_lists wl ON w.id = wl.word_id
+        LEFT JOIN
+            practice_history ph ON ph.word_id = w.id AND ph.session_type = 'random'
+        WHERE ph.total_incorrect_count > 0
+        GROUP BY
+            w.id,
+            ph.session_type,
+            ph.list_name
+        ORDER BY
+            ph.practiced_at DESC;
+      ''');
+      } else {
+        // Consulta original para otras listas
+        String whereClause = '';
+        List<String> whereArgs = [];
+
+        if (lists.isNotEmpty) {
+          whereClause = '(${lists.map((_) => '?').join(',')})';
+          whereArgs.addAll(lists);
+        } else {
+          whereClause = '1 = 1';
+        }
+
+        try {
+          List<Map<String, dynamic>> tableMap = await db.rawQuery('''
+            SELECT
+              ph.*
+            FROM
+              practice_history ph
+            ORDER BY
+              ph.practiced_at DESC;
+          ''');
+          if (tableMap.isNotEmpty) {
+            debugPrint(
+                '[MI_LOG]Contenido practice_history: $tableMap.tostring()');
+          }
+        } catch (e) {
+          debugPrint('[MI_LOG]Error en practice_history: $e');
+        }
+
+        try {
+          List<Map<String, dynamic>> tableMap = await db.rawQuery('''
+            SELECT
+              w.*
+            FROM
+              words w
+            WHERE w.id = $wordId
+          ''');
+          if (tableMap.isNotEmpty) {
+            debugPrint('[MI_LOG]Contenido words: $tableMap.tostring()');
+          }
+        } catch (e) {
+          debugPrint('[MI_LOG]Error en words: $e');
+        }
+
+        try {
+          List<Map<String, dynamic>> tableMap = await db.rawQuery('''
+            SELECT
+              wl.*
+            FROM
+              word_lists wl
+            WHERE wl.word_id = $wordId
+          ''');
+          if (tableMap.isNotEmpty) {
+            debugPrint('[MI_LOG]Contenido word_lists: $tableMap.tostring()');
+          }
+        } catch (e) {
+          debugPrint('[MI_LOG]Error en word_lists: $e');
+        }
+
+        try {
+          List<Map<String, dynamic>> tableMap = await db.rawQuery('''
+            SELECT
+              w.*,
+              wl.list_name,
+              ph.correct_count,
+              ph.incorrect_count,
+              ph.total_incorrect_count
+            FROM
+              words w 
+            JOIN 
+              word_lists wl ON w.id = $wordId AND w.id = wl.word_id AND wl.list_name IN $whereClause
+            LEFT JOIN
+              practice_history ph ON ph.word_id = wl.word_id AND ph.session_type = 'list' AND ph.list_name = wl.list_name;
+            ORDER BY
+                ph.practiced_at DESC;
+          ''', whereArgs);
+          if (tableMap.isNotEmpty) {
+            debugPrint('[MI_LOG]Contenido consulta: $tableMap.tostring()');
+          }
+        } catch (e) {
+          debugPrint('[MI_LOG]Error en consulta: $e');
+        }
+
+        maps = await db.rawQuery('''
+          SELECT
+            w.*,
+            wl.list_name,
+            ph.correct_count,
+            ph.incorrect_count,
+            ph.total_incorrect_count
+          FROM
+            words w 
+          JOIN 
+            word_lists wl ON w.id = $wordId AND w.id = wl.word_id AND wl.list_name IN $whereClause
+          LEFT JOIN
+            practice_history ph ON ph.word_id = wl.word_id AND ph.session_type = 'list' AND ph.list_name = wl.list_name;
+          ORDER BY
+            ph.practiced_at DESC;
+        ''', whereArgs);
+      }
+    } catch (e) {
+      debugPrint('[MI_LOG]$e');
+      result = null;
+    }
+
+    if (maps.isNotEmpty) {
+      final List<String> lists = await _getListsForWord(maps.first['id']);
+      result = WordPractice.fromMap(maps.first, lists: lists); // Usa el helper
+    } else {
+      result = null;
+    }
+
+    return result;
+  }
+
+  static Future<WordPractice?> getWordById_(int? wordId) async {
     final db = await DBHelper().database;
     final WordPractice? result;
-    // final List<Map<String, dynamic>> maps = await db.query(
-    //   DBHelper().tableWords,
-    //   where: 'id = ?',
-    //   whereArgs: [wordId],
-    //   limit: 1,
-    // );
 
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
         SELECT
@@ -60,7 +197,6 @@ class WordRepository {
         ORDER BY
             ph.practiced_at DESC;
       ''', [wordId]);
-
     if (maps.isNotEmpty) {
       final List<String> lists = await _getListsForWord(maps.first['id']);
       result = WordPractice.fromMap(maps.first, lists: lists); // Usa el helper
@@ -270,14 +406,15 @@ class WordRepository {
               ph.practiced_at DESC;
           ''');
           if (tableMap.isNotEmpty) {
-            debugPrint('[MI_LOG]Contenido practice_history: $tableMap.tostring()');
+            debugPrint(
+                '[MI_LOG]Contenido practice_history: $tableMap.tostring()');
           }
         } catch (e) {
           debugPrint('[MI_LOG]Error en practice_history: $e');
         }
 
         try {
-            List<Map<String, dynamic>> tableMap = await db.rawQuery('''
+          List<Map<String, dynamic>> tableMap = await db.rawQuery('''
             SELECT
               w.*
             FROM
@@ -292,7 +429,7 @@ class WordRepository {
         }
 
         try {
-            List<Map<String, dynamic>> tableMap = await db.rawQuery('''
+          List<Map<String, dynamic>> tableMap = await db.rawQuery('''
             SELECT
               wl.*
             FROM
@@ -307,7 +444,7 @@ class WordRepository {
         }
 
         try {
-            List<Map<String, dynamic>>   tableMap = await db.rawQuery('''
+          List<Map<String, dynamic>> tableMap = await db.rawQuery('''
             SELECT
               w.*,
               wl.list_name,
@@ -645,7 +782,8 @@ class WordRepository {
         //Si es incorrecto, aumentar incorrect_count y total_incorrect_count
         await db.rawUpdate('''
             UPDATE ${DBHelper().tablePracticeHistory}
-            SET incorrect_count = incorrect_count + 1,
+            SET correct_count = 0,
+                incorrect_count = incorrect_count + 1,
                 total_incorrect_count = total_incorrect_count + 1
             WHERE word_id = ? and list_name = ? and session_type = ?
             ''', [wordId, listName, sessionType]);
