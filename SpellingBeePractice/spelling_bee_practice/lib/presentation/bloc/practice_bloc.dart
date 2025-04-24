@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 import 'package:spelling_bee_practice/domain/entities/word_practice.dart';
+import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/practice_session_repository.dart';
 import 'package:spelling_bee_practice/infrastructure/repositories/word_repository.dart';
 import 'package:spelling_bee_practice/presentation/bloc/practice_event.dart';
@@ -62,6 +63,8 @@ class PracticeBloc extends Bloc<PracticeEvent, PracticeState> {
       await PracticeSessionRepository.insertHistory(history);
 
       await WordRepository.updateWordCounters(event.word.id!, event.isCorrect,event.listName, history.sessionType);
+
+      DBHelper.printTable('practice_history'); // Imprimir la tabla de historial de práctica para depuración
       // Obtener la palabra actualizada de la base de datos
       final updatedWord = await WordRepository.getWordById(event.word.id!);
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_history.dart';
 import 'package:spelling_bee_practice/domain/entities/practice_session.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
@@ -15,7 +16,7 @@ class PracticeSessionRepository {
       return List.generate(
           maps.length, (i) => PracticeSession.fromMap(maps[i]));
     } catch (e) {
-      print("Error getting all sessions: $e");
+      debugPrint("[MI_LOG]Error getting all sessions: $e");
       rethrow;
     }
   }
@@ -25,7 +26,7 @@ class PracticeSessionRepository {
     try {
       await db.insert('practice_sessions', session.toMap());
     } catch (e) {
-      print("Error inserting session: $e");
+      debugPrint("[MI_LOG]Error inserting session: $e");
       rethrow;
     }
   }
@@ -42,7 +43,7 @@ class PracticeSessionRepository {
       return List.generate(maps.length, (i) => PracticeSession.fromMap(maps[i]));
 
     } catch (e) {
-      print("Error getting fixed sessions: $e");
+      debugPrint("[MI_LOG]Error getting fixed sessions: $e");
       rethrow;
     }
   }
@@ -80,7 +81,7 @@ class PracticeSessionRepository {
         );
       }
     } catch (e) {
-      print("Error adding word to session: $e");
+      debugPrint("[MI_LOG]Error adding word to session: $e");
       rethrow;
     }
   }
@@ -118,7 +119,7 @@ class PracticeSessionRepository {
         return List.generate(maps.length, (i) => Word.fromMap(maps[i]));
       }
     } catch (e) {
-      print("Error loading session words: $e");
+      debugPrint("[MI_LOG]Error loading session words: $e");
       rethrow;
     }
   }
@@ -126,6 +127,10 @@ class PracticeSessionRepository {
     static Future<void> insertHistory(PracticeHistory history) async {
     final db = await DBHelper().database;
     try {
+      await db.delete('practice_history',
+          where: 'word_id = ? AND list_name = ? AND session_type = ?',
+          whereArgs: [history.wordId, history.listName, history.sessionType]);
+
       await db.insert('practice_history', {
         'word_id': history.wordId,
         'session_id': history.sessionId,
@@ -137,7 +142,7 @@ class PracticeSessionRepository {
         'list_name': history.listName
       });
     } catch (e) {
-      print("Error inserting practice history: $e");
+      debugPrint("[MI_LOG]Error inserting practice history: $e");
       rethrow;
     }
   }
@@ -153,7 +158,7 @@ class PracticeSessionRepository {
         whereArgs: [sessionId],
       );
     } catch (e) {
-      print("Error deleting session: $e");
+      debugPrint("[MI_LOG]Error deleting session: $e");
       rethrow;
     }
   }
@@ -187,7 +192,7 @@ class PracticeSessionRepository {
             where: 'id = ?', whereArgs: [session.id]);
       }
     } catch (e) {
-      print("Error removing word from session: $e");
+      debugPrint("[MI_LOG]Error removing word from session: $e");
       rethrow;
     }
   }

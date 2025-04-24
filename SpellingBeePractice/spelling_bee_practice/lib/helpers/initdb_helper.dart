@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:spelling_bee_practice/domain/entities/word.dart';
 import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:sqflite/sqflite.dart';
@@ -486,7 +487,7 @@ class InitDB {
         await db.insert('words', word.toMap()); // Usar db directamente
       }
     } catch (e) {
-      print("Error loading sample data: $e");
+      debugPrint("[MI_LOG]Error loading sample data: $e");
       rethrow; // Importante
     }
   }
@@ -610,12 +611,12 @@ class InitDB {
             uniqueWords.add(wordText); // Agrega la palabra a la lista
           }
         } else {
-          print(
-              'Error: No se encontró la palabra "$wordText" al cargar listas.');
+          debugPrint(
+              '[MI_LOG]Error: No se encontró la palabra "$wordText" al cargar listas.');
         }
       }
     } catch (e) {
-      print("Error loading sample word lists data: $e");
+      debugPrint("[MI_LOG]Error loading sample word lists data: $e");
       rethrow; //Importante
     }
   }

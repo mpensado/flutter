@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:translator/translator.dart';
 
 class TranslationService {
@@ -10,7 +11,7 @@ class TranslationService {
           await _translator.translate(text, from: from, to: to);
       return translation.text;
     } catch (e) {
-      print("Error en la traduccion: $e");
+      debugPrint("[MI_LOG]Error en la traduccion: $e");
       return text; // Return original text on error
     }
   }

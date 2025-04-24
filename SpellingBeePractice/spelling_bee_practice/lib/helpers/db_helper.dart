@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:spelling_bee_practice/helpers/initdb_helper.dart';
 import 'package:sqflite/sqflite.dart';
@@ -23,14 +24,38 @@ class DBHelper {
     if (_database != null) return _database!;
 
     _database = await _initDatabase();
+
     return _database!;
   }
 
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'spellingbee.db');
-    //  Incrementa la versión a 5 para reflejar todos los cambios en la BD.
+    debugPrint('[MI_LOG]Ruta de la base de datos: $path');
     return await openDatabase(path,
         version: 5, onCreate: _onCreate);
+  }
+
+  Future<String> getDatabasePath() async {
+    String path = join(await getDatabasesPath(), 'spellingbee.db');
+    return path; // Asegúrate de usar el mismo nombre de archivo
+  }
+
+  static Future<String?> printTable(String sqlCommand) async {
+    final dbHelper = DBHelper();
+    final db = await dbHelper.database;
+
+    try {
+      final List<Map<String, dynamic>> tableMap = await db.query(sqlCommand);
+      debugPrint('[MI_LOG]Contenido de $sqlCommand: $tableMap.tostring()');
+      if (tableMap.isNotEmpty) {
+        return tableMap.toString(); // Devuelve el contenido de la tabla como String
+      } else {
+        return 'La tabla consulta $sqlCommand está vacía.';
+      }
+    } catch (e) {
+      debugPrint('[MI_LOG]Error al imprimir la tabla: $e');
+      return null; // O maneja el error como prefieras
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {

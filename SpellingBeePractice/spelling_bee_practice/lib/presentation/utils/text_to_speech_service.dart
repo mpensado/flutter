@@ -18,7 +18,7 @@ class TextToSpeechService {
         await _flutterTts!.setSpeechRate(0.5); // Velocidad (0.5 es normal)
         await _flutterTts!.setVolume(1.0); // Volumen (1.0 es el máximo)
       } catch (e) {
-        debugPrint('Error inicializando TTS: $e');
+        debugPrint('[MI_LOG]Error inicializando TTS: $e');
         // Considera mostrar un SnackBar al usuario si la inicialización falla.
       }
     }
@@ -31,7 +31,7 @@ class TextToSpeechService {
       final tts = await _getInstance();
       await tts.speak(text);
     } catch (e) {
-      debugPrint('Error al pronunciar: $e');
+      debugPrint('[MI_LOG]Error al pronunciar: $e');
       // Considera mostrar un SnackBar aquí también.  Necesitarías un BuildContext.
     }
   }
@@ -42,7 +42,7 @@ class TextToSpeechService {
       final tts = await _getInstance();
       await tts.stop();
     } catch (e) {
-      debugPrint('Error al detener TTS: $e');
+      debugPrint('[MI_LOG]Error al detener TTS: $e');
       // Considera mostrar un SnackBar.
     }
   }
