@@ -173,40 +173,7 @@ class WordRepository {
 
     return result;
   }
-
-  static Future<WordPractice?> getWordById_(int? wordId) async {
-    final db = await DBHelper().database;
-    final WordPractice? result;
-
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
-        SELECT
-            w.*,
-            ph.correct_count,
-            ph.incorrect_count,
-            ph.total_incorrect_count,
-            ph.list_name
-        FROM
-            words w
-        LEFT JOIN
-            practice_history ph ON ph.word_id = w.id
-        JOIN
-            word_lists wl ON w.id = wl.word_id
-        WHERE w.id = ?
-        GROUP BY
-            w.id
-        ORDER BY
-            ph.practiced_at DESC;
-      ''', [wordId]);
-    if (maps.isNotEmpty) {
-      final List<String> lists = await _getListsForWord(maps.first['id']);
-      result = WordPractice.fromMap(maps.first, lists: lists); // Usa el helper
-    } else {
-      result = null;
-    }
-
-    return result;
-  }
-
+  
   // Método auxiliar para obtener las listas de una palabra (privado).
   static Future<List<String>> _getListsForWord(int wordId) async {
     final db = await DBHelper().database;
@@ -222,10 +189,18 @@ class WordRepository {
     final db = await DBHelper().database;
     // Verificar duplicados PRIMERO.
     final existingWord = await getWordByText(word.word);
+
     if (existingWord != null) {
-      // La palabra ya existe.  Actualiza la palabra incluyendo la lista.
+      if (!existingWord!.lists.contains("Todo")) {
+        existingWord.lists.insert(0, "Todo");
+      }
+
       await updateWord(word.copyWith(id: existingWord.id)); // Copia el ID
       return existingWord.id!;
+    } else {
+      if (!word.lists.contains("Todo")) {
+        word.lists.insert(0, "Todo");
+      }
     }
 
     final wordId = await db.insert(DBHelper().tableWords, word.toMap());
@@ -242,6 +217,10 @@ class WordRepository {
 
   static Future<int> updateWord(Word word) async {
     final db = await DBHelper().database;
+
+    if (!word.lists.contains("Todo")) {
+      word.lists.insert(0, "Todo");
+    }
 
     await db.update(
       DBHelper().tableWords,
@@ -311,6 +290,22 @@ class WordRepository {
         WHERE wl.list_name = ?
         ORDER BY $orderByClause
     ''', [listName]);
+
+    return await _mapToWords(maps);
+  }
+
+  static Future<List<Word>> getWordsByIdAndList(int wordId, String listName,
+      {String? sortOrder}) async {
+    final db = await DBHelper().database;
+    final orderByClause = _getOrderByClause(sortOrder);
+
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+        SELECT DISTINCT w.*
+        FROM ${DBHelper().tableWords} w
+        INNER JOIN ${DBHelper().tableWordLists} wl ON w.id = wl.word_id
+        WHERE wl.list_name = ? and w.id = ?
+        ORDER BY $orderByClause
+    ''', [listName, wordId]);
 
     return await _mapToWords(maps);
   }

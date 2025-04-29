@@ -134,6 +134,6 @@ class DBHelper {
     // Crear sesiones fijas DESPUÉS de crear las tablas.
     //await _createFixedSessions(db);
 
-    await InitDB.loadInitialData(db);
+    //await InitDB.loadInitialData(db);
   }
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:spelling_bee_practice/helpers/db_helper.dart';
 import 'package:spelling_bee_practice/presentation/screens/home/home_screen.dart'; // Importa HomePage
 
 void main() {
@@ -13,7 +12,6 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     WidgetsFlutterBinding.ensureInitialized(); // Asegura que los plugins de Flutter estén inicializados
-    DBHelper.printTable("practice_history");
     return MaterialApp(
       title: 'SpellingBee',
       debugShowCheckedModeBanner: false,
