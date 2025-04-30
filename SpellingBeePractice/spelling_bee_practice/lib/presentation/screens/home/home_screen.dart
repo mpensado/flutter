@@ -21,7 +21,6 @@ class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   String _actualFilter = "Todo";
-  late TabController _tabController;
 
   // Lista de pestañas (ahora solo 2).
   late final List<Widget> _tabs;
@@ -29,14 +28,23 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _tabs = [
-      WordsTab(), //Pasa el callback
+      WordsTab(onFilterChanged: _onFilterChangedInWordsTab), //Pasa el callback
       const PracticeTab(),
     ];
   }
 
-  Future<void> _uploadAndProcessFile(BuildContext context) async {
+  void _onFilterChangedInWordsTab(String newFilter) {
+    _actualFilter = newFilter;
+    //setState(() {});
+
+    debugPrint('[MI_LOG]Filtro cambiado en HomeScreen: $_actualFilter');
+    // Aquí puedes realizar cualquier acción necesaria en HomeScreen
+    // cuando el filtro cambie, aunque en este caso, solo necesitamos el valor
+    // para la subida del archivo.
+  }
+
+  Future<void> _uploadAndProcessFile(BuildContext context, String actualFilter) async {
     FilePickerResult? result;
     try {
       result = await FilePicker.platform.pickFiles(
@@ -88,9 +96,9 @@ class _HomePageState extends State<HomePage>
           // 1. Insertar en la tabla words si no existe
           final word = Word(
               word: wordText,
-              translation: await TranslationService.translate(
-                  text: wordText, from: "en", to: "es"),
+              translation: await TranslationService.translate(text: wordText, from: "en", to: "es"),
               spelling: TextToSpeechService.spelling(wordText),
+              lists: ['Todo', actualFilter],
               createdAt: DateTime.now());
 
           int wordId = 0;
@@ -106,9 +114,9 @@ class _HomePageState extends State<HomePage>
             await db.insert(DBHelper().tableWordLists,{'word_id': wordId, 'list_name': 'Todo'});
           }
 
-          final existsInCurrentCategory = await WordRepository.getWordsByIdAndList(wordId, _actualFilter);
+          final existsInCurrentCategory = await WordRepository.getWordsByIdAndList(wordId, actualFilter);
           if (existsInCurrentCategory.isEmpty) {
-            await db.insert(DBHelper().tableWordLists,{'word_id': wordId, 'list_name': _actualFilter});
+            await db.insert(DBHelper().tableWordLists,{'word_id': wordId, 'list_name': actualFilter});
           }
         }
 
@@ -147,7 +155,7 @@ class _HomePageState extends State<HomePage>
               icon: Icon(
                   Icons.file_upload), // Puedes usar otro icono de configuración
               onPressed: () {
-                _uploadAndProcessFile(context);
+                _uploadAndProcessFile(context, _actualFilter);
               },
             )
         ],

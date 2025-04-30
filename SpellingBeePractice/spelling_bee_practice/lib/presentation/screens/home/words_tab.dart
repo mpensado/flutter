@@ -4,8 +4,11 @@ import 'package:spelling_bee_practice/infrastructure/repositories/word_repositor
 import 'package:spelling_bee_practice/presentation/widgets/add_edit_word_dialog.dart';
 import 'package:spelling_bee_practice/presentation/widgets/shared/word_card.dart';
 
+typedef OnFilterChanged = void Function(String newFilter);
 class WordsTab extends StatefulWidget {
-  const WordsTab({super.key});
+  final OnFilterChanged onFilterChanged;
+
+  WordsTab({Key? key, required this.onFilterChanged}) : super(key: key);
 
   @override
   WordsTabState createState() => WordsTabState();
@@ -218,6 +221,8 @@ class WordsTabState extends State<WordsTab>
               } else{
                 _selectedList = newValue;
               }
+
+              widget.onFilterChanged(newValue);
               _loadWords(); // Recarga las palabras al cambiar el filtro.
             });
           },
