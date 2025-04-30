@@ -507,9 +507,9 @@ class WordRepository {
   // Función auxiliar para obtener la cláusula ORDER BY (privada).
   static String _getOrderByClause(String? sortOrder) {
     switch (sortOrder) {
-      case 'az':
+      case 'nameAsc':
         return 'word ASC';
-      case 'za':
+      case 'nameDesc':
         return 'word DESC';
       case 'dateAsc':
         return 'created_at ASC';
