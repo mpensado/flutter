@@ -8,7 +8,7 @@ typedef OnFilterChanged = void Function(String newFilter);
 class WordsTab extends StatefulWidget {
   final OnFilterChanged onFilterChanged;
 
-  WordsTab({Key? key, required this.onFilterChanged}) : super(key: key);
+  const WordsTab({super.key, required this.onFilterChanged});
 
   @override
   WordsTabState createState() => WordsTabState();

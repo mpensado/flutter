@@ -191,7 +191,7 @@ class WordRepository {
     final existingWord = await getWordByText(word.word);
 
     if (existingWord != null) {
-      if (!existingWord!.lists.contains("Todo")) {
+      if (!existingWord.lists.contains("Todo")) {
         existingWord.lists.insert(0, "Todo");
       }
 

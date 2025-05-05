@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
-import 'package:spelling_bee_practice/helpers/initdb_helper.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DBHelper {
