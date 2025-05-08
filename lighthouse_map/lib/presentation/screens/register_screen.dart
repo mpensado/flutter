@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lighthouse_map/presentation/blocs/auth/auth_bloc.dart';
-import 'package:lighthouse_map/presentation/screens/register_screen.dart';
 
-class LoginScreen extends StatelessWidget {
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
+
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
-  LoginScreen({super.key});
+  final _confirmPasswordController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Iniciar Sesión'),
+        title: const Text('Registrarse'),
       ),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
-            // Navegar a la pantalla principal
+            // Si el registro es exitoso, navega a la pantalla principal
+            // O puedes volver a la pantalla de login si prefieres
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (context) => const Placeholder(child: Text('Pantalla Principal'))),
             );
@@ -52,27 +58,31 @@ class LoginScreen extends StatelessWidget {
                     labelText: 'Contraseña',
                   ),
                 ),
+                const SizedBox(height: 16.0),
+                TextField(
+                  controller: _confirmPasswordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirmar Contraseña',
+                  ),
+                ),
                 const SizedBox(height: 24.0),
                 ElevatedButton(
                   onPressed: () {
+                    if (_passwordController.text != _confirmPasswordController.text) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Las contraseñas no coinciden.')),
+                      );
+                      return;
+                    }
                     context.read<AuthBloc>().add(
-                      LoginRequested(
+                      RegisterRequested(
                         email: _emailController.text,
                         password: _passwordController.text,
                       ),
                     );
                   },
-                  child: const Text('Iniciar Sesión'),
-                ),
-                const SizedBox(height: 16.0),
-                TextButton(
-                  onPressed: () {
-                    // <--- Modifica esta parte para navegar a RegisterScreen
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const RegisterScreen()),
-                    );
-                  },
-                  child: const Text('¿No tienes cuenta? Regístrate'),
+                  child: const Text('Registrarse'),
                 ),
               ],
             ),
@@ -80,5 +90,13 @@ class LoginScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 }
