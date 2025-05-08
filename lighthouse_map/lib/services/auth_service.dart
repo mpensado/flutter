@@ -31,9 +31,21 @@ class AuthService {
         email: email,
         password: password,
       );
-      final User? user = result.user;
-      if (user != null) {
-        return await _userRepository.getUser(user.uid);
+      final User? firebaseUser = result.user; // El objeto User de Firebase Authentication
+      if (firebaseUser != null) {
+        // Intentamos obtener el documento del usuario de nuestra colección de Firestore
+        UserModel? userModel = await _userRepository.getUser(firebaseUser.uid);
+
+        // Si el documento no existe en Firestore, lo creamos
+        if (userModel == null) {
+          userModel = UserModel(
+            userId: firebaseUser.uid,
+            email: firebaseUser.email, // Usamos el email del usuario autenticado
+            nombre: firebaseUser.displayName, // Si displayName no está definido, será null
+          );
+          await _userRepository.createUser(userModel);
+        }
+        return userModel;
       }
       return null;
     } catch (e) {
