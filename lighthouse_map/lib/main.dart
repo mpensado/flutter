@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:lighthouse_map/app.dart';
-import 'package:lighthouse_map/firebase_options.dart'; // Este archivo se generará
+import 'package:lighthouse_map/firebase_options.dart';
 //import 'app.dart'; // Si creaste un archivo app.dart
 
 void main() async {
@@ -9,5 +9,5 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MyApp()); // Asegúrate de que MyApp() sea tu widget raíz
+  runApp(const AppState()); // Asegúrate de que MyApp() sea tu widget raíz
 }

@@ -67,9 +67,14 @@ class LoginScreen extends StatelessWidget {
                 const SizedBox(height: 16.0),
                 TextButton(
                   onPressed: () {
-                    // <--- Modifica esta parte para navegar a RegisterScreen
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => BlocProvider.value(
+                          value: BlocProvider.of<AuthBloc>(context),
+                          child: const RegisterScreen(),
+                        ),
+                      ),
                     );
                   },
                   child: const Text('¿No tienes cuenta? Regístrate'),

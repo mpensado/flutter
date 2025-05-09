@@ -16,22 +16,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final appBLoC = BlocProvider.of<AuthBloc>(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registrarse'),
-      ),
+      appBar: AppBar(title: const Text('Registrarse')),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
             // Si el registro es exitoso, navega a la pantalla principal
             // O puedes volver a la pantalla de login si prefieres
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const Placeholder(child: Text('Pantalla Principal'))),
+              MaterialPageRoute(
+                builder:
+                    (context) =>
+                        const Placeholder(child: Text('Pantalla Principal')),
+              ),
             );
           } else if (state is AuthFailure) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message)));
           }
         },
         builder: (context, state) {
@@ -54,9 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Contraseña',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Contraseña'),
                 ),
                 const SizedBox(height: 16.0),
                 TextField(
@@ -69,13 +71,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 24.0),
                 ElevatedButton(
                   onPressed: () {
-                    if (_passwordController.text != _confirmPasswordController.text) {
+                    if (_passwordController.text !=
+                        _confirmPasswordController.text) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Las contraseñas no coinciden.')),
+                        const SnackBar(
+                          content: Text('Las contraseñas no coinciden.'),
+                        ),
                       );
                       return;
                     }
-                    context.read<AuthBloc>().add(
+                    appBLoC.add(
                       RegisterRequested(
                         email: _emailController.text,
                         password: _passwordController.text,
