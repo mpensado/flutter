@@ -2,6 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+    <string>Se necesita acceso a su ubicación para mostrar su posición en el mapa y compartirla con su círculo de confianza.</string>
+
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Se necesita acceso continuo a su ubicación para el seguimiento en segundo plano y para notificar a su círculo de confianza sobre su paradas o llegadas.</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>Se necesita acceso continuo a su ubicación para el seguimiento en segundo plano y para notificar a su círculo de confianza sobre su paradas o llegadas.</string>
+
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+    </array>
+	
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

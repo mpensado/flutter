@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/user_model.dart';
+import 'package:flutter/material.dart';
+import 'package:lighthouse_map/data/models/user_model.dart';
 
 class UserRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -13,7 +14,7 @@ class UserRepository {
       }
       return null;
     } catch (e) {
-      print('Error getting user: $e');
+      debugPrint('[MYLOG]Error getting user: $e');
       return null;
     }
   }
@@ -22,7 +23,7 @@ class UserRepository {
     try {
       await _firestore.collection(_collection).doc(user.userId).set(user.toMap());
     } catch (e) {
-      print('Error creating user: $e');
+      debugPrint('[MYLOG]Error creating user: $e');
     }
   }
 

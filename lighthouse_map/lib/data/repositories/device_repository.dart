@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import '../models/device_model.dart';
 
 class DeviceRepository {
@@ -13,7 +14,7 @@ class DeviceRepository {
       }
       return null;
     } catch (e) {
-      print('Error getting device: $e');
+      debugPrint('[MYLOG]Error getting device: $e');
       return null;
     }
   }
@@ -22,7 +23,7 @@ class DeviceRepository {
     try {
       await _firestore.collection(_collection).doc(device.deviceId).set(device.toMap());
     } catch (e) {
-      print('Error creating device: $e');
+      debugPrint('[MYLOG]Error creating device: $e');
     }
   }
 
@@ -30,7 +31,7 @@ class DeviceRepository {
     try {
       await _firestore.collection(_collection).doc(device.deviceId).update(device.toMap());
     } catch (e) {
-      print('Error updating device: $e');
+      debugPrint('[MYLOG]Error updating device: $e');
     }
   }
 
@@ -39,7 +40,7 @@ class DeviceRepository {
       final querySnapshot = await _firestore.collection(_collection).where('user_id', isEqualTo: userId).get();
       return querySnapshot.docs.map((doc) => DeviceModel.fromMap(doc.data())).toList();
     } catch (e) {
-      print('Error getting devices for user: $e');
+      debugPrint('[MYLOG]Error getting devices for user: $e');
       return [];
     }
   }

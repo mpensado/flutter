@@ -14,11 +14,16 @@ class LocationLoading extends LocationState {}
 class LocationLoaded extends LocationState {
   final double latitude;
   final double longitude;
+  final List<LocationModel> historicalLocations; // <--- ¡NUEVO CAMPO!
 
-  const LocationLoaded({required this.latitude, required this.longitude});
+  const LocationLoaded({
+    required this.latitude,
+    required this.longitude,
+    this.historicalLocations = const [], // Inicializa como lista vacía
+  });
 
   @override
-  List<Object> get props => [latitude, longitude];
+  List<Object> get props => [latitude, longitude, historicalLocations];
 }
 
 class LocationError extends LocationState {

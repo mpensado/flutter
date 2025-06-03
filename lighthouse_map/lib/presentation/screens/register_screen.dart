@@ -23,19 +23,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
-            // Si el registro es exitoso, navega a la pantalla principal
-            // O puedes volver a la pantalla de login si prefieres
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder:
-                    (context) =>
-                        const Placeholder(child: Text('Pantalla Principal')),
-              ),
+            // **¡ELIMINA ESTA LÍNEA DE NAVEGACIÓN!**
+            // La navegación a HomeScreen es manejada por el BlocConsumer en app.dart
+            // Navigator.of(context).pushReplacement(
+            //   MaterialPageRoute(builder: (context) => const Placeholder(child: Text('Pantalla Principal'))),
+            // );
+            // Opcional: Puedes mostrar un mensaje de éxito aquí si lo deseas
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Registro exitoso.')),
             );
           } else if (state is AuthFailure) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message)),
+            );
           }
         },
         builder: (context, state) {

@@ -18,9 +18,14 @@ class LoginScreen extends StatelessWidget {
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
-            // Navegar a la pantalla principal
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const Placeholder(child: Text('Pantalla Principal'))),
+            // **¡ELIMINA ESTA LÍNEA DE NAVEGACIÓN!**
+            // La navegación a HomeScreen es manejada por el BlocConsumer en app.dart
+            // Navigator.of(context).pushReplacement(
+            //   MaterialPageRoute(builder: (context) => const Placeholder(child: Text('Pantalla Principal'))),
+            // );
+            // Opcional: Puedes mostrar un mensaje de éxito aquí si lo deseas
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Inicio de sesión exitoso.')),
             );
           } else if (state is AuthFailure) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -67,14 +72,8 @@ class LoginScreen extends StatelessWidget {
                 const SizedBox(height: 16.0),
                 TextButton(
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => BlocProvider.value(
-                          value: BlocProvider.of<AuthBloc>(context),
-                          child: const RegisterScreen(),
-                        ),
-                      ),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const RegisterScreen()),
                     );
                   },
                   child: const Text('¿No tienes cuenta? Regístrate'),

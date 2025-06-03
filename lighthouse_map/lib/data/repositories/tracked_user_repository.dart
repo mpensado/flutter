@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import '../models/tracked_user_model.dart';
 
 class TrackedUserRepository {
@@ -9,7 +10,7 @@ class TrackedUserRepository {
     try {
       await _firestore.collection(_collection).doc().set(trackedUser.toMap()); // Firestore genera el ID automáticamente
     } catch (e) {
-      print('Error adding tracked user: $e');
+      debugPrint('[MYLOG]Error adding tracked user: $e');
     }
   }
 
@@ -17,7 +18,7 @@ class TrackedUserRepository {
     try {
       await _firestore.collection(_collection).doc(trackedUserId).delete();
     } catch (e) {
-      print('Error deleting tracked user: $e');
+      debugPrint('[MYLOG]Error deleting tracked user: $e');
     }
   }
 
@@ -29,7 +30,7 @@ class TrackedUserRepository {
           .get();
       return querySnapshot.docs.map((doc) => TrackedUserModel.fromMap(doc.data())).toList();
     } catch (e) {
-      print('Error getting tracked users for tracker: $e');
+      debugPrint('[MYLOG]Error getting tracked users for tracker: $e');
       return [];
     }
   }
@@ -47,7 +48,7 @@ class TrackedUserRepository {
       }
       return null;
     } catch (e) {
-      print('Error getting tracking relation: $e');
+      debugPrint('[MYLOG]Error getting tracking relation: $e');
       return null;
     }
   }
@@ -56,7 +57,7 @@ class TrackedUserRepository {
     try {
       await _firestore.collection(_collection).doc(documentId).update(trackedUser.toMap());
     } catch (e) {
-      print('Error updating tracking relation: $e');
+      debugPrint('[MYLOG]Error updating tracking relation: $e');
     }
   }
 

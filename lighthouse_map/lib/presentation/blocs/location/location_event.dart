@@ -14,9 +14,16 @@ class StopTrackingLocation extends LocationEvent {}
 class LocationUpdated extends LocationEvent {
   final double latitude;
   final double longitude;
+  final Position position;
 
-  const LocationUpdated({required this.latitude, required this.longitude});
+  const LocationUpdated({
+    required this.latitude,
+    required this.longitude,
+    required this.position,
+  });
 
   @override
-  List<Object> get props => [latitude, longitude];
+  List<Object> get props => [latitude, longitude, position];
 }
+
+class SyncLocationsRequested extends LocationEvent {} // <--- ¡VERIFICA QUE ESTA LÍNEA ESTÉ AQUÍ!

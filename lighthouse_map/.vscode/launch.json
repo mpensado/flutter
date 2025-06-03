@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Flutter: Run",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+        },
+        {
+            "name": "lighthouse_map",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "lighthouse_map (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "lighthouse_map (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}

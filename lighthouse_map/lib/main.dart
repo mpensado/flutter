@@ -11,3 +11,8 @@ void main() async {
   );
   runApp(const AppState()); // Asegúrate de que MyApp() sea tu widget raíz
 }
+
+//qwen 2.0
+//minimax 01
+//kimi 1.5
+//deep seek
