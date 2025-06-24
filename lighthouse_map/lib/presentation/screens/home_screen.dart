@@ -19,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
   bool _isTracking = false; // Bandera para controlar si el tracking está activo
+  bool _showFilters = true;
 
   @override
   void initState() {
@@ -42,101 +43,174 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: BlocConsumer<LocationBloc, LocationState>(
-        listener: (context, state) {
-          if (state is LocationError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
-            // Si hay un error, el tracking puede haberse detenido
-            if (_isTracking) {
-                setState(() {
-                    _isTracking = false; // Actualiza la bandera en caso de error
-                });
-            }
-          }
-          if (state is LocationLoaded) {
-            _currentLatLng = LatLng(state.latitude, state.longitude);
-            _updateMap();
-            _updateMarker(); // El pin SIEMPRE se actualizará con cada LocationLoaded
-
-            // ¡La polilínea SÓLO se actualizará si _isTracking es true!
-            if (_isTracking) {
-                _updatePolyline(state.historicalLocations);
-            } else {
-                // Si no estamos haciendo tracking, aseguramos que la polilínea esté limpia.
-                _polylines.clear();
-                if (mounted) {
-                    setState(() {});
+      body: Stack( // <--- ¡AÑADIR STACK AQUÍ!
+        children: [
+          // El mapa de Google (ocupará toda la pantalla de fondo)
+          BlocConsumer<LocationBloc, LocationState>(
+            listener: (context, state) {
+              if (state is LocationError) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(state.message)),
+                );
+                if (_isTracking) {
+                    setState(() {
+                        _isTracking = false; // Actualiza la bandera en caso de error
+                    });
                 }
-            }
-          }
-        },
-        builder: (context, state) {
-          return GoogleMap(
-            mapType: MapType.normal,
-            initialCameraPosition: CameraPosition(
-              target: _currentLatLng ?? const LatLng(0, 0), // Centra en (0,0) si no hay ubicación aún
-              zoom: 15,
-            ),
-            onMapCreated: (GoogleMapController controller) {
-              _mapController = controller;
-              // Si _currentLatLng ya está disponible (por ejemplo, desde una sesión anterior),
-              // centramos el mapa aquí para evitar empezar en (0,0)
-              if (_currentLatLng != null) {
-                _mapController!.animateCamera(CameraUpdate.newLatLng(_currentLatLng!));
+              }
+              if (state is LocationLoaded) {
+                _currentLatLng = LatLng(state.latitude, state.longitude);
+                _updateMap();
+                _updateMarker(); // El pin SIEMPRE se actualizará con cada LocationLoaded
+
+                // ¡La polilínea SÓLO se actualizará si _isTracking es true!
+                if (_isTracking) {
+                    _updatePolyline(state.historicalLocations);
+                } else {
+                    // Si no estamos haciendo tracking, aseguramos que la polilínea esté limpia.
+                    _polylines.clear();
+                    if (mounted) {
+                        setState(() {});
+                    }
+                }
               }
             },
-            markers: _markers,
-            polylines: _polylines,
-            myLocationEnabled: false,
-            compassEnabled: true,
-            zoomControlsEnabled: false,
-          );
-        },
-      ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: <Widget>[
-          FloatingActionButton(
-            heroTag: "startBtn",
-            onPressed: () {
-              if (!_isTracking) { // Solo iniciar si no está ya en seguimiento
-                context.read<LocationBloc>().add(StartTrackingLocation());
-                setState(() {
-                  _isTracking = true; // Activa la bandera de seguimiento
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Iniciando seguimiento...')),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('El seguimiento ya está activo.')),
-                );
-              }
+            builder: (context, state) {
+              return GoogleMap(
+                mapType: MapType.normal,
+                initialCameraPosition: CameraPosition(
+                  target: _currentLatLng ?? const LatLng(0, 0), // Centra en (0,0) si no hay ubicación aún
+                  zoom: 15,
+                ),
+                onMapCreated: (GoogleMapController controller) {
+                  _mapController = controller;
+                  // Si _currentLatLng ya está disponible (por ejemplo, desde una sesión anterior),
+                  // centramos el mapa aquí para evitar empezar en (0,0)
+                  if (_currentLatLng != null) {
+                    _mapController!.animateCamera(CameraUpdate.newLatLng(_currentLatLng!));
+                  }
+                },
+                markers: _markers,
+                polylines: _polylines,
+                myLocationEnabled: false,
+                compassEnabled: true,
+                zoomControlsEnabled: false,
+              );
             },
-            child: Icon(_isTracking ? Icons.play_arrow : Icons.play_arrow), // Icono por ahora
           ),
-          const SizedBox(height: 10),
-          FloatingActionButton(
-            heroTag: "stopBtn",
-            onPressed: () {
-              if (_isTracking) { // Solo detener si está en seguimiento
-                context.read<LocationBloc>().add(StopTrackingLocation());
-                setState(() {
-                  _isTracking = false; // Desactiva la bandera
-                  _polylines.clear(); // Limpia la polilínea al detener el seguimiento
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Deteniendo seguimiento...')),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('El seguimiento ya está detenido.')),
-                );
-              }
+
+          // El DraggableScrollableSheet (Panel deslizable)
+          DraggableScrollableSheet( // <--- ¡EL NUEVO PANEL!
+            initialChildSize: 0.1, // <--- Aumentar tamaño inicial (ej. 20%)
+            minChildSize: 0.1,
+            maxChildSize: 0.5,
+            expand: true,
+            builder: (BuildContext context, ScrollController scrollController) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.black26, // <--- Cambiar a un color llamativo y semi-transparente
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20.0),
+                    topRight: Radius.circular(20.0),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black54, // Sombra más oscura
+                      spreadRadius: 3, // Sombra más extendida
+                      blurRadius: 8,  // Sombra más difuminada
+                      offset: const Offset(0, -3), // Sombra hacia arriba
+                    ),
+                  ],
+                ),
+                child: SingleChildScrollView( // Importante: usar el scrollController aquí
+                  controller: scrollController,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Center( // Barra de arrastre visual
+                          child: Container(
+                            width: 40,
+                            height: 5,
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'Controles de Seguimiento y Historial',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // Aquí irán los controles de selección de usuario y fecha
+                        const Text('Selector de Usuario (Próximamente)'),
+                        const SizedBox(height: 10),
+                        const Text('Filtro por Fecha (Próximamente)'),
+                        const SizedBox(height: 200), // Espacio para que sea deslizable
+                        // Puedes añadir más widgets aquí
+                      ],
+                    ),
+                  ),
+                ),
+              );
             },
-            child: const Icon(Icons.stop),
+          ),
+          
+          // Los FloatingActionButtons (Flotan sobre el mapa)
+          Positioned(
+            bottom: 16.0,
+            right: 16.0,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: <Widget>[
+                FloatingActionButton(
+                  heroTag: "startBtn",
+                  onPressed: () {
+                    if (!_isTracking) { // Solo iniciar si no está ya en seguimiento
+                      context.read<LocationBloc>().add(StartTrackingLocation());
+                      setState(() {
+                        _isTracking = true; // Activa la bandera de seguimiento
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Iniciando seguimiento...')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('El seguimiento ya está activo.')),
+                      );
+                    }
+                  },
+                  child: Icon(_isTracking ? Icons.play_arrow : Icons.play_arrow), // Icono por ahora
+                ),
+                const SizedBox(height: 10),
+                FloatingActionButton(
+                  heroTag: "stopBtn",
+                  onPressed: () {
+                    if (_isTracking) { // Solo detener si está en seguimiento
+                      context.read<LocationBloc>().add(StopTrackingLocation());
+                      setState(() {
+                        _isTracking = false; // Desactiva la bandera
+                        _polylines.clear(); // Limpia la polilínea al detener el seguimiento
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Deteniendo seguimiento...')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('El seguimiento ya está detenido.')),
+                      );
+                    }
+                  },
+                  child: const Icon(Icons.stop),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -196,8 +270,8 @@ class _HomeScreenState extends State<HomeScreen> {
       Polyline(
         polylineId: const PolylineId('myRoute'),
         points: points,
-        color: Colors.red, // Color visible
-        width: 10, // Ancho visible
+        color: Colors.red, // Visible color
+        width: 10, // Visible width
         geodesic: true,
       ),
     );
