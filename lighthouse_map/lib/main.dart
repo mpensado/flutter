@@ -15,4 +15,4 @@ void main() async {
 //qwen 2.0
 //minimax 01
 //kimi 1.5
-//deep seek
+//deep seek 
