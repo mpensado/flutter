@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart'; // <--- ¡ASEGÚRATE DE QUE ESTA IMPORTACIÓN ESTÉ AQUÍ!
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:lighthouse_map/presentation/blocs/location/location_bloc.dart';
@@ -18,60 +19,76 @@ class _HomeScreenState extends State<HomeScreen> {
   LatLng? _currentLatLng;
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
-  bool _isTracking = false; // Bandera para controlar si el tracking está activo
-  bool _showFilters = true;
+  bool _isTracking = false;
+
+  // Definir la altura inicial y mínima del DraggableScrollableSheet
+  final double _initialSheetHeight = 0.3; // Más grande para visibilidad-
+  final double _minSheetHeight = 0.1;    // Tamaño mínimo
+
+  // Controlador para el DraggableScrollableSheet
+  final DraggableScrollableController _sheetController = DraggableScrollableController();
+  // Variable para almacenar la altura actual del sheet (como ratio 0.0-1.0)
+  double _currentSheetHeightRatio = 0.3; // Inicializar con initialChildSize para la primera renderización
 
   @override
   void initState() {
     super.initState();
-    // ¡IMPORTANTE! QUITAR LA LLAMADA A StartTrackingLocation() AQUÍ.
-    // El seguimiento se iniciará solo al presionar el botón "Play".
-    // El mapa se centrará inicialmente en (0,0) hasta que se reciba la primera ubicación después de Play.
+    debugPrint('[MYLOG] HomeScreen: initState llamado.'); // <--- Añadido log
+    _sheetController.addListener(_onSheetChanged);
+  }
+
+  // Método que se llama cuando la altura del sheet cambia
+  void _onSheetChanged() {
+    if (_sheetController.isAttached) { // Asegurarse de que el controlador esté adjunto
+      setState(() {
+        _currentSheetHeightRatio = _sheetController.size; // <--- ¡CORRECCIÓN CRUCIAL AQUÍ!
+        debugPrint('[MYLOG] HomeScreen: _onSheetChanged - _currentSheetHeightRatio actualizado a: $_currentSheetHeightRatio'); // <--- Añadido log
+      });
+    }
+    // Elimina 'return false;' si estaba aquí. Esta función no es un NotificationListener callback.
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // <--- ¡NUEVOS LOGS AQUÍ EN EL BUILD!
+    debugPrint('[MYLOG] HomeScreen: build - screenHeight: $screenHeight');
+    debugPrint('[MYLOG] HomeScreen: build - _currentSheetHeightRatio (en build): $_currentSheetHeightRatio');
+    debugPrint('[MYLOG] HomeScreen: build - FAB bottom calculado: ${(screenHeight * _currentSheetHeightRatio) + 30.0}'); // Margen de 30 para los FABs
+    // Fin de nuevos logs en build.
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lighthouse Map - Mi Ubicación'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              context.read<AuthBloc>().add(LoggedOut());
-            },
+            onPressed: () => context.read<AuthBloc>().add(LoggedOut()),
           ),
         ],
       ),
-      body: Stack( // <--- ¡AÑADIR STACK AQUÍ!
+      body: Stack(
         children: [
-          // El mapa de Google (ocupará toda la pantalla de fondo)
+          // 1. Mapa de Google (primer hijo, se pinta abajo)
           BlocConsumer<LocationBloc, LocationState>(
             listener: (context, state) {
               if (state is LocationError) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(state.message)),
                 );
-                if (_isTracking) {
-                    setState(() {
-                        _isTracking = false; // Actualiza la bandera en caso de error
-                    });
-                }
+                if (_isTracking) setState(() => _isTracking = false);
               }
               if (state is LocationLoaded) {
                 _currentLatLng = LatLng(state.latitude, state.longitude);
                 _updateMap();
-                _updateMarker(); // El pin SIEMPRE se actualizará con cada LocationLoaded
-
-                // ¡La polilínea SÓLO se actualizará si _isTracking es true!
+                _updateMarker();
+                
                 if (_isTracking) {
-                    _updatePolyline(state.historicalLocations);
+                  _updatePolyline(state.historicalLocations);
                 } else {
-                    // Si no estamos haciendo tracking, aseguramos que la polilínea esté limpia.
-                    _polylines.clear();
-                    if (mounted) {
-                        setState(() {});
-                    }
+                  _polylines.clear();
+                  if (mounted) setState(() {});
                 }
               }
             },
@@ -79,13 +96,11 @@ class _HomeScreenState extends State<HomeScreen> {
               return GoogleMap(
                 mapType: MapType.normal,
                 initialCameraPosition: CameraPosition(
-                  target: _currentLatLng ?? const LatLng(0, 0), // Centra en (0,0) si no hay ubicación aún
+                  target: _currentLatLng ?? const LatLng(0, 0),
                   zoom: 15,
                 ),
-                onMapCreated: (GoogleMapController controller) {
+                onMapCreated: (controller) {
                   _mapController = controller;
-                  // Si _currentLatLng ya está disponible (por ejemplo, desde una sesión anterior),
-                  // centramos el mapa aquí para evitar empezar en (0,0)
                   if (_currentLatLng != null) {
                     _mapController!.animateCamera(CameraUpdate.newLatLng(_currentLatLng!));
                   }
@@ -99,84 +114,20 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
-          // El DraggableScrollableSheet (Panel deslizable)
-          DraggableScrollableSheet( // <--- ¡EL NUEVO PANEL!
-            initialChildSize: 0.1, // <--- Aumentar tamaño inicial (ej. 20%)
-            minChildSize: 0.1,
-            maxChildSize: 0.5,
-            expand: true,
-            builder: (BuildContext context, ScrollController scrollController) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: Colors.black26, // <--- Cambiar a un color llamativo y semi-transparente
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20.0),
-                    topRight: Radius.circular(20.0),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black54, // Sombra más oscura
-                      spreadRadius: 3, // Sombra más extendida
-                      blurRadius: 8,  // Sombra más difuminada
-                      offset: const Offset(0, -3), // Sombra hacia arriba
-                    ),
-                  ],
-                ),
-                child: SingleChildScrollView( // Importante: usar el scrollController aquí
-                  controller: scrollController,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Center( // Barra de arrastre visual
-                          child: Container(
-                            width: 40,
-                            height: 5,
-                            margin: const EdgeInsets.only(bottom: 10),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                          ),
-                        ),
-                        Text(
-                          'Controles de Seguimiento y Historial',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        // Aquí irán los controles de selección de usuario y fecha
-                        const Text('Selector de Usuario (Próximamente)'),
-                        const SizedBox(height: 10),
-                        const Text('Filtro por Fecha (Próximamente)'),
-                        const SizedBox(height: 200), // Espacio para que sea deslizable
-                        // Puedes añadir más widgets aquí
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          
-          // Los FloatingActionButtons (Flotan sobre el mapa)
+          // 2. Botones flotantes dinámicos (Segundo hijo, se pintan encima del mapa)
+          // Su `bottom` está ahora basado en la altura del panel deslizable.
           Positioned(
-            bottom: 16.0,
-            right: 16.0,
+            right: 20,
+            bottom: (screenHeight * _currentSheetHeightRatio) + 30, // Usamos la variable calculada
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
-              children: <Widget>[
+              children: [
                 FloatingActionButton(
                   heroTag: "startBtn",
                   onPressed: () {
-                    if (!_isTracking) { // Solo iniciar si no está ya en seguimiento
+                    if (!_isTracking) {
                       context.read<LocationBloc>().add(StartTrackingLocation());
-                      setState(() {
-                        _isTracking = true; // Activa la bandera de seguimiento
-                      });
+                      setState(() => _isTracking = true);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Iniciando seguimiento...')),
                       );
@@ -186,20 +137,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     }
                   },
-                  child: Icon(_isTracking ? Icons.play_arrow : Icons.play_arrow), // Icono por ahora
+                  child: Icon(_isTracking ? Icons.play_arrow : Icons.play_arrow),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 FloatingActionButton(
                   heroTag: "stopBtn",
                   onPressed: () {
-                    if (_isTracking) { // Solo detener si está en seguimiento
+                    if (_isTracking) {
                       context.read<LocationBloc>().add(StopTrackingLocation());
                       setState(() {
-                        _isTracking = false; // Desactiva la bandera
-                        _polylines.clear(); // Limpia la polilínea al detener el seguimiento
+                        _isTracking = false;
+                        _polylines.clear();
                       });
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Deteniendo seguimiento...')),
+                        const SnackBar(content: Text('Seguimiento detenido')),
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -211,6 +162,55 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+          ),
+
+          // 3. Panel deslizable (Tercer hijo, se pinta encima de todo lo anterior)
+          DraggableScrollableSheet(
+            controller: _sheetController,
+            initialChildSize: _initialSheetHeight, // Usar la variable
+            minChildSize: _minSheetHeight,
+            maxChildSize: 0.5,
+            snap: true,
+            snapSizes: const [0.1, 0.3, 0.5],
+            builder: (BuildContext context, ScrollController scrollController) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.blue[800]!.withAlpha(127), // Tu color actual
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 15,
+                      spreadRadius: 0,
+                      offset: Offset(0, -5),
+                    ),
+                  ],
+                ),
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(child: DragHandle()),
+                        SizedBox(height: 10),
+                        Text(
+                          'Controles de Seguimiento',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 20),
+                        PlaceholderContent(), // Tu contenido de placeholder
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -235,15 +235,12 @@ class _HomeScreenState extends State<HomeScreen> {
           infoWindow: const InfoWindow(title: 'Mi ubicación'),
         ),
       );
-      if (mounted) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
     }
   }
 
   void _updatePolyline(List<LocationModel> locations) {
-    // La bandera _isTracking ya controla si se llega a este método desde el listener
-    _polylines.clear(); // Limpiar polilíneas existentes
+    _polylines.clear();
 
     debugPrint('[MYLOG] _updatePolyline: Ubicaciones recibidas (sin filtrar): ${locations.length}');
 
@@ -270,8 +267,8 @@ class _HomeScreenState extends State<HomeScreen> {
       Polyline(
         polylineId: const PolylineId('myRoute'),
         points: points,
-        color: Colors.red, // Visible color
-        width: 10, // Visible width
+        color: Colors.red,
+        width: 10,
         geodesic: true,
       ),
     );
@@ -284,6 +281,60 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _mapController?.dispose();
+    _sheetController.removeListener(_onSheetChanged);
+    _sheetController.dispose();
     super.dispose();
+  }
+}
+
+class DragHandle extends StatelessWidget {
+  const DragHandle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 5,
+      margin: const EdgeInsets.only(top: 8, bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(3),
+      ),
+    );
+  }
+}
+
+class PlaceholderContent extends StatelessWidget {
+  const PlaceholderContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPlaceholderItem('Usuario actual', Icons.person),
+        const SizedBox(height: 15),
+        _buildPlaceholderItem('Historial de rutas', Icons.history),
+        const SizedBox(height: 15),
+        _buildPlaceholderItem('Configuración', Icons.settings),
+        const SizedBox(height: 100),
+      ],
+    );
+  }
+
+  Widget _buildPlaceholderItem(String text, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.white70, size: 20),
+        const SizedBox(width: 10),
+        Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+          ),
+        ),
+      ],
+    );
   }
 }
