@@ -111,13 +111,8 @@ class AuthService {
       String? fcmToken = "";
       final prefs = await SharedPreferences.getInstance();
       String? deviceId = prefs.getString('device_id');
-      if (deviceId == null) {
-        deviceId = _uuid.v4(); // Genera un UUID
-        await prefs.setString('device_id', deviceId);
-        await Future.delayed(const Duration(milliseconds: 100)); // Pequeña espera para persistencia
-      }
-      final String actualDeviceId = deviceId; // Asigna a una variable final no-nula
-
+      final String actualDeviceId = deviceId ?? ""; // Asigna a una variable final no-nula
+ 
 
       try {
         String? fcmToken = await _firebaseMessaging.getToken();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/foundation.dart'; // Para debugPrint
+// Para debugPrint
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:table_calendar/table_calendar.dart'; // <--- ¡NUEVA IMPORTACIÓN!
 
@@ -43,6 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     debugPrint('[MYLOG] HomeScreen: initState llamado.');
     _sheetController.addListener(_onSheetChanged);
+    // Le pedimos al TrackingBloc que cargue la lista de todos los usuarios
+    // tan pronto como la pantalla se inicialice.
+    context.read<TrackingBloc>().add(LoadAllUsersForSelection());
   }
 
   void _onSheetChanged() {
@@ -118,8 +121,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // 2. Botones flotantes dinámicos
           Positioned(
-            right: 16,
-            bottom: 16, //(screenHeight * _sheetSize) + 30, 
+            right: 30,
+            bottom: 60, //(screenHeight * _sheetSize) + 30, 
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -172,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
             minChildSize: _minSheetHeight,
             maxChildSize: 0.8,
             snap: true,
-            snapSizes: const [0.1, 0.3, 0.5, 0.8],
+            snapSizes: const [0.1, 0.8],
             builder: (BuildContext context, ScrollController scrollController) {
               return Container(
                 decoration: BoxDecoration(
@@ -274,11 +277,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 10),
                                 SizedBox(
-                                  height: 250, // Altura deseada
+                                  //height: 250, // Altura deseada
                                   child: TableCalendar(
                                     firstDay: DateTime.utc(2020, 1, 1),
                                     lastDay: DateTime.utc(2030, 12, 31),
                                     focusedDay: currentCalendarDay,
+                                    // --- CAMBIO 1: Formato a una semana ---
+                                    calendarFormat: CalendarFormat.week,
                                     selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                                     onDaySelected: (selectedDay, focusedDay) {
                                       if (!isSameDay(_selectedDay, selectedDay)) {
@@ -289,8 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         context.read<TrackingBloc>().add(SetTrackingDate(selectedDay));
                                       }
                                     },
-                                    calendarFormat: CalendarFormat.month,
-                                    rowHeight: 35.0,
+                                    rowHeight: 40.0,
                                     headerStyle: HeaderStyle(
                                       formatButtonVisible: false,
                                       titleCentered: true,
@@ -312,11 +316,87 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                // Placeholder para el filtro de hora
+                                // --- SECCIÓN DE FILTRO POR HORA ---
                                 Text(
-                                  'Filtro por Hora (Próximamente)',
+                                  'Filtro por Hora:',
                                   style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white),
                                 ),
+                                const SizedBox(height: 10),
+
+                                Builder(
+                                  builder: (context) {
+                                    // Obtenemos las horas del estado actual del BLoC
+                                    final state = context.watch<TrackingBloc>().state;
+                                    TimeOfDay startHour = const TimeOfDay(hour: 0, minute: 0);
+                                    TimeOfDay endHour = const TimeOfDay(hour: 23, minute: 59);
+
+                                    if (state is TrackingUsersLoaded) {
+                                      startHour = state.startHour;
+                                      endHour = state.endHour;
+                                    }
+
+                                    // Convertimos TimeOfDay a un valor doble para el slider (ej: 9:30 -> 9.5)
+                                    final RangeValues currentRange = RangeValues(
+                                      startHour.hour + startHour.minute / 60.0,
+                                      endHour.hour + endHour.minute / 60.0,
+                                    );
+                                    
+                                    // Formateamos las etiquetas para mostrarlas al usuario
+                                    final String startTimeLabel = startHour.format(context);
+                                    final String endTimeLabel = endHour.format(context);
+
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Etiqueta que muestra el rango seleccionado
+                                        Center(
+                                          child: Text(
+                                            'De $startTimeLabel a $endTimeLabel',
+                                            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        
+                                        // El Slider
+                                        RangeSlider(
+                                          values: currentRange,
+                                          min: 0.0,
+                                          max: 24.0,
+                                          divisions: 96, // 24 horas x 4 (intervalos de 15 min)
+                                          activeColor: Colors.white,
+                                          inactiveColor: Colors.white38,
+                                          labels: RangeLabels(startTimeLabel, endTimeLabel),
+                                          onChanged: (values) {
+                                            // Este onChanged es necesario para que el slider se mueva visualmente
+                                            // pero la lógica principal la ponemos en onChangedEnd para no saturar el BLoC.
+                                            // Para una actualización en vivo de la etiqueta, necesitaríamos un setState,
+                                            // pero lo mantendremos simple y actualizaremos al soltar.
+                                          },
+                                          // Este evento se dispara cuando el usuario SUELTA el slider
+                                          onChangeEnd: (values) {
+                                            debugPrint("[MYLOG] HomeScreen: Rango de horas cambiado: ${values.start} a ${values.end}");
+                                            // Convertimos de vuelta el valor doble a TimeOfDay
+                                            final newStartHour = TimeOfDay(
+                                                hour: values.start.floor(),
+                                                minute: ((values.start - values.start.floor()) * 60).round());
+                                                
+                                            final newEndHour = TimeOfDay(
+                                                hour: values.end.floor(),
+                                                minute: ((values.end - values.end.floor()) * 60).round());
+
+                                            // Enviamos el evento al BLoC con el nuevo rango
+                                            context.read<TrackingBloc>().add(
+                                                  TrackingTimeRangeChanged(
+                                                    startHour: newStartHour,
+                                                    endHour: newEndHour,
+                                                  ),
+                                                );
+                                          },
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+
                                 const SizedBox(height: 100), // Espacio para el scroll
                               ],
                             );

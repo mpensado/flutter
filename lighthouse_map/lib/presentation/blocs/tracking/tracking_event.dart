@@ -29,3 +29,18 @@ class SetTrackingDate extends TrackingEvent {
   @override
   List<Object> get props => [selectedDate];
 }
+
+// --- NUEVO EVENTO TEMPORAL ---
+// Evento para cargar TODOS los usuarios registrados en el sistema.
+// Lo usaremos para llenar el dropdown mientras se implementa la lógica de autorización.
+class LoadAllUsersForSelection extends TrackingEvent {}
+
+class TrackingTimeRangeChanged extends TrackingEvent {
+  final TimeOfDay startHour;
+  final TimeOfDay endHour;
+
+  const TrackingTimeRangeChanged({required this.startHour, required this.endHour});
+
+  @override
+  List<Object> get props => [startHour, endHour];
+}

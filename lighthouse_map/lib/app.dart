@@ -52,7 +52,7 @@ class AppState extends StatelessWidget {
             trackedUserRepository: trackedUserRepository,
             locationRepository: locationRepository,
             authService: authService,
-          )..add(LoadTrackableUsers()), // Cargar usuarios al iniciar el Bloc
+          ), //..add(LoadTrackableUsers()), // Cargar usuarios al iniciar el Bloc
         ),
       ],
       child: const MyApp(),

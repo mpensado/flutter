@@ -27,5 +27,20 @@ class UserRepository {
     }
   }
 
-  // Puedes añadir más métodos para actualizar o eliminar usuarios si es necesario
+  Future<List<UserModel>> getAllUsers() async {
+  try {
+    final snapshot = await _firestore.collection(_collection).get();
+
+    if (snapshot.docs.isEmpty) {
+      return [];
+    }
+    return snapshot.docs.map((doc) {
+      return UserModel.fromMap(doc.data());
+    }).toList();
+
+  } catch (e) {
+    debugPrint('[MYLOG]Error getting users: $e');
+    return [];
+  }
+}
 }
