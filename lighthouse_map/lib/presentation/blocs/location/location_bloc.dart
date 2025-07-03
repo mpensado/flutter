@@ -110,6 +110,7 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
     });
 
     on<LocationUpdated>((event, emit) async {
+      debugPrint('[MYLOG]on<LocationUpdated>.');
       try {
         final String? userId = await _authService.getCurrentUserId();
         if (userId == null) {

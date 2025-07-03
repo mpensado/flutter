@@ -24,6 +24,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final Set<Polyline> _polylines = {};
   bool _isTracking = false;
   double _sheetSize = 0.1;
+  // --- AÑADE ESTA VARIABLE ---
+  bool _isInitialLocationCentered = false;
+
 
   // Definir la altura inicial y mínima del DraggableScrollableSheet
   final double _initialSheetHeight = 0.8; // Más grande para visibilidad-
@@ -37,6 +40,57 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Para el usuario seleccionado
   UserModel? _selectedTrackedUser; // <--- Almacena el usuario seleccionado
+
+  // home_screen.dart -> Dentro de la clase _HomeScreenState
+
+void _checkAndCenterInitialLocation() {
+  // Si ya hemos centrado, o si el controlador o la ubicación aún no están listos, no hacemos nada.
+  if (_isInitialLocationCentered || _mapController == null || _currentLatLng == null) {
+    return;
+  }
+
+  // Si todas las condiciones se cumplen, movemos la cámara y levantamos la bandera.
+  _mapController!.animateCamera(CameraUpdate.newLatLngZoom(_currentLatLng!, 16));
+  _isInitialLocationCentered = true;
+}
+
+void _focusOnPolyline(List<LocationModel> locations) {
+  if (locations.isEmpty || _mapController == null) return;
+
+  // Si solo hay un punto, simplemente centramos el mapa en él.
+  if (locations.length == 1) {
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        LatLng(locations.first.latitude, locations.first.longitude),
+        17, // Un zoom cercano para un solo punto
+      ),
+    );
+    return;
+  }
+
+  // Si hay múltiples puntos, calculamos los límites para que quepan todos.
+  double minLat = locations.first.latitude;
+  double maxLat = locations.first.latitude;
+  double minLng = locations.first.longitude;
+  double maxLng = locations.first.longitude;
+
+  for (var location in locations) {
+    if (location.latitude < minLat) minLat = location.latitude;
+    if (location.latitude > maxLat) maxLat = location.latitude;
+    if (location.longitude < minLng) minLng = location.longitude;
+    if (location.longitude > maxLng) maxLng = location.longitude;
+  }
+
+  final LatLngBounds bounds = LatLngBounds(
+    southwest: LatLng(minLat, minLng),
+    northeast: LatLng(maxLat, maxLng),
+  );
+
+  // Movemos la cámara para que se ajusten los límites, con un poco de padding.
+  _mapController!.animateCamera(
+    CameraUpdate.newLatLngBounds(bounds, 50.0), // 50.0 es el padding
+  );
+}
 
   @override
   void initState() {
@@ -82,7 +136,8 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               if (state is LocationLoaded) {
                 _currentLatLng = LatLng(state.latitude, state.longitude);
-                _updateMap();
+
+                _checkAndCenterInitialLocation();
                 _updateMarker();
 
                 // Actualizar polilínea del usuario actual SOLO si está en tracking activo
@@ -98,18 +153,16 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             builder: (context, state) {
               return GoogleMap(
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                  // En cuanto el mapa está listo, intentamos centrar.
+                  _checkAndCenterInitialLocation();
+                },
                 mapType: MapType.normal,
                 initialCameraPosition: CameraPosition(
                   target: _currentLatLng ?? const LatLng(0, 0),
                   zoom: 15,
                 ),
-                onMapCreated: (controller) {
-                  _mapController = controller;
-                  if (_currentLatLng != null) {
-                    _mapController!.animateCamera(CameraUpdate.newLatLng(_currentLatLng!));
-                  }
-                  setState(() {}); // Forzar rebuild para DraggableSheet
-                },
                 markers: _markers,
                 polylines: _polylines,
                 myLocationEnabled: false,
@@ -122,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // 2. Botones flotantes dinámicos
           Positioned(
             right: 30,
-            bottom: 60, //(screenHeight * _sheetSize) + 30, 
+            bottom: 100, //(screenHeight * _sheetSize) + 30, 
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -221,6 +274,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               // Asegúrate de no limpiar las mías si yo estoy haciendo tracking
                               _polylines.removeWhere((p) => p.polylineId.value != 'myRoute'); // Limpia solo las de otros
                               _updatePolyline(state.trackedLocations, Colors.green, 'trackedUserRoute'); // Dibuja la de él en verde
+
+                              // Enfocamos el mapa en la nueva polilínea.
+                              _focusOnPolyline(state.trackedLocations);
                             }
                           },
                           builder: (context, state) {
@@ -412,14 +468,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  void _updateMap() {
-    if (_mapController != null && _currentLatLng != null) {
-      _mapController!.animateCamera(
-        CameraUpdate.newLatLng(_currentLatLng!),
-      );
-    }
   }
 
   void _updateMarker() {
