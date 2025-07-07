@@ -29,8 +29,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
   // Definir la altura inicial y mínima del DraggableScrollableSheet
-  final double _initialSheetHeight = 0.8; // Más grande para visibilidad-
   final double _minSheetHeight = 0.1;    // Tamaño mínimo
+  //final double _initialSheetHeight = 0.1; // Más grande para visibilidad-
 
   final DraggableScrollableController _sheetController = DraggableScrollableController();
 
@@ -100,6 +100,7 @@ void _focusOnPolyline(List<LocationModel> locations) {
     // Le pedimos al TrackingBloc que cargue la lista de todos los usuarios
     // tan pronto como la pantalla se inicialice.
     context.read<TrackingBloc>().add(LoadAllUsersForSelection());
+    context.read<LocationBloc>().add(StartTrackingLocation());
   }
 
   void _onSheetChanged() {
@@ -224,7 +225,7 @@ void _focusOnPolyline(List<LocationModel> locations) {
           // 3. Panel deslizable
           DraggableScrollableSheet(
             controller: _sheetController,
-            initialChildSize: _initialSheetHeight,
+            initialChildSize: _minSheetHeight,
             minChildSize: _minSheetHeight,
             maxChildSize: 0.8,
             snap: true,

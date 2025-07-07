@@ -9,6 +9,8 @@ abstract class LocationEvent extends Equatable {
 
 class StartTrackingLocation extends LocationEvent {}
 
+class StartCurrentLocation extends LocationEvent {}
+
 class StopTrackingLocation extends LocationEvent {}
 
 class LocationUpdated extends LocationEvent {
