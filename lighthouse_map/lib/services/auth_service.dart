@@ -111,8 +111,11 @@ class AuthService {
       String? fcmToken = "";
       final prefs = await SharedPreferences.getInstance();
       String? deviceId = prefs.getString('device_id');
-      final String actualDeviceId = deviceId ?? ""; // Asigna a una variable final no-nula
- 
+      if (deviceId == null || deviceId.isEmpty) {
+        deviceId = _uuid.v4(); // Generamos un ID único
+        await prefs.setString('device_id', deviceId);
+        debugPrint('[MYLOG] Nuevo deviceId generado y guardado: $deviceId');
+      }
 
       try {
         String? fcmToken = await _firebaseMessaging.getToken();
@@ -122,7 +125,7 @@ class AuthService {
       }
 
       final deviceModel = DeviceModel(
-        deviceId: actualDeviceId,
+        deviceId: deviceId,
         userId: userId,
         fcmToken: fcmToken,
         platform:
@@ -134,10 +137,10 @@ class AuthService {
         createdAt: DateTime.now(),
       );
 
-      final existingDevice = await _deviceRepository.getDevice(actualDeviceId);
+      final existingDevice = await _deviceRepository.getDevice(deviceId);
       if (existingDevice == null) {
         await _deviceRepository.createDevice(deviceModel);
-        debugPrint('[MYLOG]Dispositivo registrado en Firestore: $actualDeviceId');
+        debugPrint('[MYLOG]Dispositivo registrado en Firestore: $deviceId');
       } else {
         // Si ya existe, solo actualizamos el fcmToken (y quizás el last_active)
         final updatedDevice = DeviceModel(
@@ -153,7 +156,7 @@ class AuthService {
         await _deviceRepository.updateDevice(
           updatedDevice,
         ); // <--- deviceId se usa como ID del documento
-        debugPrint('[MYLOG]Dispositivo actualizado en Firestore: $actualDeviceId');
+        debugPrint('[MYLOG]Dispositivo actualizado en Firestore: $deviceId');
       }
     } catch (e) {
       debugPrint('[MYLOG]Error al registrar o actualizar el dispositivo: $e');

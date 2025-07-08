@@ -5,10 +5,8 @@ import 'package:lighthouse_map/presentation/screens/home_screen.dart';
 import 'package:lighthouse_map/presentation/screens/login_screen.dart';
 import 'package:lighthouse_map/presentation/blocs/location/location_bloc.dart';
 import 'package:lighthouse_map/presentation/blocs/tracking/tracking_bloc.dart'; // <--- NUEVA IMPORTACIÓN
-import 'package:lighthouse_map/services/location_service.dart';
 import 'package:lighthouse_map/data/repositories/location_repository.dart';
 import 'package:lighthouse_map/services/auth_service.dart';
-import 'package:lighthouse_map/data/repositories/device_repository.dart';
 import 'package:lighthouse_map/data/repositories/user_repository.dart'; // <--- NUEVA IMPORTACIÓN
 import 'package:lighthouse_map/data/repositories/tracked_user_repository.dart'; // <--- NUEVA IMPORTACIÓN
 import 'package:lighthouse_map/services/connectivity_service.dart';
@@ -26,10 +24,8 @@ class AppState extends StatelessWidget {
       localLocationDataSource: localLocationDataSource,
     );
     final AuthService authService = AuthService();
-    final DeviceRepository deviceRepository = DeviceRepository();
     final UserRepository userRepository = UserRepository(); // <--- NUEVA INSTANCIA
     final TrackedUserRepository trackedUserRepository = TrackedUserRepository(); // <--- NUEVA INSTANCIA
-    final LocationService locationService = LocationService();
     final ConnectivityService connectivityService = ConnectivityService();
 
     return MultiBlocProvider(
@@ -37,12 +33,9 @@ class AppState extends StatelessWidget {
         BlocProvider<AuthBloc>(create: ( _ ) => AuthBloc()),
         BlocProvider<LocationBloc>(
           create: (context) => LocationBloc(
-            locationService: locationService,
             locationRepository: locationRepository,
             authService: authService,
-            deviceRepository: deviceRepository,
             connectivityService: connectivityService,
-            localLocationDataSource: localLocationDataSource,
           ),
         ),
         // ¡NUEVO: TrackingBloc!
