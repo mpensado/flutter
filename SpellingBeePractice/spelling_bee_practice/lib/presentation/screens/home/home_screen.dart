@@ -46,111 +46,8 @@ class _HomePageState extends State<HomePage>
     // para la subida del archivo.
   }
 
-  Future<void> _uploadAndProcessFile_(BuildContext context, String actualFilter) async {
-    FilePickerResult? result;
-
-    if (_isUploading) return;
-
-    setState(() {
-      _isUploading = true;
-      _uploadProgress = 0.0;
-    });
-
-    
-    try {
-      result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['txt'],
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al seleccionar el archivo: $e')),
-        );
-      }
-      return;
-    }
-
-    if (!mounted) return; // **Verificar si el widget sigue montado**
-
-    if (result != null && result.files.isNotEmpty) {
-      PlatformFile file = result.files.first;
-      if (file.path != null) {
-        String? fileContent;
-        try {
-          // **Cambiamos la forma de leer el archivo aquí:**
-          File selectedFile = File(file.path!);
-          fileContent = await selectedFile.readAsString();
-          // **Fin del cambio**
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error al leer el archivo: $e')),
-            );
-          }
-          return;
-        }
-
-        if (!mounted) return;
-
-        final List<String> wordsFromFile = fileContent
-            .split('\n')
-            .map((word) => word.trim())
-            .where((word) => word.isNotEmpty)
-            .toList();
-        // Asegúrate de tener una forma de acceder a tu DatabaseHelper
-        // Idealmente, no crear una nueva instancia aquí en cada llamada.
-        // Podrías tenerla como una propiedad de tu _HomeScreenState
-        final db = await DBHelper().database;
-
-        for (final wordText in wordsFromFile) {
-          // 1. Insertar en la tabla words si no existe
-          final word = Word(
-              word: wordText,
-              translation: await TranslationService.translate(text: wordText, from: "en", to: "es"),
-              spelling: TextToSpeechService.spelling(wordText),
-              lists: ['Todo', actualFilter],
-              createdAt: DateTime.now());
-
-          int wordId = 0;
-          final existingWord = await WordRepository.getWordByText(word.word);
-          if (existingWord == null) {
-            wordId = await db.insert('words', word.toMap());
-          } else {  
-            wordId =existingWord.id!;
-          }
-
-          final existsInTodo = await WordRepository.getWordsByIdAndList(wordId, 'Todo');
-          if (existsInTodo.isEmpty) {
-            await db.insert(DBHelper().tableWordLists,{'word_id': wordId, 'list_name': 'Todo'});
-          }
-
-          final existsInCurrentCategory = await WordRepository.getWordsByIdAndList(wordId, actualFilter);
-          if (existsInCurrentCategory.isEmpty) {
-            await db.insert(DBHelper().tableWordLists,{'word_id': wordId, 'list_name': actualFilter});
-          }
-        }
-
-        if (mounted) {
-          // 4. Actualizar la vista actual
-          // Llama a setState solo si el widget sigue montado
-          setState(() {});
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Archivo subido y procesado')),
-          );
-        }
-      }
-    } else {
-      if (mounted) {
-        // El usuario canceló la selección del archivo
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Selección de archivo cancelada')),
-        );
-      }
-    }
-  }
-
-  Future<void> _uploadAndProcessFile(BuildContext context, String actualFilter) async {
+  Future<void> _uploadAndProcessFile(
+      BuildContext context, String actualFilter) async {
     FilePickerResult? result;
     if (_isUploading) return; // Evitar múltiples cargas simultáneas
 
@@ -262,7 +159,6 @@ class _HomePageState extends State<HomePage>
           }
         }
 
-        
         if (mounted) {
           setState(() {
             _isUploading = false;
@@ -308,21 +204,21 @@ class _HomePageState extends State<HomePage>
             IconButton(
               icon: Icon(
                   Icons.file_upload), // Puedes usar otro icono de configuración
-              onPressed: _isUploading ? null : () => _uploadAndProcessFile(context, _actualFilter),
+              onPressed: _isUploading
+                  ? null
+                  : () => _uploadAndProcessFile(context, _actualFilter),
             )
         ],
         bottom: _isUploading
-          ? PreferredSize(
-              preferredSize: const Size.fromHeight(4.0),
-              child: LinearProgressIndicator(
-                value: _uploadProgress,
-                backgroundColor: Colors.grey[200],
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-              ),
-            )
-          : null,
-
-
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(4.0),
+                child: LinearProgressIndicator(
+                  value: _uploadProgress,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                ),
+              )
+            : null,
       ),
       body: _tabs[_currentIndex], // Muestra la pestaña actual.
       bottomNavigationBar: BottomNavigationBar(
